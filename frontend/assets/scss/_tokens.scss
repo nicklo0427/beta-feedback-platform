@@ -1,0 +1,46 @@
+$font-family-sans: 'Inter', 'Segoe UI', sans-serif;
+
+$color-bg-primary: #020617;
+$color-bg-secondary: #111827;
+$color-text-primary: #e2e8f0;
+$color-text-muted: #cbd5e1;
+$color-accent: #7dd3fc;
+$color-accent-soft: #93c5fd;
+$color-chip-text: #bfdbfe;
+$color-action-text: #e0f2fe;
+
+$surface-shell: rgba(15, 23, 42, 0.72);
+$surface-card: rgba(15, 23, 42, 0.78);
+$surface-shell-hover: rgba(15, 23, 42, 0.9);
+$surface-chip: rgba(30, 41, 59, 0.9);
+$surface-chip-soft: rgba(59, 130, 246, 0.12);
+$surface-action: rgba(14, 116, 144, 0.18);
+$surface-state: rgba(15, 23, 42, 0.58);
+
+$border-soft: rgba(148, 163, 184, 0.18);
+$border-soft-alt: rgba(148, 163, 184, 0.16);
+$border-dashed: rgba(148, 163, 184, 0.22);
+$border-accent: rgba(125, 211, 252, 0.18);
+$border-accent-medium: rgba(125, 211, 252, 0.26);
+$border-accent-strong: rgba(125, 211, 252, 0.35);
+$border-accent-hover: rgba(125, 211, 252, 0.4);
+$border-accent-max: rgba(125, 211, 252, 0.5);
+
+$radius-lg: 1rem;
+$radius-pill: 999px;
+
+$space-xs: 0.3rem;
+$space-sm: 0.5rem;
+$space-md: 0.75rem;
+$space-lg: 1rem;
+$space-xl: 1.25rem;
+$space-2xl: 1.5rem;
+$space-3xl: 2rem;
+$space-4xl: 3rem;
+
+$panel-max-width: 48rem;
+$resource-max-width: 72rem;
+$description-max-width: 42rem;
+$resource-description-max-width: 56rem;
+
+$transition-fast: 160ms ease;
