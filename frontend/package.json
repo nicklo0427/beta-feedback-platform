@@ -2,6 +2,9 @@
   "name": "beta-feedback-platform-frontend",
   "private": true,
   "type": "module",
+  "imports": {
+    "#internal/nuxt/paths": "./node_modules/nuxt/dist/core/runtime/nitro/utils/paths.js"
+  },
   "scripts": {
     "build": "nuxt build",
     "dev": "nuxt dev",

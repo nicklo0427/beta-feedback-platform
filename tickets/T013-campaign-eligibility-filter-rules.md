@@ -28,7 +28,7 @@
 MVP 第一階段平台只考慮：
 
 - Web
-- H5
+- Mobile Web
 - PWA
 - iOS
 - Android
@@ -75,6 +75,8 @@ MVP 第一階段平台只考慮：
 - `id`: `string`，系統產生
 - `campaign_id`: `string`，required，建立後不可變
 - `platform`: `"web" | "h5" | "pwa" | "ios" | "android"`，required
+  - 對外顯示建議使用 `Mobile Web`
+  - 目前 internal / API value 暫維持 `h5`
 - `os_name`: `string | null`，optional
 - `os_version_min`: `string | null`，optional
 - `os_version_max`: `string | null`，optional

@@ -3,6 +3,9 @@ import { computed } from 'vue'
 
 import { fetchCampaignDetail } from '~/features/campaigns/api'
 import { fetchCampaignEligibilityRules } from '~/features/eligibility/api'
+import { formatPlatformLabel } from '~/features/platform-display'
+import { fetchCampaignReputation } from '~/features/reputation/api'
+import { fetchCampaignSafety } from '~/features/safety/api'
 import { fetchTasks } from '~/features/tasks/api'
 
 const route = useRoute()
@@ -44,6 +47,21 @@ const {
 const eligibilityRules = computed(() => eligibilityRuleResponse.value.items)
 
 const {
+  data: safety,
+  pending: safetyPending,
+  error: safetyError,
+  refresh: refreshSafety
+} = useAsyncData(
+  () => `campaign-safety-${campaignId.value}`,
+  () => fetchCampaignSafety(campaignId.value),
+  {
+    server: false,
+    watch: [campaignId],
+    default: () => null
+  }
+)
+
+const {
   data: taskResponse,
   pending: tasksPending,
   error: tasksError,
@@ -65,6 +83,34 @@ const {
 )
 
 const tasks = computed(() => taskResponse.value.items)
+
+const {
+  data: reputation,
+  pending: reputationPending,
+  error: reputationError,
+  refresh: refreshReputation
+} = useAsyncData(
+  () => `campaign-reputation-${campaignId.value}`,
+  () => fetchCampaignReputation(campaignId.value),
+  {
+    server: false,
+    watch: [campaignId],
+    default: () => null
+  }
+)
+
+const hasReputationSignals = computed(() => {
+  if (!reputation.value) {
+    return false
+  }
+
+  return (
+    reputation.value.tasks_total_count > 0
+    || reputation.value.tasks_closed_count > 0
+    || reputation.value.feedback_received_count > 0
+    || reputation.value.last_feedback_at !== null
+  )
+})
 </script>
 
 <template>
@@ -122,7 +168,7 @@ const tasks = computed(() => taskResponse.value.items)
             :key="platform"
             class="resource-shell__meta-chip"
           >
-            {{ platform }}
+            {{ formatPlatformLabel(platform) }}
           </span>
         </div>
 
@@ -166,9 +212,210 @@ const tasks = computed(() => taskResponse.value.items)
       <section
         v-if="!pending && !error && campaign"
         class="resource-section"
+        data-testid="campaign-reputation-section"
+      >
+        <h2 class="resource-section__title">Collaboration Summary</h2>
+
+        <div
+          v-if="reputationPending"
+          class="resource-state"
+          data-testid="campaign-reputation-loading"
+        >
+          <h3 class="resource-state__title">Loading collaboration summary</h3>
+          <p class="resource-state__description">
+            正在根據 tasks 與 feedback 推導這個 campaign 的最小 collaboration summary。
+          </p>
+        </div>
+
+        <div
+          v-else-if="reputationError"
+          class="resource-state"
+          data-testid="campaign-reputation-error"
+        >
+          <h3 class="resource-state__title">Collaboration summary unavailable</h3>
+          <p class="resource-state__description">
+            {{ reputationError.message }}
+          </p>
+          <div class="resource-state__actions">
+            <button class="resource-action" type="button" @click="refreshReputation()">
+              Retry
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-else-if="reputation && !hasReputationSignals"
+          class="resource-state"
+          data-testid="campaign-reputation-zero"
+        >
+          <h3 class="resource-state__title">No collaboration signals yet</h3>
+          <p class="resource-state__description">
+            這個 campaign 還沒有累積 task completion 或 feedback 紀錄，目前 summary 維持在 zero state。
+          </p>
+        </div>
+
+        <div
+          v-else-if="reputation"
+          class="resource-section"
+          data-testid="campaign-reputation-panel"
+        >
+          <div class="resource-shell__meta">
+            <span class="resource-shell__meta-chip">
+              Closure rate {{ reputation.closure_rate.toFixed(2) }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              Feedback {{ reputation.feedback_received_count }}
+            </span>
+          </div>
+
+          <div class="resource-key-value">
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Tasks Total</span>
+              <span class="resource-key-value__value">
+                {{ reputation.tasks_total_count }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Tasks Closed</span>
+              <span class="resource-key-value__value">
+                {{ reputation.tasks_closed_count }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Feedback Received</span>
+              <span class="resource-key-value__value">
+                {{ reputation.feedback_received_count }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Last Feedback At</span>
+              <span class="resource-key-value__value">
+                {{ reputation.last_feedback_at || 'No feedback received yet.' }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Updated At</span>
+              <span class="resource-key-value__value">{{ reputation.updated_at }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="!pending && !error && campaign"
+        class="resource-section"
+        data-testid="campaign-safety-section"
+      >
+        <h2 class="resource-section__title">Safety and Source</h2>
+
+        <div
+          v-if="safetyPending"
+          class="resource-state"
+          data-testid="campaign-safety-loading"
+        >
+          <h3 class="resource-state__title">Loading campaign safety</h3>
+          <p class="resource-state__description">
+            正在載入這個 Campaign 的來源標示與風險資訊。
+          </p>
+        </div>
+
+        <div
+          v-else-if="safetyError"
+          class="resource-state"
+          data-testid="campaign-safety-error"
+        >
+          <h3 class="resource-state__title">Campaign safety unavailable</h3>
+          <p class="resource-state__description">
+            {{ safetyError.message }}
+          </p>
+          <div class="resource-state__actions">
+            <button class="resource-action" type="button" @click="refreshSafety()">
+              Retry
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-else-if="!safety"
+          class="resource-state"
+          data-testid="campaign-safety-empty"
+        >
+          <h3 class="resource-state__title">No safety profile yet</h3>
+          <p class="resource-state__description">
+            目前這個 Campaign 尚未設定來源標示與風險資訊。後續建立 safety profile 後，這個區塊會直接承接顯示。
+          </p>
+        </div>
+
+        <div
+          v-else
+          class="resource-section"
+          data-testid="campaign-safety-panel"
+        >
+          <div class="resource-shell__meta">
+            <span class="resource-shell__meta-chip">
+              Risk {{ safety.risk_level }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              Review {{ safety.review_status }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              Official channel only {{ safety.official_channel_only ? 'yes' : 'no' }}
+            </span>
+          </div>
+
+          <div class="resource-key-value">
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Source Label</span>
+              <span class="resource-key-value__value">{{ safety.source_label }}</span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Distribution Channel</span>
+              <span class="resource-key-value__value">{{ safety.distribution_channel }}</span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Source URL</span>
+              <a
+                v-if="safety.source_url"
+                class="resource-key-value__value"
+                :href="safety.source_url"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {{ safety.source_url }}
+              </a>
+              <span v-else class="resource-key-value__value">
+                No source URL provided.
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Risk Note</span>
+              <span class="resource-key-value__value">
+                {{ safety.risk_note || 'No additional risk note.' }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">Updated At</span>
+              <span class="resource-key-value__value">{{ safety.updated_at }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        v-if="!pending && !error && campaign"
+        class="resource-section"
         data-testid="campaign-eligibility-section"
       >
         <h2 class="resource-section__title">Eligibility Rules</h2>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="eligibility-rule-create-link"
+            :to="`/campaigns/${campaignId}/eligibility-rules/new`"
+          >
+            Create eligibility rule
+          </NuxtLink>
+        </div>
 
         <div
           v-if="eligibilityPending"
@@ -206,6 +453,15 @@ const tasks = computed(() => taskResponse.value.items)
           <p class="resource-state__description">
             目前這個 Campaign 尚未建立任何 eligibility rules，後續可在 backend 建立後由此區塊直接承接。
           </p>
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="eligibility-rule-empty-create-link"
+              :to="`/campaigns/${campaignId}/eligibility-rules/new`"
+            >
+              Create the first eligibility rule
+            </NuxtLink>
+          </div>
         </div>
 
         <div
@@ -221,7 +477,9 @@ const tasks = computed(() => taskResponse.value.items)
             :to="`/campaigns/${campaign.id}/eligibility-rules/${eligibilityRule.id}`"
           >
             <span class="resource-shell__breadcrumb">Eligibility Rule</span>
-            <h3 class="resource-card__title">{{ eligibilityRule.platform }}</h3>
+            <h3 class="resource-card__title">
+              {{ formatPlatformLabel(eligibilityRule.platform) }}
+            </h3>
             <p class="resource-card__description">
               {{
                 eligibilityRule.os_name
@@ -253,6 +511,13 @@ const tasks = computed(() => taskResponse.value.items)
         <h2 class="resource-section__title">Tasks</h2>
 
         <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="campaign-task-create-link"
+            :to="`/campaigns/${campaign.id}/tasks/new`"
+          >
+            Create task for this campaign
+          </NuxtLink>
           <NuxtLink
             class="resource-action"
             data-testid="campaign-tasks-link"

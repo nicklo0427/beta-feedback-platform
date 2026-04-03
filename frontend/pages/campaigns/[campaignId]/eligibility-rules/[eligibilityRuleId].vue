@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchEligibilityRuleDetail } from '~/features/eligibility/api'
+import { formatPlatformLabel } from '~/features/platform-display'
 
 const route = useRoute()
 const campaignId = computed(() => String(route.params.campaignId))
@@ -34,6 +35,18 @@ const {
         <p class="resource-shell__description">
           這個頁面先承接單一 eligibility rule 的核心欄位，提供後續條件管理與 task 判斷流程可依附的最小 detail shell。
         </p>
+        <div
+          v-if="eligibilityRule"
+          class="resource-state__actions"
+        >
+          <NuxtLink
+            class="resource-action"
+            data-testid="eligibility-rule-edit-link"
+            :to="`/campaigns/${campaignId}/eligibility-rules/${eligibilityRule.id}/edit`"
+          >
+            Edit eligibility rule
+          </NuxtLink>
+        </div>
       </header>
 
       <section
@@ -71,7 +84,9 @@ const {
         class="resource-section"
         data-testid="eligibility-rule-detail-panel"
       >
-        <h2 class="resource-section__title">{{ eligibilityRule.platform }}</h2>
+        <h2 class="resource-section__title">
+          {{ formatPlatformLabel(eligibilityRule.platform) }}
+        </h2>
 
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">

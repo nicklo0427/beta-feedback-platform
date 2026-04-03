@@ -34,6 +34,18 @@ const {
         <p class="resource-shell__description">
           這個頁面先承接單一 feedback 的核心欄位，提供後續 triage 與回饋整理流程可依附的最小 detail shell。
         </p>
+        <div
+          v-if="feedback"
+          class="resource-state__actions"
+        >
+          <NuxtLink
+            class="resource-action"
+            data-testid="feedback-edit-link"
+            :to="`/tasks/${taskId}/feedback/${feedback.id}/edit`"
+          >
+            Edit feedback
+          </NuxtLink>
+        </div>
       </header>
 
       <section

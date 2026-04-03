@@ -2,7 +2,13 @@ import type { ListResponse } from '~/services/api/client'
 
 import { useApiClient } from '~/services/api/client'
 
-import type { TaskDetail, TaskListItem, TaskStatus } from './types'
+import type {
+  TaskCreatePayload,
+  TaskDetail,
+  TaskListItem,
+  TaskStatus,
+  TaskUpdatePayload
+} from './types'
 
 export interface TaskListFilters {
   campaignId?: string
@@ -36,4 +42,26 @@ export async function fetchTasks(
 export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
   const { request } = useApiClient()
   return request<TaskDetail>(`/tasks/${taskId}`)
+}
+
+export async function createTask(
+  campaignId: string,
+  payload: TaskCreatePayload
+): Promise<TaskDetail> {
+  const { request } = useApiClient()
+  return request<TaskDetail>(`/campaigns/${campaignId}/tasks`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export async function updateTask(
+  taskId: string,
+  payload: TaskUpdatePayload
+): Promise<TaskDetail> {
+  const { request } = useApiClient()
+  return request<TaskDetail>(`/tasks/${taskId}`, {
+    method: 'PATCH',
+    body: payload
+  })
 }

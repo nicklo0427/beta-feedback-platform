@@ -16,7 +16,7 @@ T001 - Project Bootstrap
 - `README.md`
 - `PRD.md`
 
-產品定位已收斂為「跨平台 Beta 測試媒合與回饋管理平台」，不是互刷平台、不是評論交換平台、不是灌量工具。MVP 第一階段平台為 Web / H5 / PWA、iOS、Android；第二階段平台為 Steam / Desktop / Extension。
+產品定位已收斂為「跨平台 Beta 測試媒合與回饋管理平台」，不是互刷平台、不是評論交換平台、不是灌量工具。MVP 第一階段平台為 Web / Mobile Web / PWA、iOS、Android；第二階段平台為 Steam / Desktop / Extension。
 
 目前此 ticket 的目標不是直接進入商業功能開發，而是先建立後續可持續開發的基礎骨架與初始化共識，避免前後端各自演進導致結構失衡、命名混亂或過早複雜化。
 

@@ -64,6 +64,18 @@ const activeFilters = computed(() => [
         <p class="resource-shell__description">
           這個頁面對齊 backend 的 Task list / detail contract，先承接任務清單、assignment anchor 與最小 status flow 的頁面骨架。
         </p>
+        <div
+          v-if="campaignIdFilter"
+          class="resource-state__actions"
+        >
+          <NuxtLink
+            class="resource-action"
+            data-testid="tasks-create-link"
+            :to="`/campaigns/${campaignIdFilter}/tasks/new`"
+          >
+            Create task for this campaign
+          </NuxtLink>
+        </div>
         <div v-if="activeFilters.length > 0" class="resource-shell__meta">
           <span
             v-for="filterLabel in activeFilters"
@@ -111,6 +123,18 @@ const activeFilters = computed(() => [
         <p class="resource-state__description">
           目前 API 沒有回傳任何 Task。後續建立任務後，這個頁面會直接承接清單結果。
         </p>
+        <div
+          v-if="campaignIdFilter"
+          class="resource-state__actions"
+        >
+          <NuxtLink
+            class="resource-action"
+            data-testid="tasks-empty-create-link"
+            :to="`/campaigns/${campaignIdFilter}/tasks/new`"
+          >
+            Create the first task
+          </NuxtLink>
+        </div>
       </section>
 
       <section

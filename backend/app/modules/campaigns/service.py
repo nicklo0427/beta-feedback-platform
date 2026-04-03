@@ -126,6 +126,7 @@ def delete_campaign(campaign_id: str) -> None:
     _ensure_campaign_exists(campaign_id)
 
     from app.modules.eligibility.service import has_eligibility_rules_for_campaign
+    from app.modules.safety.service import has_safety_for_campaign
     from app.modules.tasks.service import has_tasks_for_campaign
 
     if has_eligibility_rules_for_campaign(campaign_id):
@@ -137,6 +138,18 @@ def delete_campaign(campaign_id: str) -> None:
                 "resource": "campaign",
                 "id": campaign_id,
                 "related_resource": "eligibility_rule",
+            },
+        )
+
+    if has_safety_for_campaign(campaign_id):
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="conflict",
+            message="Campaign cannot be deleted while safety exists.",
+            details={
+                "resource": "campaign",
+                "id": campaign_id,
+                "related_resource": "campaign_safety",
             },
         )
 

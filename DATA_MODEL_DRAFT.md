@@ -2,10 +2,12 @@
 
 ## 1. Purpose
 
-本文件定義 `beta-feedback-platform` 在 MVP 階段的 `Project` / `Campaign` 資料欄位草案，作為後續：
+本文件定義 `beta-feedback-platform` 在 MVP 階段的核心資料欄位草案，先以 `Project / Campaign` 為起點，並逐步補入下一階段產品化補強所需的 `Safety Layer` 與 `Reputation` baseline，作為後續：
 
 - `T007-projects-and-campaigns-backend-crud`
 - `T008-projects-and-campaigns-frontend-shell`
+- `T017-campaign-safety-source-labeling-and-risk-flags`
+- `T022-reputation-baseline-and-summary-metrics`
 
 的直接依據。
 
@@ -14,7 +16,9 @@
 - 資料庫 migration
 - auth / ownership / RBAC
 - 完整商業規則
-- Task / Feedback / Reputation / Safety Layer 的詳細欄位
+- Task / Feedback 的完整資料模型細節
+- Safety 的完整審核工作流
+- Reputation 的完整評分公式或公開排名規則
 
 ## 2. Modeling Principles
 
@@ -180,6 +184,11 @@ MVP 第一階段僅允許以下值：
 - `pwa`
 - `ios`
 - `android`
+
+註：
+
+- 對外產品文案與前端顯示建議使用 `Mobile Web`
+- 目前 internal / API value 暫維持 `h5`，以相容既有實作
 
 ### 5.3 Campaign Create Payload
 
@@ -426,3 +435,197 @@ Campaign detail 預設欄位：
 - frontend type 應直接對齊本文件欄位命名
 - mock data / placeholder API 應使用與本文件一致的 field shape
 - list 頁與 detail 頁應依本文件的欄位子集呈現，不要自行擴欄
+
+### 8.3 For T017 Campaign Safety
+
+- `Campaign Safety` 應視為 campaign 的 0..1 nested resource
+- safety 欄位應直接對齊本文件的 `snake_case` 命名
+- `distribution_channel`、`risk_level`、`review_status` 應先採固定 enum 驗證
+- `source_label` 與 `risk_note` 應做最小 normalization，但不要在 T017 擴成完整 moderation workflow
+
+### 8.4 For T022 Reputation
+
+- 第一版 reputation 應採 derived summary，而不是手動寫入型評分紀錄
+- tester-side reputation anchor 應先使用 `device_profile_id`
+- campaign-side collaboration summary anchor 應先使用 `campaign_id`
+- 若分母為 `0`，所有 rate 欄位應回 `0`，避免在 MVP 階段引入額外 null-state 複雜度
+
+## 9. Safety Layer Schema Draft
+
+### 9.1 Safety Boundary
+
+`Safety` 在 MVP 階段應先掛在 `Campaign` 層，而不是 `Project` 或 `Task` 層。
+
+判斷理由：
+
+- 安全來源與分發方式通常跟某一輪測試活動直接相關
+- 同一個 `Project` 可以有不同分發方式與不同風險等級的 `Campaign`
+- 若把來源與風險資訊切到 `Task`，資料粒度會過細，增加維護成本
+
+因此，MVP 階段採：
+
+- 一個 `Campaign` 對應 `0..1` 筆 `Campaign Safety Profile`
+
+### 9.2 Campaign Safety Fields
+
+| Field | Type | Category | Used In | MVP | Purpose / Notes |
+| --- | --- | --- | --- | --- | --- |
+| `id` | `string` | 系統產生 | detail | Yes | Safety profile 的對外識別碼 |
+| `campaign_id` | `string` | 必填 | detail, create | Yes | 所屬 Campaign 識別碼；建立後不可變 |
+| `distribution_channel` | `"web_url" \| "pwa_url" \| "testflight" \| "google_play_testing" \| "manual_invite" \| "other"` | 必填 | detail, create, update | Yes | 本輪測試的主要分發方式 |
+| `source_label` | `string` | 必填 | detail, create, update | Yes | 顯示給使用者的來源名稱 |
+| `source_url` | `string \| null` | 選填 | detail, create, update | Yes | 來源網址或入口連結；不是所有平台都必填 |
+| `risk_level` | `"low" \| "medium" \| "high"` | 必填 | detail, create, update | Yes | 最小風險標示，不代表完整安全保證 |
+| `review_status` | `"pending" \| "approved" \| "rejected"` | 系統預設 / 可更新 | detail, create, update | Yes | 最小人工審核狀態；create 預設為 `pending` |
+| `official_channel_only` | `boolean` | 系統預設 / 可更新 | detail, create, update | Yes | 是否限定官方或官方授權分發方式；create 預設為 `false` |
+| `risk_note` | `string \| null` | 選填 | detail, create, update | Yes | 額外風險提示或人工註記 |
+| `created_at` | `string (ISO 8601)` | 系統產生 | detail | Yes | 建立時間 |
+| `updated_at` | `string (ISO 8601)` | 系統產生 | detail | Yes | 最後更新時間 |
+
+### 9.3 Campaign Safety Create / Update Baseline
+
+create body 最小欄位：
+
+- `distribution_channel`
+- `source_label`
+- `source_url`
+- `risk_level`
+- `review_status`
+- `official_channel_only`
+- `risk_note`
+
+update body 最小欄位：
+
+- `distribution_channel`
+- `source_label`
+- `source_url`
+- `risk_level`
+- `review_status`
+- `official_channel_only`
+- `risk_note`
+
+規則：
+
+- 採 `PATCH`
+- `campaign_id` 不在 update body 中提供
+- `review_status` create 時可不傳，由 backend 預設為 `pending`
+- `official_channel_only` create 時可不傳，由 backend 預設為 `false`
+
+### 9.4 Campaign Safety API Baseline
+
+後續 T017 建議對齊以下路徑：
+
+- `GET /api/v1/campaigns/{campaign_id}/safety`
+- `POST /api/v1/campaigns/{campaign_id}/safety`
+- `PATCH /api/v1/campaigns/{campaign_id}/safety`
+- `DELETE /api/v1/campaigns/{campaign_id}/safety`
+
+規則：
+
+- `Safety` 應視為 campaign 的 nested singleton resource
+- 成功 response 預設直接回傳 resource
+- `DELETE` 成功時回 `204 No Content`
+
+### 9.5 Campaign Safety Deferred Fields
+
+以下欄位目前先不納入 MVP：
+
+- `attachment_scan_status`
+- `reviewed_by`
+- `reviewed_at`
+- `safety_checklist`
+- `incident_history`
+- `platform_policy_reference`
+
+判斷理由：
+
+- 這些欄位都會把第一版 `Safety` 從「可辨識、可提示」推向「完整審核系統」
+- MVP 階段的重點是先讓來源、風險、審核狀態可被看見，而不是一次完成整套 moderation infrastructure
+
+## 10. Reputation Schema Draft
+
+### 10.1 Reputation Boundary
+
+在沒有完整帳號系統與 ownership model 的前提下，MVP 階段不適合直接做完整「雙向個人信譽」。
+
+因此，第一版 reputation baseline 應採務實 anchor：
+
+- tester-side reputation：先掛在 `device_profile_id`
+- developer-side collaboration summary：先掛在 `campaign_id`
+
+這是暫時的 MVP anchor，不代表未來正式帳號模型的最終設計。
+
+### 10.2 Tester Reputation Summary Fields
+
+| Field | Type | Category | Used In | MVP | Purpose / Notes |
+| --- | --- | --- | --- | --- | --- |
+| `device_profile_id` | `string` | 系統推導 | detail | Yes | Reputation summary 的 tester-side anchor |
+| `tasks_assigned_count` | `number` | 系統推導 | detail | Yes | 已指派到該 device profile 的 task 數 |
+| `tasks_submitted_count` | `number` | 系統推導 | detail | Yes | 已提交或完成的 task 數 |
+| `feedback_submitted_count` | `number` | 系統推導 | detail | Yes | 該 device profile 已提交的 feedback 數 |
+| `submission_rate` | `number` | 系統推導 | detail | Yes | `tasks_submitted_count / tasks_assigned_count`，0..1 |
+| `last_feedback_at` | `string \| null` | 系統推導 | detail | Yes | 最近一次提交 feedback 的時間 |
+| `updated_at` | `string (ISO 8601)` | 系統推導 | detail | Yes | summary 計算時間或最後更新時間 |
+
+### 10.3 Campaign Collaboration Summary Fields
+
+| Field | Type | Category | Used In | MVP | Purpose / Notes |
+| --- | --- | --- | --- | --- | --- |
+| `campaign_id` | `string` | 系統推導 | detail | Yes | Collaboration summary 的 campaign-side anchor |
+| `tasks_total_count` | `number` | 系統推導 | detail | Yes | 屬於該 campaign 的 task 總數 |
+| `tasks_closed_count` | `number` | 系統推導 | detail | Yes | 狀態為 `closed` 的 task 數 |
+| `feedback_received_count` | `number` | 系統推導 | detail | Yes | 屬於該 campaign 的 feedback 數 |
+| `closure_rate` | `number` | 系統推導 | detail | Yes | `tasks_closed_count / tasks_total_count`，0..1 |
+| `last_feedback_at` | `string \| null` | 系統推導 | detail | Yes | 最近一次收到 feedback 的時間 |
+| `updated_at` | `string (ISO 8601)` | 系統推導 | detail | Yes | summary 計算時間或最後更新時間 |
+
+### 10.4 Reputation Derivation Rules
+
+Tester-side reputation：
+
+- `tasks_assigned_count`：`device_profile_id` 相符且狀態進入 `assigned` 之後的 task 數
+- `tasks_submitted_count`：狀態為 `submitted` 或 `closed`，且已完成提交流程的 task 數
+- `feedback_submitted_count`：由該 `device_profile_id` 推導出的 feedback 數
+- `submission_rate = tasks_submitted_count / tasks_assigned_count`
+
+Campaign-side collaboration summary：
+
+- `tasks_total_count`：屬於該 `campaign_id` 的 task 數
+- `tasks_closed_count`：屬於該 `campaign_id` 且狀態為 `closed` 的 task 數
+- `feedback_received_count`：屬於該 `campaign_id` 的 feedback 數
+- `closure_rate = tasks_closed_count / tasks_total_count`
+
+共同規則：
+
+- 若分母為 `0`，rate 一律回 `0`
+- 第一版 reputation 採 read-only derived summary，不接受前端手動寫入
+
+### 10.5 Reputation API Baseline
+
+後續 T022 建議對齊以下路徑：
+
+- `GET /api/v1/device-profiles/{device_profile_id}/reputation`
+- `GET /api/v1/campaigns/{campaign_id}/reputation`
+
+規則：
+
+- 第一版只做 read-only summary
+- 不提供 `POST` / `PATCH` / `DELETE`
+- 若 anchor resource 不存在，回 `resource_not_found`
+
+### 10.6 Reputation Deferred Fields
+
+以下欄位目前先不納入 MVP：
+
+- `score`
+- `tier`
+- `badge`
+- `public_reviews`
+- `dispute_count`
+- `quality_label_history`
+- `developer_response_rate`
+
+判斷理由：
+
+- 這些欄位都需要更成熟的帳號系統、審核流程或統計口徑
+- 第一版 `Reputation` 的目的，是提供最小可用 summary，而不是建立公開排名或複雜評分系統

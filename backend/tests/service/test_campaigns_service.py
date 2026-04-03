@@ -10,6 +10,8 @@ from app.modules.eligibility.schemas import EligibilityRuleCreate, EligibilityRu
 from app.modules.eligibility.service import create_eligibility_rule
 from app.modules.projects.schemas import ProjectCreate
 from app.modules.projects.service import create_project, delete_project
+from app.modules.safety.schemas import CampaignSafetyCreate, DistributionChannel, RiskLevel
+from app.modules.safety.service import create_campaign_safety
 from app.modules.tasks.schemas import TaskCreate
 from app.modules.tasks.service import create_task
 
@@ -143,4 +145,37 @@ def test_campaign_service_delete_rejects_campaign_with_tasks() -> None:
         "resource": "campaign",
         "id": campaign.id,
         "related_resource": "task",
+    }
+
+
+def test_campaign_service_delete_rejects_campaign_with_safety() -> None:
+    from app.modules.campaigns.service import delete_campaign
+
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    create_campaign_safety(
+        campaign.id,
+        CampaignSafetyCreate(
+            distribution_channel=DistributionChannel.TESTFLIGHT,
+            source_label="TestFlight",
+            risk_level=RiskLevel.LOW,
+        ),
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        delete_campaign(campaign.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "conflict"
+    assert error.details == {
+        "resource": "campaign",
+        "id": campaign.id,
+        "related_resource": "campaign_safety",
     }

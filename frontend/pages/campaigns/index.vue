@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchCampaigns } from '~/features/campaigns/api'
+import { formatPlatformLabel } from '~/features/platform-display'
 
 const {
   data: campaignResponse,
@@ -99,7 +100,7 @@ const campaigns = computed(() => campaignResponse.value.items)
               :key="platform"
               class="resource-card__chip"
             >
-              {{ platform }}
+              {{ formatPlatformLabel(platform) }}
             </span>
           </div>
         </NuxtLink>

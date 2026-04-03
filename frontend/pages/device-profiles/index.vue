@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchDeviceProfiles } from '~/features/device-profiles/api'
+import { formatPlatformLabel } from '~/features/platform-display'
 
 const {
   data: deviceProfileResponse,
@@ -28,6 +29,15 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
         <p class="resource-shell__description">
           這個頁面對齊 backend 的 Tester Device Profile list / detail contract，先承接測試裝置資料的最小殼層流程。
         </p>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="device-profile-create-link"
+            to="/device-profiles/new"
+          >
+            Create device profile
+          </NuxtLink>
+        </div>
       </header>
 
       <section
@@ -66,6 +76,15 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
         <p class="resource-state__description">
           目前 API 沒有回傳任何 Tester Device Profile。後續建立資料後，這個頁面會直接承接清單結果。
         </p>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="device-profile-empty-create-link"
+            to="/device-profiles/new"
+          >
+            Create the first device profile
+          </NuxtLink>
+        </div>
       </section>
 
       <section
@@ -86,7 +105,9 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
             {{ deviceProfile.device_model }} · {{ deviceProfile.os_name }}
           </p>
           <div class="resource-card__meta">
-            <span class="resource-card__chip">Platform {{ deviceProfile.platform }}</span>
+            <span class="resource-card__chip">
+              Platform {{ formatPlatformLabel(deviceProfile.platform) }}
+            </span>
             <span class="resource-card__chip">Updated {{ deviceProfile.updated_at }}</span>
           </div>
         </NuxtLink>

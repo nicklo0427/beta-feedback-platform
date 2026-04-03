@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 class DeviceProfilePlatform(str, Enum):
     WEB = "web"
-    H5 = "h5"
+    MOBILE_WEB = "h5"
     PWA = "pwa"
     IOS = "ios"
     ANDROID = "android"

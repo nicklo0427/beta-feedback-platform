@@ -39,3 +39,24 @@ export interface TaskDetail {
   created_at: string
   updated_at: string
 }
+
+export interface TaskFormValues {
+  title: string
+  instruction_summary: string
+  device_profile_id: string
+  status: TaskStatus
+}
+
+export interface TaskCreatePayload {
+  title: string
+  instruction_summary: string | null
+  device_profile_id: string | null
+  status: TaskStatus
+}
+
+export interface TaskUpdatePayload {
+  title?: string
+  instruction_summary?: string | null
+  device_profile_id?: string | null
+  status?: TaskStatus
+}

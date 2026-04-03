@@ -72,7 +72,7 @@ T006 - Projects and Campaigns Schema Draft
 
 - 必須以前置 ticket `T005-api-and-project-conventions` 的 API baseline 為準
 - 必須維持在 MVP 最小欄位範圍，不要預先加大量未確認欄位
-- 欄位設計應優先支持第一階段平台：Web / H5 / PWA、iOS、Android
+- 欄位設計應優先支持第一階段平台：Web / Mobile Web / PWA、iOS、Android
 - 欄位命名要能對齊 backend schema 與 frontend type 的未來實作
 - 需要特別避免把 Campaign 做成 Task 或 Feedback 的替代模型
 - 若某個欄位是否屬於 Project 或 Campaign 有歧義，需在本 ticket 中明確註記判斷理由

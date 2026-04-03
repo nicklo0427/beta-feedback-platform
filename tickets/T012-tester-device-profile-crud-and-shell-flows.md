@@ -23,7 +23,7 @@
 MVP 第一階段平台只考慮：
 
 - Web
-- H5
+- Mobile Web
 - PWA
 - iOS
 - Android
@@ -56,6 +56,8 @@ MVP 第一階段平台只考慮：
 - `id`: `string`，系統產生
 - `name`: `string`，required
 - `platform`: `"web" | "h5" | "pwa" | "ios" | "android"`，required
+  - 對外顯示建議使用 `Mobile Web`
+  - 目前 internal / API value 暫維持 `h5`
 - `device_model`: `string`，required
 - `os_name`: `string`，required
 - `os_version`: `string | null`，optional
@@ -167,6 +169,7 @@ MVP 第一階段平台只考慮：
   - `pwa`
   - `ios`
   - `android`
+  - 對外顯示建議使用 `Mobile Web`，目前 internal / API value 暫維持 `h5`
 - `name`、`device_model`、`os_name` 為必填且不可為空白字串
 - optional string 欄位應做最小 normalization：
   - 去除前後空白

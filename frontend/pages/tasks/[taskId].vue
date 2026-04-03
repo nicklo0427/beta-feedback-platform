@@ -54,6 +54,18 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         <p class="resource-shell__description">
           這個頁面先承接單一 Task 的最小欄位、assignment target 與 status flow 上下文，為後續 feedback 流程預留清楚入口。
         </p>
+        <div
+          v-if="task"
+          class="resource-state__actions"
+        >
+          <NuxtLink
+            class="resource-action"
+            data-testid="task-edit-link"
+            :to="`/tasks/${task.id}/edit`"
+          >
+            Edit task
+          </NuxtLink>
+        </div>
       </header>
 
       <section
@@ -160,7 +172,16 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-section"
         data-testid="task-feedback-section"
       >
-        <h2 class="resource-section__title">Feedback</h2>
+        <div class="resource-state__actions">
+          <h2 class="resource-section__title">Feedback</h2>
+          <NuxtLink
+            class="resource-action"
+            data-testid="task-feedback-create-link"
+            :to="`/tasks/${task.id}/feedback/new`"
+          >
+            Submit feedback
+          </NuxtLink>
+        </div>
 
         <div
           v-if="feedbackPending"
@@ -198,6 +219,15 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           <p class="resource-state__description">
             目前這個 Task 尚未收到任何結構化 feedback，後續可在 backend 建立後由此區塊直接承接。
           </p>
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="task-feedback-empty-create-link"
+              :to="`/tasks/${task.id}/feedback/new`"
+            >
+              Submit first feedback
+            </NuxtLink>
+          </div>
         </div>
 
         <div

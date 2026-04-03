@@ -58,6 +58,361 @@ test.describe('tasks shell flows', () => {
     await expect(page.getByTestId('task-feedback-empty')).toBeVisible()
   })
 
+  test('supports creating a task from the campaign context', async ({ page }) => {
+    const campaignDetail = {
+      id: 'camp_123',
+      project_id: 'proj_123',
+      name: 'Closed Beta Round 1',
+      description: 'Collect early usability feedback for the onboarding flow.',
+      target_platforms: ['ios', 'android'],
+      version_label: '0.9.0-beta.1',
+      status: 'active',
+      created_at: '2026-04-02T09:00:00Z',
+      updated_at: '2026-04-03T10:00:00Z'
+    }
+    const deviceProfiles = {
+      items: [
+        {
+          id: 'dp_123',
+          name: 'QA iPhone 15',
+          platform: 'ios',
+          device_model: 'iPhone 15 Pro',
+          os_name: 'iOS',
+          updated_at: '2026-04-03T10:00:00Z'
+        }
+      ],
+      total: 1
+    }
+    const createdTask = {
+      id: 'task_456',
+      campaign_id: 'camp_123',
+      device_profile_id: 'dp_123',
+      title: 'Validate paywall copy',
+      instruction_summary: 'Check the paywall CTA and pricing copy.',
+      status: 'assigned',
+      submitted_at: null,
+      created_at: '2026-04-03T12:00:00Z',
+      updated_at: '2026-04-03T12:00:00Z'
+    }
+
+    let createRequestBody: unknown = null
+    let hasCreatedTask = false
+
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiError(
+      page,
+      '/campaigns/camp_123/safety',
+      {
+        code: 'resource_not_found',
+        message: 'Campaign safety not found.',
+        details: {
+          resource: 'campaign_safety',
+          campaign_id: 'camp_123'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [],
+      total: 0
+    })
+    await mockApiJson(page, '/device-profiles', deviceProfiles)
+    await mockApiJson(page, '/tasks/task_456/feedback', {
+      items: [],
+      total: 0
+    })
+    await page.route(/\/api\/v1\/tasks\?campaign_id=camp_123$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: hasCreatedTask
+            ? [
+                {
+                  id: createdTask.id,
+                  campaign_id: createdTask.campaign_id,
+                  device_profile_id: createdTask.device_profile_id,
+                  title: createdTask.title,
+                  status: createdTask.status,
+                  updated_at: createdTask.updated_at
+                }
+              ]
+            : [],
+          total: hasCreatedTask ? 1 : 0
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/tasks$/, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+      hasCreatedTask = true
+
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(createdTask)
+      })
+    })
+    await page.route(/\/api\/v1\/tasks\/task_456$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(createdTask)
+      })
+    })
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('campaign-task-create-link').click()
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123\/tasks\/new$/)
+    await expect(page.getByTestId('task-form')).toBeVisible()
+
+    await page.getByTestId('task-title-input').fill('Validate paywall copy')
+    await page
+      .getByTestId('task-instruction-summary-input')
+      .fill('Check the paywall CTA and pricing copy.')
+    await page.getByTestId('task-device-profile-field').selectOption('dp_123')
+    await page.getByTestId('task-status-field').selectOption('assigned')
+    await page.getByTestId('task-submit').click()
+
+    expect(createRequestBody).toEqual({
+      title: 'Validate paywall copy',
+      instruction_summary: 'Check the paywall CTA and pricing copy.',
+      device_profile_id: 'dp_123',
+      status: 'assigned'
+    })
+
+    await expect(page).toHaveURL(/\/tasks\/task_456$/)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(createdTask.title)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(createdTask.status)
+  })
+
+  test('shows task create validation and backend status-transition errors', async ({ page }) => {
+    const campaignDetail = {
+      id: 'camp_123',
+      project_id: 'proj_123',
+      name: 'Closed Beta Round 1',
+      description: 'Collect early usability feedback for the onboarding flow.',
+      target_platforms: ['ios', 'android'],
+      version_label: '0.9.0-beta.1',
+      status: 'active',
+      created_at: '2026-04-02T09:00:00Z',
+      updated_at: '2026-04-03T10:00:00Z'
+    }
+
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/device-profiles', {
+      items: [],
+      total: 0
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/tasks$/, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'conflict',
+          message: 'Task requires a device profile before entering this status.',
+          details: {
+            resource: 'task',
+            status: 'assigned'
+          }
+        })
+      })
+    })
+
+    await page.goto('/campaigns/camp_123/tasks/new')
+    await page.getByTestId('task-submit').click()
+
+    await expect(page.getByTestId('task-form-error')).toContainText('Title is required.')
+
+    await page.getByTestId('task-title-input').fill('Validate paywall copy')
+    await page.getByTestId('task-status-field').selectOption('assigned')
+    await page.getByTestId('task-submit').click()
+
+    await expect(page.getByTestId('task-form-error')).toContainText(
+      'Task requires a device profile before entering this status.'
+    )
+  })
+
+  test('supports editing a task from the detail page', async ({ page }) => {
+    const editableTask = {
+      ...taskDetail,
+      status: 'assigned',
+      submitted_at: null
+    }
+    const updatedTask = {
+      ...editableTask,
+      title: 'Validate onboarding flow v2',
+      instruction_summary: 'Check the revised onboarding copy.',
+      status: 'in_progress'
+    }
+
+    let taskResponse = editableTask
+    let updateRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(taskResponse)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        taskResponse = updatedTask
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updatedTask)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+    await mockApiJson(page, '/device-profiles', {
+      items: [
+        {
+          id: 'dp_123',
+          name: 'QA iPhone 15',
+          platform: 'ios',
+          device_model: 'iPhone 15 Pro',
+          os_name: 'iOS',
+          updated_at: '2026-04-03T10:00:00Z'
+        }
+      ],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks/task_123/feedback', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/tasks/task_123')
+    await page.getByTestId('task-edit-link').click()
+
+    await expect(page).toHaveURL(/\/tasks\/task_123\/edit$/)
+    await expect(page.getByTestId('task-edit-panel')).toBeVisible()
+
+    await page.getByTestId('task-title-input').fill('Validate onboarding flow v2')
+    await page
+      .getByTestId('task-instruction-summary-input')
+      .fill('Check the revised onboarding copy.')
+    await page.getByTestId('task-status-field').selectOption('in_progress')
+    await page.getByTestId('task-submit').click()
+
+    expect(updateRequestBody).toEqual({
+      title: 'Validate onboarding flow v2',
+      instruction_summary: 'Check the revised onboarding copy.',
+      status: 'in_progress'
+    })
+
+    await expect(page).toHaveURL(/\/tasks\/task_123$/)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(updatedTask.title)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(updatedTask.status)
+  })
+
+  test('shows backend conflict when a task status transition is invalid', async ({ page }) => {
+    await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(taskDetail)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'conflict',
+            message: 'Task status transition is not allowed.',
+            details: {
+              resource: 'task',
+              current_status: 'submitted',
+              next_status: 'assigned'
+            }
+          })
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+    await mockApiJson(page, '/device-profiles', {
+      items: [
+        {
+          id: 'dp_123',
+          name: 'QA iPhone 15',
+          platform: 'ios',
+          device_model: 'iPhone 15 Pro',
+          os_name: 'iOS',
+          updated_at: '2026-04-03T10:00:00Z'
+        }
+      ],
+      total: 1
+    })
+
+    await page.goto('/tasks/task_123/edit')
+    await page.getByTestId('task-status-field').selectOption('assigned')
+    await page.getByTestId('task-submit').click()
+
+    await expect(page.getByTestId('task-form-error')).toContainText(
+      'Task status transition is not allowed.'
+    )
+  })
+
+  test('renders the task edit error state when the record cannot be loaded', async ({
+    page
+  }) => {
+    await mockApiError(
+      page,
+      '/tasks/task_missing',
+      {
+        code: 'resource_not_found',
+        message: 'Task not found.',
+        details: {
+          resource: 'task',
+          id: 'task_missing'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+    await mockApiJson(page, '/device-profiles', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/tasks/task_missing/edit')
+
+    const errorState = page.getByTestId('task-edit-error')
+    await expect(errorState).toBeVisible()
+    await expect(errorState).toContainText('Task not found.')
+  })
+
   test('renders the tasks empty state when the API returns no items', async ({
     page
   }) => {

@@ -9,6 +9,11 @@ export interface ListResponse<T> {
   total: number
 }
 
+export interface ApiRequestOptions {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  body?: BodyInit | Record<string, any> | null
+}
+
 export class ApiClientError extends Error {
   statusCode?: number
   code: string
@@ -73,10 +78,12 @@ function normalizeApiError(error: unknown): ApiClientError {
 export function useApiClient() {
   const config = useRuntimeConfig()
 
-  async function request<T>(path: string): Promise<T> {
+  async function request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     try {
       return await $fetch<T>(path, {
-        baseURL: config.public.apiBaseUrl
+        baseURL: config.public.apiBaseUrl,
+        method: options.method,
+        body: options.body
       })
     } catch (error) {
       throw normalizeApiError(error)
