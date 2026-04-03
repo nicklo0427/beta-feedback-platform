@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     app_name: str = "beta-feedback-platform-backend"
     app_env: str = "development"
     api_v1_prefix: str = "/api/v1"
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ],
+        description="Allowed frontend origins for local development.",
+    )
     database_url: Optional[str] = Field(
         default=None,
         description="Reserved PostgreSQL connection URL for future integration.",

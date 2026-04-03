@@ -56,6 +56,10 @@ def _ensure_campaign_exists(campaign_id: str) -> CampaignRecord:
     return record
 
 
+def ensure_campaign_exists(campaign_id: str) -> CampaignRecord:
+    return _ensure_campaign_exists(campaign_id)
+
+
 def has_campaigns_for_project(project_id: str) -> bool:
     return repository.has_campaigns_for_project(project_id)
 
@@ -120,4 +124,32 @@ def update_campaign(campaign_id: str, payload: CampaignUpdate) -> CampaignDetail
 
 def delete_campaign(campaign_id: str) -> None:
     _ensure_campaign_exists(campaign_id)
+
+    from app.modules.eligibility.service import has_eligibility_rules_for_campaign
+    from app.modules.tasks.service import has_tasks_for_campaign
+
+    if has_eligibility_rules_for_campaign(campaign_id):
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="conflict",
+            message="Campaign cannot be deleted while eligibility rules exist.",
+            details={
+                "resource": "campaign",
+                "id": campaign_id,
+                "related_resource": "eligibility_rule",
+            },
+        )
+
+    if has_tasks_for_campaign(campaign_id):
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="conflict",
+            message="Campaign cannot be deleted while tasks exist.",
+            details={
+                "resource": "campaign",
+                "id": campaign_id,
+                "related_resource": "task",
+            },
+        )
+
     repository.delete_campaign(campaign_id)

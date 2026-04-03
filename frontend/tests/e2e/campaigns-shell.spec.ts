@@ -24,6 +24,25 @@ const campaignDetail = {
   updated_at: '2026-04-03T10:00:00Z'
 }
 
+const eligibilityRuleListItem = {
+  id: 'er_123',
+  campaign_id: 'camp_123',
+  platform: 'ios',
+  os_name: 'iOS',
+  install_channel: 'testflight',
+  is_active: true,
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
+const taskListItem = {
+  id: 'task_123',
+  campaign_id: 'camp_123',
+  device_profile_id: 'dp_123',
+  title: 'Validate onboarding flow',
+  status: 'assigned',
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
 const projectDetail = {
   id: 'proj_123',
   name: 'HabitQuest',
@@ -44,6 +63,14 @@ test.describe('campaigns shell flows', () => {
     await mockApiJson(page, '/projects/proj_123', projectDetail)
     await mockApiJson(page, '/campaigns?project_id=proj_123', {
       items: [campaignListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
       total: 1
     })
 
@@ -67,6 +94,15 @@ test.describe('campaigns shell flows', () => {
     await expect(detailPanel).toContainText(campaignDetail.name)
     await expect(detailPanel).toContainText(campaignDetail.id)
     await expect(detailPanel).toContainText(campaignDetail.version_label)
+
+    const eligibilityList = page.getByTestId('campaign-eligibility-list')
+    await expect(eligibilityList).toBeVisible()
+    await expect(eligibilityList).toContainText(eligibilityRuleListItem.platform)
+
+    const tasksList = page.getByTestId('campaign-tasks-list')
+    await expect(tasksList).toBeVisible()
+    await expect(tasksList).toContainText(taskListItem.title)
+    await expect(tasksList).toContainText(taskListItem.status)
 
     await detailPanel.getByRole('link', { name: campaignDetail.project_id }).click()
 

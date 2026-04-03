@@ -1,0 +1,252 @@
+from __future__ import annotations
+
+import pytest
+from fastapi import status
+
+from app.common.exceptions import AppError
+from app.modules.campaigns.schemas import CampaignCreate
+from app.modules.campaigns.service import create_campaign
+from app.modules.device_profiles.schemas import DeviceProfileCreate, DeviceProfilePlatform
+from app.modules.device_profiles.service import create_device_profile
+from app.modules.projects.schemas import ProjectCreate
+from app.modules.projects.service import create_project
+from app.modules.feedback.schemas import FeedbackCategory, FeedbackCreate, FeedbackSeverity
+from app.modules.feedback.service import create_feedback
+from app.modules.tasks.schemas import TaskCreate, TaskStatus, TaskUpdate
+from app.modules.tasks.service import (
+    create_task,
+    delete_task,
+    ensure_task_exists,
+    list_tasks,
+    update_task,
+)
+
+
+def test_task_service_create_and_list_supports_filters() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        )
+    )
+
+    created_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+    )
+    create_task(
+        campaign.id,
+        TaskCreate(
+            title="Check marketing landing page copy",
+            status=TaskStatus.OPEN,
+        ),
+    )
+
+    listed_tasks = list_tasks(
+        campaign_id=campaign.id,
+        device_profile_id=device_profile.id,
+        status=TaskStatus.ASSIGNED,
+    )
+
+    assert listed_tasks.total == 1
+    assert listed_tasks.items[0].id == created_task.id
+    assert listed_tasks.items[0].campaign_id == campaign.id
+    assert listed_tasks.items[0].device_profile_id == device_profile.id
+    assert listed_tasks.items[0].status == TaskStatus.ASSIGNED
+
+
+def test_task_service_create_requires_existing_campaign() -> None:
+    with pytest.raises(AppError) as exc_info:
+        create_task(
+            "camp_missing",
+            TaskCreate(title="Validate onboarding flow"),
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_404_NOT_FOUND
+    assert error.code == "resource_not_found"
+    assert error.details == {
+        "resource": "campaign",
+        "id": "camp_missing",
+    }
+
+
+def test_task_service_create_requires_existing_device_profile_when_provided() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        create_task(
+            campaign.id,
+            TaskCreate(
+                title="Validate onboarding flow",
+                device_profile_id="dp_missing",
+            ),
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_404_NOT_FOUND
+    assert error.code == "resource_not_found"
+    assert error.details == {
+        "resource": "device_profile",
+        "id": "dp_missing",
+    }
+
+
+def test_task_service_rejects_illegal_status_transition() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        )
+    )
+    created_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        update_task(
+            created_task.id,
+            TaskUpdate(status=TaskStatus.SUBMITTED),
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "conflict"
+    assert error.details == {
+        "resource": "task",
+        "current_status": "assigned",
+        "next_status": "submitted",
+    }
+
+
+def test_task_service_writes_submitted_at_when_entering_submitted() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        )
+    )
+    created_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+    )
+
+    in_progress_task = update_task(
+        created_task.id,
+        TaskUpdate(status=TaskStatus.IN_PROGRESS),
+    )
+    submitted_task = update_task(
+        created_task.id,
+        TaskUpdate(status=TaskStatus.SUBMITTED),
+    )
+
+    assert in_progress_task.submitted_at is None
+    assert submitted_task.status == TaskStatus.SUBMITTED
+    assert submitted_task.submitted_at is not None
+
+
+def test_task_service_delete_removes_the_resource() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    created_task = create_task(
+        campaign.id,
+        TaskCreate(title="Validate onboarding flow"),
+    )
+
+    delete_task(created_task.id)
+
+    with pytest.raises(AppError) as exc_info:
+        ensure_task_exists(created_task.id)
+
+    assert exc_info.value.code == "resource_not_found"
+
+
+def test_task_service_delete_rejects_task_with_feedback() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(title="Validate onboarding flow"),
+    )
+    create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="App crashes on launch",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        delete_task(task.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "conflict"
+    assert error.details == {
+        "resource": "task",
+        "id": task.id,
+        "related_resource": "feedback",
+    }

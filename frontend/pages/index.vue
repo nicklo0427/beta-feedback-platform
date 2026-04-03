@@ -25,6 +25,26 @@
             查看 Campaign list 與 detail 的最小頁面骨架。
           </span>
         </NuxtLink>
+
+        <NuxtLink class="shell-link-card" data-testid="home-tasks-link" to="/tasks">
+          <span class="shell-link-label">Tasks</span>
+          <strong class="shell-link-title">Task Shell</strong>
+          <span class="shell-link-description">
+            查看 Task list 與 detail 的最小頁面骨架。
+          </span>
+        </NuxtLink>
+
+        <NuxtLink
+          class="shell-link-card"
+          data-testid="home-device-profiles-link"
+          to="/device-profiles"
+        >
+          <span class="shell-link-label">Device Profiles</span>
+          <strong class="shell-link-title">Tester Device Profile Shell</strong>
+          <span class="shell-link-description">
+            查看 Tester Device Profile list 與 detail 的最小頁面骨架。
+          </span>
+        </NuxtLink>
       </nav>
     </section>
   </main>

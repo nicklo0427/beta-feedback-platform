@@ -150,3 +150,72 @@ def test_project_delete_conflicts_when_campaigns_exist(client: TestClient) -> No
             "related_resource": "campaign",
         },
     }
+
+
+def test_campaign_delete_conflicts_when_tasks_exist(client: TestClient) -> None:
+    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
+    project_id = project_response.json()["id"]
+
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project_id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+    )
+    campaign_id = campaign_response.json()["id"]
+
+    client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={"title": "Validate onboarding flow"},
+    )
+
+    response = client.delete(f"/api/v1/campaigns/{campaign_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "conflict",
+        "message": "Campaign cannot be deleted while tasks exist.",
+        "details": {
+            "resource": "campaign",
+            "id": campaign_id,
+            "related_resource": "task",
+        },
+    }
+
+
+def test_campaign_delete_conflicts_when_eligibility_rules_exist(client: TestClient) -> None:
+    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
+    project_id = project_response.json()["id"]
+
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project_id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+    )
+    campaign_id = campaign_response.json()["id"]
+
+    client.post(
+        f"/api/v1/campaigns/{campaign_id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+        },
+    )
+
+    response = client.delete(f"/api/v1/campaigns/{campaign_id}")
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "conflict",
+        "message": "Campaign cannot be deleted while eligibility rules exist.",
+        "details": {
+            "resource": "campaign",
+            "id": campaign_id,
+            "related_resource": "eligibility_rule",
+        },
+    }
