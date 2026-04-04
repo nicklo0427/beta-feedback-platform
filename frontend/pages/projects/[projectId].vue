@@ -88,6 +88,15 @@ const campaigns = computed(() => campaignResponse.value.items)
       <template v-else>
         <section class="resource-section" data-testid="project-detail-panel">
           <h2 class="resource-section__title">{{ project.name }}</h2>
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="project-edit-link"
+              :to="`/projects/${project.id}/edit`"
+            >
+              Edit project
+            </NuxtLink>
+          </div>
           <div class="resource-key-value">
             <div class="resource-key-value__row">
               <span class="resource-key-value__label">Project ID</span>
@@ -112,6 +121,15 @@ const campaigns = computed(() => campaignResponse.value.items)
 
         <section class="resource-section" data-testid="project-campaigns-section">
           <h2 class="resource-section__title">Related Campaigns</h2>
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="campaign-create-link"
+              :to="`/projects/${project.id}/campaigns/new`"
+            >
+              Create campaign
+            </NuxtLink>
+          </div>
 
           <div
             v-if="campaignsPending"

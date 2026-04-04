@@ -21,6 +21,12 @@ class FeedbackCategory(str, Enum):
     OTHER = "other"
 
 
+class FeedbackReviewStatus(str, Enum):
+    SUBMITTED = "submitted"
+    NEEDS_MORE_INFO = "needs_more_info"
+    REVIEWED = "reviewed"
+
+
 class FeedbackCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -62,6 +68,8 @@ class FeedbackUpdate(BaseModel):
     expected_result: Optional[str] = None
     actual_result: Optional[str] = None
     note: Optional[str] = None
+    review_status: Optional[FeedbackReviewStatus] = None
+    developer_note: Optional[str] = None
 
     @field_validator("summary")
     @classmethod
@@ -74,7 +82,13 @@ class FeedbackUpdate(BaseModel):
             raise ValueError("Feedback summary cannot be blank.")
         return normalized
 
-    @field_validator("reproduction_steps", "expected_result", "actual_result", "note")
+    @field_validator(
+        "reproduction_steps",
+        "expected_result",
+        "actual_result",
+        "note",
+        "developer_note",
+    )
     @classmethod
     def normalize_optional_fields(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -112,6 +126,8 @@ class FeedbackDetail(BaseModel):
     expected_result: Optional[str] = None
     actual_result: Optional[str] = None
     note: Optional[str] = None
+    review_status: FeedbackReviewStatus
+    developer_note: Optional[str] = None
     submitted_at: str
     updated_at: str
 

@@ -18,5 +18,7 @@ class FeedbackRecord:
     expected_result: Optional[str]
     actual_result: Optional[str]
     note: Optional[str]
+    review_status: str
+    developer_note: Optional[str]
     submitted_at: str
     updated_at: str

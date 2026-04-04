@@ -23,7 +23,26 @@ const feedbackListItem = {
   submitted_at: '2026-04-03T11:31:00Z'
 }
 
-const feedbackDetail = {
+interface FeedbackDetailFixture {
+  id: string
+  task_id: string
+  campaign_id: string
+  device_profile_id: string
+  summary: string
+  rating: number
+  severity: string
+  category: string
+  reproduction_steps: string
+  expected_result: string
+  actual_result: string
+  note: string | null
+  review_status: 'submitted' | 'needs_more_info' | 'reviewed'
+  developer_note: string | null
+  submitted_at: string
+  updated_at: string
+}
+
+const feedbackDetail: FeedbackDetailFixture = {
   id: 'fb_123',
   task_id: 'task_123',
   campaign_id: 'camp_123',
@@ -36,6 +55,8 @@ const feedbackDetail = {
   expected_result: 'The app should stay open.',
   actual_result: 'The app exits immediately.',
   note: 'Observed twice on the same device.',
+  review_status: 'submitted',
+  developer_note: null,
   submitted_at: '2026-04-03T11:31:00Z',
   updated_at: '2026-04-03T11:31:00Z'
 }
@@ -101,6 +122,7 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toBeVisible()
     await expect(detailPanel).toContainText(createdFeedback.summary)
     await expect(detailPanel).toContainText(createdFeedback.category)
+    await expect(page.getByTestId('feedback-review-panel')).toContainText('Submitted')
   })
 
   test('shows feedback create validation and backend errors', async ({ page }) => {
@@ -174,6 +196,101 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText(feedbackDetail.summary)
     await expect(detailPanel).toContainText(feedbackDetail.reproduction_steps)
     await expect(detailPanel).toContainText(String(feedbackDetail.rating))
+    await expect(detailPanel).toContainText('Submitted')
+  })
+
+  test('supports marking feedback as reviewed from the detail page', async ({ page }) => {
+    let currentFeedback: FeedbackDetailFixture = { ...feedbackDetail }
+
+    await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
+      if (route.request().method() === 'PATCH') {
+        const payload = route.request().postDataJSON() as {
+          review_status?: FeedbackDetailFixture['review_status']
+          developer_note?: string | null
+        }
+
+        currentFeedback = {
+          ...currentFeedback,
+          review_status: payload.review_status ?? currentFeedback.review_status,
+          developer_note: payload.developer_note ?? currentFeedback.developer_note,
+          updated_at: '2026-04-03T12:05:00Z'
+        }
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentFeedback)
+      })
+    })
+
+    await page.goto('/tasks/task_123/feedback/fb_123')
+
+    await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
+    await page
+      .getByTestId('feedback-developer-note-field')
+      .fill('Confirmed by the developer after reviewing the crash logs.')
+    await page.getByTestId('feedback-review-submit').click()
+
+    await expect(page.getByTestId('feedback-review-success')).toContainText(
+      'Review changes saved.'
+    )
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText('Reviewed')
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      'Confirmed by the developer after reviewing the crash logs.'
+    )
+  })
+
+  test('supports the needs-more-info review path from the detail page', async ({ page }) => {
+    let currentFeedback: FeedbackDetailFixture = { ...feedbackDetail }
+    let reviewRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
+      if (route.request().method() === 'PATCH') {
+        const payload = route.request().postDataJSON() as {
+          review_status?: string
+          developer_note?: string | null
+        }
+
+        reviewRequestBody = payload
+
+        currentFeedback = {
+          ...currentFeedback,
+          review_status: 'needs_more_info',
+          developer_note: payload.developer_note ?? currentFeedback.developer_note,
+          updated_at: '2026-04-03T12:07:00Z'
+        }
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentFeedback)
+      })
+    })
+
+    await page.goto('/tasks/task_123/feedback/fb_123')
+
+    await page.getByTestId('feedback-review-status-field').selectOption('needs_more_info')
+    await page
+      .getByTestId('feedback-developer-note-field')
+      .fill('Please include the exact time between launch and crash.')
+    await page.getByTestId('feedback-review-submit').click()
+
+    expect(reviewRequestBody).toEqual({
+      review_status: 'needs_more_info',
+      developer_note: 'Please include the exact time between launch and crash.'
+    })
+
+    await expect(page.getByTestId('feedback-review-success')).toContainText(
+      'Review changes saved.'
+    )
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      'Needs More Info'
+    )
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      'Please include the exact time between launch and crash.'
+    )
   })
 
   test('supports editing feedback from the detail page', async ({ page }) => {
@@ -254,6 +371,47 @@ test.describe('feedback shell flows', () => {
 
     await expect(page.getByTestId('feedback-form-error')).toContainText(
       'Unable to update feedback right now.'
+    )
+  })
+
+  test('shows backend validation errors when a feedback review update is rejected', async ({
+    page
+  }) => {
+    await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
+      if (route.request().method() === 'PATCH') {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'validation_error',
+            message: 'Request validation failed.',
+            details: {
+              fields: [
+                {
+                  field: 'review_status',
+                  message: "Input should be 'submitted', 'needs_more_info' or 'reviewed'"
+                }
+              ]
+            }
+          })
+        })
+        return
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(feedbackDetail)
+      })
+    })
+
+    await page.goto('/tasks/task_123/feedback/fb_123')
+
+    await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
+    await page.getByTestId('feedback-review-submit').click()
+
+    await expect(page.getByTestId('feedback-review-error')).toContainText(
+      'Request validation failed.'
     )
   })
 

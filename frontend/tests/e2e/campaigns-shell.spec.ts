@@ -152,6 +152,263 @@ test.describe('campaigns shell flows', () => {
     await expect(page.getByTestId('project-detail-panel')).toBeVisible()
   })
 
+  test('supports creating a campaign from the project context', async ({ page }) => {
+    const createdCampaign = {
+      id: 'camp_456',
+      project_id: 'proj_123',
+      name: 'Closed Beta Round 2',
+      description: 'Validate pricing copy on the Mobile Web beta experience.',
+      target_platforms: ['h5', 'ios'],
+      version_label: '0.9.1-beta.2',
+      status: 'draft',
+      created_at: '2026-04-03T12:00:00Z',
+      updated_at: '2026-04-03T12:00:00Z'
+    }
+
+    let createRequestBody: unknown = null
+
+    await mockApiJson(page, '/projects/proj_123', projectDetail)
+    await mockApiJson(page, '/campaigns?project_id=proj_123', {
+      items: [],
+      total: 0
+    })
+    await page.route(/\/api\/v1\/campaigns$/, async (route) => {
+      const method = route.request().method()
+
+      if (method !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(createdCampaign)
+      })
+    })
+    await mockApiJson(page, '/campaigns/camp_456', createdCampaign)
+    await mockApiError(
+      page,
+      '/campaigns/camp_456/safety',
+      {
+        code: 'resource_not_found',
+        message: 'Campaign safety not found.',
+        details: {
+          resource: 'campaign_safety',
+          campaign_id: 'camp_456'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+    await mockApiJson(page, '/campaigns/camp_456/reputation', {
+      campaign_id: 'camp_456',
+      tasks_total_count: 0,
+      tasks_closed_count: 0,
+      feedback_received_count: 0,
+      closure_rate: 0,
+      last_feedback_at: null,
+      updated_at: '2026-04-03T12:00:00Z'
+    })
+    await mockApiJson(page, '/campaigns/camp_456/eligibility-rules', {
+      items: [],
+      total: 0
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_456', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/projects/proj_123')
+    await page.getByTestId('campaign-create-link').click()
+
+    await expect(page).toHaveURL(/\/projects\/proj_123\/campaigns\/new$/)
+    await expect(page.getByTestId('campaign-form')).toBeVisible()
+    await expect(page.getByTestId('campaign-status-default-note')).toContainText(
+      'draft'
+    )
+
+    await page.getByTestId('campaign-name-input').fill('Closed Beta Round 2')
+    await page
+      .getByTestId('campaign-description-input')
+      .fill('Validate pricing copy on the Mobile Web beta experience.')
+    await page.getByTestId('campaign-version-label-input').fill('0.9.1-beta.2')
+    await page.getByTestId('campaign-platform-checkbox-h5').check()
+    await page.getByTestId('campaign-platform-checkbox-ios').check()
+    await page.getByTestId('campaign-submit').click()
+
+    expect(createRequestBody).toEqual({
+      project_id: 'proj_123',
+      name: 'Closed Beta Round 2',
+      description: 'Validate pricing copy on the Mobile Web beta experience.',
+      target_platforms: ['h5', 'ios'],
+      version_label: '0.9.1-beta.2'
+    })
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_456$/)
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText(
+      createdCampaign.name
+    )
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText('Mobile Web')
+  })
+
+  test('shows campaign create validation and backend errors', async ({ page }) => {
+    await mockApiJson(page, '/projects/proj_123', projectDetail)
+    await page.route(/\/api\/v1\/campaigns$/, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'validation_error',
+          message: 'Request validation failed.',
+          details: {
+            fields: [
+              {
+                field: 'target_platforms',
+                message: 'Select at least one platform.'
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.goto('/projects/proj_123/campaigns/new')
+    await expect(page.getByTestId('campaign-form')).toBeVisible()
+    await page.getByTestId('campaign-submit').click()
+
+    await expect(page.getByTestId('campaign-form-error')).toContainText(
+      'Name is required.'
+    )
+
+    await page.getByTestId('campaign-name-input').fill('Closed Beta Round 2')
+    await page.getByTestId('campaign-submit').click()
+
+    await expect(page.getByTestId('campaign-form-error')).toContainText(
+      'Select at least one target platform.'
+    )
+
+    await page.getByTestId('campaign-platform-checkbox-ios').check()
+    await page.getByTestId('campaign-submit').click()
+
+    await expect(page.getByTestId('campaign-form-error')).toContainText(
+      'Request validation failed.'
+    )
+  })
+
+  test('supports editing a campaign from the frontend form', async ({ page }) => {
+    const originalCampaign = {
+      ...campaignDetail
+    }
+    const updatedCampaign = {
+      ...campaignDetail,
+      description: 'Updated campaign summary for the Mobile Web rollout.',
+      target_platforms: ['h5', 'ios', 'android'],
+      version_label: '0.9.1-beta.2',
+      status: 'closed'
+    }
+
+    let detailResponse = originalCampaign
+    let updateRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/campaigns\/camp_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(detailResponse)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        detailResponse = updatedCampaign
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updatedCampaign)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+    await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
+      total: 1
+    })
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('campaign-edit-link').click()
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123\/edit$/)
+    await expect(page.getByTestId('campaign-edit-panel')).toBeVisible()
+
+    await page
+      .getByTestId('campaign-description-input')
+      .fill('Updated campaign summary for the Mobile Web rollout.')
+    await page.getByTestId('campaign-platform-checkbox-h5').check()
+    await page.getByTestId('campaign-version-label-input').fill('0.9.1-beta.2')
+    await page.getByTestId('campaign-status-field').selectOption('closed')
+    await page.getByTestId('campaign-submit').click()
+
+    expect(updateRequestBody).toEqual({
+      description: 'Updated campaign summary for the Mobile Web rollout.',
+      target_platforms: ['h5', 'ios', 'android'],
+      version_label: '0.9.1-beta.2',
+      status: 'closed'
+    })
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123$/)
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText(
+      updatedCampaign.description
+    )
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText('Mobile Web')
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText('closed')
+  })
+
+  test('renders the campaign edit error state when the record cannot be loaded', async ({
+    page
+  }) => {
+    await mockApiError(
+      page,
+      '/campaigns/camp_missing',
+      {
+        code: 'resource_not_found',
+        message: 'Campaign not found.',
+        details: {
+          resource: 'campaign',
+          id: 'camp_missing'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+
+    await page.goto('/campaigns/camp_missing/edit')
+
+    const errorState = page.getByTestId('campaign-edit-error')
+    await expect(errorState).toBeVisible()
+    await expect(errorState).toContainText('Campaign not found.')
+  })
+
   test('renders the campaigns empty state when the API returns no items', async ({
     page
   }) => {
@@ -237,6 +494,159 @@ test.describe('campaigns shell flows', () => {
     await expect(page.getByTestId('campaign-reputation-zero')).toBeVisible()
   })
 
+  test('supports creating a campaign safety profile from the campaign detail empty state', async ({
+    page
+  }) => {
+    const createdSafety = {
+      ...campaignSafety,
+      distribution_channel: 'google_play_testing',
+      source_label: 'Google Play Internal Testing',
+      source_url:
+        'https://play.google.com/apps/testing/com.example.closed-beta',
+      risk_level: 'medium',
+      review_status: 'approved',
+      official_channel_only: false,
+      risk_note: 'Share only with invited testers.'
+    }
+
+    let currentSafety: typeof createdSafety | null = null
+    let createRequestBody: unknown = null
+
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [],
+      total: 0
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [],
+      total: 0
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/safety$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        if (currentSafety) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(currentSafety)
+          })
+          return
+        }
+
+        await route.fulfill({
+          status: 404,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'resource_not_found',
+            message: 'Campaign safety not found.',
+            details: {
+              resource: 'campaign_safety',
+              campaign_id: 'camp_123'
+            }
+          })
+        })
+        return
+      }
+
+      if (method === 'POST') {
+        createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        currentSafety = createdSafety
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(createdSafety)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto('/campaigns/camp_123')
+
+    await expect(page.getByTestId('campaign-safety-empty')).toBeVisible()
+    await page.getByTestId('campaign-safety-create-link').click()
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/new$/)
+    await expect(page.getByTestId('campaign-safety-create-panel')).toBeVisible()
+
+    await page
+      .getByTestId('campaign-safety-distribution-channel-field')
+      .selectOption('google_play_testing')
+    await page
+      .getByTestId('campaign-safety-source-label-input')
+      .fill('Google Play Internal Testing')
+    await page
+      .getByTestId('campaign-safety-source-url-input')
+      .fill('https://play.google.com/apps/testing/com.example.closed-beta')
+    await page.getByTestId('campaign-safety-risk-level-field').selectOption('medium')
+    await page.getByTestId('campaign-safety-review-status-field').selectOption('approved')
+    await page.getByTestId('campaign-safety-risk-note-input').fill(
+      'Share only with invited testers.'
+    )
+    await page.getByTestId('campaign-safety-submit').click()
+
+    expect(createRequestBody).toEqual({
+      distribution_channel: 'google_play_testing',
+      source_label: 'Google Play Internal Testing',
+      source_url: 'https://play.google.com/apps/testing/com.example.closed-beta',
+      risk_level: 'medium',
+      review_status: 'approved',
+      official_channel_only: false,
+      risk_note: 'Share only with invited testers.'
+    })
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123$/)
+    const safetyPanel = page.getByTestId('campaign-safety-panel')
+    await expect(safetyPanel).toContainText(createdSafety.source_label)
+    await expect(safetyPanel).toContainText('Google Play Testing')
+    await expect(safetyPanel).toContainText(createdSafety.risk_level)
+  })
+
+  test('shows campaign safety create conflict errors without leaving the form', async ({
+    page
+  }) => {
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/safety$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'POST') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'conflict',
+            message: 'Campaign safety already exists.',
+            details: {
+              resource: 'campaign_safety',
+              campaign_id: 'camp_123'
+            }
+          })
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto('/campaigns/camp_123/safety/new')
+    await expect(page.getByTestId('campaign-safety-form')).toBeVisible()
+
+    await page
+      .getByTestId('campaign-safety-distribution-channel-field')
+      .selectOption('testflight')
+    await page.getByTestId('campaign-safety-source-label-input').fill('TestFlight')
+    await page.getByTestId('campaign-safety-risk-level-field').selectOption('low')
+    await page.getByTestId('campaign-safety-submit').click()
+
+    await expect(page.getByTestId('campaign-safety-form-error')).toContainText(
+      'Campaign safety already exists.'
+    )
+    await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/new$/)
+  })
+
   test('renders the campaign safety error state when the safety request fails', async ({
     page
   }) => {
@@ -269,6 +679,127 @@ test.describe('campaigns shell flows', () => {
     await expect(errorState).toBeVisible()
     await expect(errorState).toContainText('Campaign safety service unavailable.')
     await expect(page.getByTestId('campaign-safety-panel')).toHaveCount(0)
+  })
+
+  test('supports editing a campaign safety profile from the frontend form', async ({
+    page
+  }) => {
+    const updatedSafety = {
+      ...campaignSafety,
+      source_label: 'Official Web Beta Portal',
+      distribution_channel: 'web_url',
+      source_url: 'https://beta.example.com/download',
+      risk_level: 'medium',
+      review_status: 'rejected',
+      official_channel_only: false,
+      risk_note: 'Review again after updating the landing page copy.'
+    }
+
+    let currentSafety = {
+      ...campaignSafety
+    }
+    let updateRequestBody: unknown = null
+
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [],
+      total: 0
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [],
+      total: 0
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/safety$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(currentSafety)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        currentSafety = updatedSafety
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updatedSafety)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('campaign-safety-edit-link').click()
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/edit$/)
+    await expect(page.getByTestId('campaign-safety-edit-panel')).toBeVisible()
+
+    await page
+      .getByTestId('campaign-safety-distribution-channel-field')
+      .selectOption('web_url')
+    await page
+      .getByTestId('campaign-safety-source-label-input')
+      .fill('Official Web Beta Portal')
+    await page
+      .getByTestId('campaign-safety-source-url-input')
+      .fill('https://beta.example.com/download')
+    await page.getByTestId('campaign-safety-risk-level-field').selectOption('medium')
+    await page.getByTestId('campaign-safety-review-status-field').selectOption('rejected')
+    await page.getByTestId('campaign-safety-risk-note-input').fill(
+      'Review again after updating the landing page copy.'
+    )
+    await page.getByTestId('campaign-safety-official-channel-only-input').uncheck()
+    await page.getByTestId('campaign-safety-submit').click()
+
+    expect(updateRequestBody).toEqual({
+      distribution_channel: 'web_url',
+      source_label: 'Official Web Beta Portal',
+      source_url: 'https://beta.example.com/download',
+      risk_level: 'medium',
+      review_status: 'rejected',
+      official_channel_only: false,
+      risk_note: 'Review again after updating the landing page copy.'
+    })
+
+    await expect(page).toHaveURL(/\/campaigns\/camp_123$/)
+    const safetyPanel = page.getByTestId('campaign-safety-panel')
+    await expect(safetyPanel).toContainText(updatedSafety.source_label)
+    await expect(safetyPanel).toContainText('Web URL')
+    await expect(safetyPanel).toContainText(updatedSafety.review_status)
+  })
+
+  test('renders the campaign safety edit error state when the safety record cannot be loaded', async ({
+    page
+  }) => {
+    await mockApiError(
+      page,
+      '/campaigns/camp_123/safety',
+      {
+        code: 'resource_not_found',
+        message: 'Campaign safety not found.',
+        details: {
+          resource: 'campaign_safety',
+          campaign_id: 'camp_123'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+
+    await page.goto('/campaigns/camp_123/safety/edit')
+
+    const errorState = page.getByTestId('campaign-safety-edit-error')
+    await expect(errorState).toBeVisible()
+    await expect(errorState).toContainText('Campaign safety not found.')
   })
 
   test('renders the campaign reputation error state when the summary request fails', async ({

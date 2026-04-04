@@ -1,7 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import { fetchFeedbackDetail } from '~/features/feedback/api'
+import { fetchFeedbackDetail, updateFeedback } from '~/features/feedback/api'
+import {
+  FEEDBACK_REVIEW_STATUS_OPTIONS,
+  formatFeedbackReviewStatusLabel,
+  type FeedbackReviewStatus
+} from '~/features/feedback/types'
+import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const taskId = computed(() => String(route.params.taskId))
@@ -21,6 +27,71 @@ const {
     default: () => null
   }
 )
+
+const reviewStatus = ref<FeedbackReviewStatus>('submitted')
+const developerNote = ref('')
+const reviewPending = ref(false)
+const reviewError = ref<string | null>(null)
+const reviewSuccess = ref<string | null>(null)
+
+watch(
+  feedback,
+  (nextFeedback) => {
+    if (!nextFeedback) {
+      return
+    }
+
+    reviewStatus.value = nextFeedback.review_status
+    developerNote.value = nextFeedback.developer_note ?? ''
+    reviewError.value = null
+  },
+  {
+    immediate: true
+  }
+)
+
+async function handleReviewSubmit(): Promise<void> {
+  if (!feedback.value) {
+    reviewError.value = 'Feedback detail is unavailable.'
+    reviewSuccess.value = null
+    return
+  }
+
+  const normalizedDeveloperNote = developerNote.value.trim() || null
+  const currentDeveloperNote = feedback.value.developer_note ?? null
+
+  if (
+    reviewStatus.value === feedback.value.review_status &&
+    normalizedDeveloperNote === currentDeveloperNote
+  ) {
+    reviewError.value = 'No review changes to save yet.'
+    reviewSuccess.value = null
+    return
+  }
+
+  reviewPending.value = true
+  reviewError.value = null
+  reviewSuccess.value = null
+
+  try {
+    const updatedFeedback = await updateFeedback(feedbackId.value, {
+      review_status: reviewStatus.value,
+      developer_note: normalizedDeveloperNote
+    })
+
+    feedback.value = updatedFeedback
+    reviewStatus.value = updatedFeedback.review_status
+    developerNote.value = updatedFeedback.developer_note ?? ''
+    reviewSuccess.value = 'Review changes saved.'
+  } catch (submitFailure) {
+    reviewError.value =
+      submitFailure instanceof ApiClientError
+        ? submitFailure.message
+        : 'Unable to update feedback review right now.'
+  } finally {
+    reviewPending.value = false
+  }
+}
 </script>
 
 <template>
@@ -88,6 +159,9 @@ const {
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">Severity {{ feedback.severity }}</span>
           <span class="resource-shell__meta-chip">Category {{ feedback.category }}</span>
+          <span class="resource-shell__meta-chip">
+            Review {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+          </span>
           <span class="resource-shell__meta-chip">Task {{ feedback.task_id }}</span>
         </div>
 
@@ -149,12 +223,84 @@ const {
             </span>
           </div>
           <div class="resource-key-value__row">
+            <span class="resource-key-value__label">Review Status</span>
+            <span class="resource-key-value__value">
+              {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">Developer Note</span>
+            <span class="resource-key-value__value">
+              {{ feedback.developer_note || 'No developer note yet.' }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
             <span class="resource-key-value__label">Submitted At</span>
             <span class="resource-key-value__value">{{ feedback.submitted_at }}</span>
           </div>
           <div class="resource-key-value__row">
             <span class="resource-key-value__label">Updated At</span>
             <span class="resource-key-value__value">{{ feedback.updated_at }}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="resource-section" data-testid="feedback-review-panel">
+        <h2 class="resource-section__title">Review Workflow</h2>
+        <div class="resource-section__body">
+          <p class="resource-card__description">
+            開發者可在這裡標記回饋狀態，並留下最小補充要求或處理註記。
+          </p>
+
+          <div
+            v-if="reviewError || reviewSuccess"
+            class="resource-form__error"
+            :data-testid="reviewError ? 'feedback-review-error' : 'feedback-review-success'"
+          >
+            {{ reviewError || reviewSuccess }}
+          </div>
+
+          <div class="resource-form__grid">
+            <label class="resource-field">
+              <span class="resource-field__label">Review Status</span>
+              <select
+                v-model="reviewStatus"
+                class="resource-select"
+                data-testid="feedback-review-status-field"
+                :disabled="reviewPending"
+              >
+                <option
+                  v-for="statusOption in FEEDBACK_REVIEW_STATUS_OPTIONS"
+                  :key="statusOption"
+                  :value="statusOption"
+                >
+                  {{ formatFeedbackReviewStatusLabel(statusOption) }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <label class="resource-field">
+            <span class="resource-field__label">Developer Note</span>
+            <textarea
+              v-model="developerNote"
+              class="resource-textarea"
+              data-testid="feedback-developer-note-field"
+              rows="4"
+              :disabled="reviewPending"
+            />
+          </label>
+
+          <div class="resource-form__actions">
+            <button
+              class="resource-action"
+              data-testid="feedback-review-submit"
+              type="button"
+              :disabled="reviewPending"
+              @click="handleReviewSubmit"
+            >
+              {{ reviewPending ? 'Saving...' : 'Save review changes' }}
+            </button>
           </div>
         </div>
       </section>

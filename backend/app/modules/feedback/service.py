@@ -15,6 +15,7 @@ from app.modules.feedback.schemas import (
     FeedbackDetail,
     FeedbackListItem,
     FeedbackListResponse,
+    FeedbackReviewStatus,
     FeedbackUpdate,
 )
 
@@ -102,6 +103,8 @@ def create_feedback(task_id: str, payload: FeedbackCreate) -> FeedbackDetail:
         expected_result=payload.expected_result,
         actual_result=payload.actual_result,
         note=payload.note,
+        review_status=FeedbackReviewStatus.SUBMITTED.value,
+        developer_note=None,
         submitted_at=timestamp,
         updated_at=timestamp,
     )
@@ -141,6 +144,16 @@ def update_feedback(feedback_id: str, payload: FeedbackUpdate) -> FeedbackDetail
             else current.actual_result
         ),
         note=payload.note if "note" in payload.model_fields_set else current.note,
+        review_status=(
+            payload.review_status.value
+            if "review_status" in payload.model_fields_set and payload.review_status is not None
+            else current.review_status
+        ),
+        developer_note=(
+            payload.developer_note
+            if "developer_note" in payload.model_fields_set
+            else current.developer_note
+        ),
         updated_at=_utc_now_iso(),
     )
     repository.update_feedback(updated)

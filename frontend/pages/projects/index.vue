@@ -28,6 +28,15 @@ const projects = computed(() => projectResponse.value.items)
         <p class="resource-shell__description">
           這個頁面對齊 backend 的 Project list / detail contract，先提供最小可承接資料流的頁面骨架。
         </p>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="project-create-link"
+            to="/projects/new"
+          >
+            Create project
+          </NuxtLink>
+        </div>
       </header>
 
       <section
@@ -66,6 +75,15 @@ const projects = computed(() => projectResponse.value.items)
         <p class="resource-state__description">
           目前 API 沒有回傳任何 Project。後續可在 backend 建立資料後，直接用這個頁面承接。
         </p>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="project-empty-create-link"
+            to="/projects/new"
+          >
+            Create project
+          </NuxtLink>
+        </div>
       </section>
 
       <section

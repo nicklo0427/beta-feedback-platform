@@ -232,6 +232,8 @@ test.describe('eligibility shell flows', () => {
     })
 
     await page.goto('/campaigns/camp_123/eligibility-rules/new')
+    await expect(page.getByTestId('eligibility-rule-form')).toBeVisible()
+    await page.waitForLoadState('networkidle')
     await page.getByTestId('eligibility-rule-submit').click()
 
     await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(

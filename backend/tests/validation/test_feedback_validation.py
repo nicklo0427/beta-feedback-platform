@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app.modules.feedback.schemas import (
     FeedbackCategory,
     FeedbackCreate,
+    FeedbackReviewStatus,
     FeedbackSeverity,
     FeedbackUpdate,
 )
@@ -65,8 +66,12 @@ def test_feedback_update_accepts_valid_enums_and_null_optional_fields() -> None:
         severity=FeedbackSeverity.CRITICAL,
         category=FeedbackCategory.COMPATIBILITY,
         note=None,
+        review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+        developer_note="  Please include exact repro timing.  ",
     )
 
     assert payload.severity == FeedbackSeverity.CRITICAL
     assert payload.category == FeedbackCategory.COMPATIBILITY
     assert payload.note is None
+    assert payload.review_status == FeedbackReviewStatus.NEEDS_MORE_INFO
+    assert payload.developer_note == "Please include exact repro timing."

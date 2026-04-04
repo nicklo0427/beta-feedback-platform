@@ -57,6 +57,8 @@ def test_feedback_crud_flow_derives_relations_and_updates_task_status(client: Te
     assert created_feedback["campaign_id"] == campaign_id
     assert created_feedback["device_profile_id"] == device_profile_id
     assert created_feedback["summary"] == "App crashes on launch"
+    assert created_feedback["review_status"] == "submitted"
+    assert created_feedback["developer_note"] is None
     assert created_feedback["submitted_at"]
     assert created_feedback["updated_at"]
 
@@ -85,6 +87,8 @@ def test_feedback_crud_flow_derives_relations_and_updates_task_status(client: Te
         json={
             "rating": 5,
             "note": "Updated after reproducing twice.",
+            "review_status": "needs_more_info",
+            "developer_note": "Please add exact repro timing from a cold launch.",
         },
     )
     assert patch_response.status_code == 200
@@ -93,6 +97,11 @@ def test_feedback_crud_flow_derives_relations_and_updates_task_status(client: Te
     assert patched_feedback["task_id"] == task_id
     assert patched_feedback["rating"] == 5
     assert patched_feedback["note"] == "Updated after reproducing twice."
+    assert patched_feedback["review_status"] == "needs_more_info"
+    assert (
+        patched_feedback["developer_note"]
+        == "Please add exact repro timing from a cold launch."
+    )
 
     task_detail_response = client.get(f"/api/v1/tasks/{task_id}")
     assert task_detail_response.status_code == 200
@@ -170,3 +179,40 @@ def test_feedback_patch_rejects_immutable_relation_updates(client: TestClient) -
             ]
         },
     }
+
+
+def test_feedback_patch_rejects_invalid_review_status(client: TestClient) -> None:
+    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
+    project_id = project_response.json()["id"]
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project_id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+    )
+    campaign_id = campaign_response.json()["id"]
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={"title": "Validate onboarding flow"},
+    )
+    task_id = task_response.json()["id"]
+    feedback_response = client.post(
+        f"/api/v1/tasks/{task_id}/feedback",
+        json={
+            "summary": "App crashes on launch",
+            "severity": "high",
+            "category": "bug",
+        },
+    )
+    feedback_id = feedback_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/feedback/{feedback_id}",
+        json={"review_status": "triaged"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert response.json()["message"] == "Request validation failed."

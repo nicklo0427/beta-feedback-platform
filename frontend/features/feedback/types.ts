@@ -7,6 +7,8 @@ export type FeedbackCategory =
   | 'compatibility'
   | 'other'
 
+export type FeedbackReviewStatus = 'submitted' | 'needs_more_info' | 'reviewed'
+
 export const FEEDBACK_SEVERITY_OPTIONS: FeedbackSeverity[] = [
   'low',
   'medium',
@@ -23,6 +25,12 @@ export const FEEDBACK_CATEGORY_OPTIONS: FeedbackCategory[] = [
 ]
 
 export const FEEDBACK_RATING_OPTIONS = ['1', '2', '3', '4', '5'] as const
+
+export const FEEDBACK_REVIEW_STATUS_OPTIONS: FeedbackReviewStatus[] = [
+  'submitted',
+  'needs_more_info',
+  'reviewed'
+]
 
 export type FeedbackRatingValue = '' | (typeof FEEDBACK_RATING_OPTIONS)[number]
 
@@ -48,6 +56,8 @@ export interface FeedbackDetail {
   expected_result: string | null
   actual_result: string | null
   note: string | null
+  review_status: FeedbackReviewStatus
+  developer_note: string | null
   submitted_at: string
   updated_at: string
 }
@@ -83,4 +93,16 @@ export interface FeedbackUpdatePayload {
   expected_result?: string | null
   actual_result?: string | null
   note?: string | null
+  review_status?: FeedbackReviewStatus
+  developer_note?: string | null
+}
+
+const FEEDBACK_REVIEW_STATUS_LABELS: Record<FeedbackReviewStatus, string> = {
+  submitted: 'Submitted',
+  needs_more_info: 'Needs More Info',
+  reviewed: 'Reviewed'
+}
+
+export function formatFeedbackReviewStatusLabel(value: FeedbackReviewStatus): string {
+  return FEEDBACK_REVIEW_STATUS_LABELS[value]
 }

@@ -1,6 +1,10 @@
 import { ApiClientError, useApiClient } from '~/services/api/client'
 
-import type { CampaignSafetyDetail } from './types'
+import type {
+  CampaignSafetyCreatePayload,
+  CampaignSafetyDetail,
+  CampaignSafetyUpdatePayload
+} from './types'
 
 export async function fetchCampaignSafety(
   campaignId: string
@@ -16,4 +20,33 @@ export async function fetchCampaignSafety(
 
     throw error
   }
+}
+
+export async function fetchCampaignSafetyDetail(
+  campaignId: string
+): Promise<CampaignSafetyDetail> {
+  const { request } = useApiClient()
+  return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`)
+}
+
+export async function createCampaignSafety(
+  campaignId: string,
+  payload: CampaignSafetyCreatePayload
+): Promise<CampaignSafetyDetail> {
+  const { request } = useApiClient()
+  return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export async function updateCampaignSafety(
+  campaignId: string,
+  payload: CampaignSafetyUpdatePayload
+): Promise<CampaignSafetyDetail> {
+  const { request } = useApiClient()
+  return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
+    method: 'PATCH',
+    body: payload
+  })
 }

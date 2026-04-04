@@ -6,6 +6,11 @@ import { fetchCampaignEligibilityRules } from '~/features/eligibility/api'
 import { formatPlatformLabel } from '~/features/platform-display'
 import { fetchCampaignReputation } from '~/features/reputation/api'
 import { fetchCampaignSafety } from '~/features/safety/api'
+import {
+  formatDistributionChannelLabel,
+  formatReviewStatusLabel,
+  formatRiskLevelLabel
+} from '~/features/safety/types'
 import { fetchTasks } from '~/features/tasks/api'
 
 const route = useRoute()
@@ -160,6 +165,15 @@ const hasReputationSignals = computed(() => {
         data-testid="campaign-detail-panel"
       >
         <h2 class="resource-section__title">{{ campaign.name }}</h2>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="campaign-edit-link"
+            :to="`/campaigns/${campaign.id}/edit`"
+          >
+            Edit campaign
+          </NuxtLink>
+        </div>
 
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">Status {{ campaign.status }}</span>
@@ -344,6 +358,15 @@ const hasReputationSignals = computed(() => {
           <p class="resource-state__description">
             目前這個 Campaign 尚未設定來源標示與風險資訊。後續建立 safety profile 後，這個區塊會直接承接顯示。
           </p>
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="campaign-safety-create-link"
+              :to="`/campaigns/${campaignId}/safety/new`"
+            >
+              Create safety profile
+            </NuxtLink>
+          </div>
         </div>
 
         <div
@@ -351,12 +374,21 @@ const hasReputationSignals = computed(() => {
           class="resource-section"
           data-testid="campaign-safety-panel"
         >
+          <div class="resource-state__actions">
+            <NuxtLink
+              class="resource-action"
+              data-testid="campaign-safety-edit-link"
+              :to="`/campaigns/${campaignId}/safety/edit`"
+            >
+              Edit safety profile
+            </NuxtLink>
+          </div>
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              Risk {{ safety.risk_level }}
+              Risk {{ formatRiskLevelLabel(safety.risk_level) }}
             </span>
             <span class="resource-shell__meta-chip">
-              Review {{ safety.review_status }}
+              Review {{ formatReviewStatusLabel(safety.review_status) }}
             </span>
             <span class="resource-shell__meta-chip">
               Official channel only {{ safety.official_channel_only ? 'yes' : 'no' }}
@@ -370,7 +402,9 @@ const hasReputationSignals = computed(() => {
             </div>
             <div class="resource-key-value__row">
               <span class="resource-key-value__label">Distribution Channel</span>
-              <span class="resource-key-value__value">{{ safety.distribution_channel }}</span>
+              <span class="resource-key-value__value">
+                {{ formatDistributionChannelLabel(safety.distribution_channel) }}
+              </span>
             </div>
             <div class="resource-key-value__row">
               <span class="resource-key-value__label">Source URL</span>

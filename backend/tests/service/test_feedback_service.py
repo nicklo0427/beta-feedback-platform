@@ -11,6 +11,7 @@ from app.modules.device_profiles.service import create_device_profile
 from app.modules.feedback.schemas import (
     FeedbackCategory,
     FeedbackCreate,
+    FeedbackReviewStatus,
     FeedbackSeverity,
     FeedbackUpdate,
 )
@@ -71,6 +72,8 @@ def test_feedback_service_create_and_list_derives_task_relations() -> None:
     assert created_feedback.task_id == task.id
     assert created_feedback.campaign_id == campaign.id
     assert created_feedback.device_profile_id == device_profile.id
+    assert created_feedback.review_status == FeedbackReviewStatus.SUBMITTED
+    assert created_feedback.developer_note is None
     assert created_feedback.submitted_at is not None
     assert submitted_task.status == TaskStatus.SUBMITTED
     assert submitted_task.submitted_at is not None
@@ -139,6 +142,8 @@ def test_feedback_service_update_changes_only_allowed_fields() -> None:
             rating=5,
             category=FeedbackCategory.USABILITY,
             note="Updated after second verification.",
+            review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+            developer_note="Please include the exact device state before launch.",
         ),
     )
 
@@ -148,3 +153,8 @@ def test_feedback_service_update_changes_only_allowed_fields() -> None:
     assert updated_feedback.rating == 5
     assert updated_feedback.category == FeedbackCategory.USABILITY
     assert updated_feedback.note == "Updated after second verification."
+    assert updated_feedback.review_status == FeedbackReviewStatus.NEEDS_MORE_INFO
+    assert (
+        updated_feedback.developer_note
+        == "Please include the exact device state before launch."
+    )

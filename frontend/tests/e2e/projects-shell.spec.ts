@@ -71,6 +71,211 @@ test.describe('projects shell flows', () => {
     await expect(relatedCampaignCard).toContainText(relatedCampaign.status)
   })
 
+  test('supports creating a project from the frontend form', async ({ page }) => {
+    const createdProject = {
+      id: 'proj_456',
+      name: 'FocusFlow',
+      description: 'A focused productivity beta workspace.',
+      created_at: '2026-04-03T12:00:00Z',
+      updated_at: '2026-04-03T12:00:00Z'
+    }
+
+    let createRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/projects$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [],
+            total: 0
+          })
+        })
+        return
+      }
+
+      if (method === 'POST') {
+        createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(createdProject)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await mockApiJson(page, '/projects/proj_456', createdProject)
+    await mockApiJson(page, '/campaigns?project_id=proj_456', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/projects')
+    await page.getByTestId('project-create-link').click()
+
+    await expect(page).toHaveURL(/\/projects\/new$/)
+    await expect(page.getByTestId('project-form')).toBeVisible()
+
+    await page.getByTestId('project-name-input').fill('FocusFlow')
+    await page
+      .getByTestId('project-description-input')
+      .fill('A focused productivity beta workspace.')
+    await page.getByTestId('project-submit').click()
+
+    expect(createRequestBody).toEqual({
+      name: 'FocusFlow',
+      description: 'A focused productivity beta workspace.'
+    })
+
+    await expect(page).toHaveURL(/\/projects\/proj_456$/)
+    await expect(page.getByTestId('project-detail-panel')).toContainText(
+      createdProject.name
+    )
+  })
+
+  test('shows project create form validation and backend errors', async ({ page }) => {
+    await page.route(/\/api\/v1\/projects$/, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      await route.fulfill({
+        status: 422,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'validation_error',
+          message: 'Request validation failed.',
+          details: {
+            fields: [
+              {
+                field: 'name',
+                message: 'This field is required.'
+              }
+            ]
+          }
+        })
+      })
+    })
+
+    await page.goto('/projects/new')
+    await expect(page.getByTestId('project-form')).toBeVisible()
+    await page.getByTestId('project-submit').click()
+
+    await expect(page.getByTestId('project-form-error')).toContainText(
+      'Name is required.'
+    )
+
+    await page.getByTestId('project-name-input').fill('FocusFlow')
+    await page.getByTestId('project-submit').click()
+
+    await expect(page.getByTestId('project-form-error')).toContainText(
+      'Request validation failed.'
+    )
+  })
+
+  test('supports editing a project from the frontend form', async ({ page }) => {
+    const originalProject = {
+      ...projectDetail
+    }
+    const updatedProject = {
+      ...projectDetail,
+      name: 'HabitQuest Updated',
+      description: 'Updated project summary for the beta program.'
+    }
+
+    let detailResponse = originalProject
+    let updateRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/projects\/proj_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(detailResponse)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        detailResponse = updatedProject
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(updatedProject)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await mockApiJson(page, '/campaigns?project_id=proj_123', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/projects/proj_123')
+    await page.getByTestId('project-edit-link').click()
+
+    await expect(page).toHaveURL(/\/projects\/proj_123\/edit$/)
+    await expect(page.getByTestId('project-edit-panel')).toBeVisible()
+
+    await page.getByTestId('project-name-input').fill('HabitQuest Updated')
+    await page
+      .getByTestId('project-description-input')
+      .fill('Updated project summary for the beta program.')
+    await page.getByTestId('project-submit').click()
+
+    expect(updateRequestBody).toEqual({
+      name: 'HabitQuest Updated',
+      description: 'Updated project summary for the beta program.'
+    })
+
+    await expect(page).toHaveURL(/\/projects\/proj_123$/)
+    await expect(page.getByTestId('project-detail-panel')).toContainText(
+      updatedProject.name
+    )
+    await expect(page.getByTestId('project-detail-panel')).toContainText(
+      updatedProject.description
+    )
+  })
+
+  test('renders the project edit error state when the record cannot be loaded', async ({
+    page
+  }) => {
+    await mockApiError(
+      page,
+      '/projects/proj_missing',
+      {
+        code: 'resource_not_found',
+        message: 'Project not found.',
+        details: {
+          resource: 'project',
+          id: 'proj_missing'
+        }
+      },
+      {
+        status: 404
+      }
+    )
+
+    await page.goto('/projects/proj_missing/edit')
+
+    const errorState = page.getByTestId('project-edit-error')
+    await expect(errorState).toBeVisible()
+    await expect(errorState).toContainText('Project not found.')
+  })
+
   test('renders the projects empty state when the API returns no items', async ({
     page
   }) => {
