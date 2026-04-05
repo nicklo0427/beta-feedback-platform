@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import {
   fetchEligibilityRuleDetail,
   updateEligibilityRule
@@ -17,12 +23,14 @@ import {
 } from '~/features/eligibility/form'
 import { formatPlatformLabel } from '~/features/platform-display'
 import type { EligibilityRuleFormValues } from '~/features/eligibility/types'
-import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const campaignId = computed(() => String(route.params.campaignId))
 const eligibilityRuleId = computed(() => String(route.params.eligibilityRuleId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = ref(createEmptyEligibilityRuleFormValues())
@@ -59,14 +67,19 @@ watch(
 
 async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
   if (!eligibilityRule.value) {
-    submitError.value = 'Eligibility rule detail is unavailable.'
+    submitError.value = '目前無法取得資格條件規則內容。'
+    return
+  }
+
+  if (!currentActorId.value) {
+    submitError.value = '更新資格條件規則前，請先選擇目前操作帳號。'
     return
   }
 
   const payload = buildEligibilityRuleUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -76,16 +89,17 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
   try {
     const updatedEligibilityRule = await updateEligibilityRule(
       eligibilityRuleId.value,
-      payload
+      payload,
+      currentActorId.value
     )
     await router.push(
       `/campaigns/${campaignId.value}/eligibility-rules/${updatedEligibilityRule.id}`
     )
   } catch (submitFailure) {
-    submitError.value =
-      submitFailure instanceof ApiClientError
-        ? submitFailure.message
-        : 'Unable to update the eligibility rule right now.'
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法更新資格條件規則。'
+    )
   } finally {
     submitting.value = false
   }
@@ -100,22 +114,27 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
           class="resource-shell__breadcrumb"
           :to="`/campaigns/${campaignId}/eligibility-rules/${eligibilityRuleId}`"
         >
-          Eligibility Rule Detail
+          資格條件規則詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Eligibility Rule</h1>
+        <h1 class="resource-shell__title">編輯資格條件規則</h1>
         <p class="resource-shell__description">
-          更新 Campaign 的最小資格條件，維持裝置平台、版本與安裝渠道限制的一致性。
+          更新活動的最小資格條件，維持裝置平台、版本與安裝渠道限制的一致性。
         </p>
       </header>
+
+      <CurrentActorSelector
+        title="資格條件操作帳號"
+        description="選擇目前正在操作的開發者帳號。更新資格條件規則時，系統會驗證活動擁有權。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="eligibility-rule-edit-loading"
       >
-        <h2 class="resource-state__title">Loading eligibility rule edit form</h2>
+        <h2 class="resource-state__title">載入資格條件規則編輯表單中</h2>
         <p class="resource-state__description">
-          正在從 API 載入既有 eligibility rule。
+          正在從 API 載入既有資格條件規則。
         </p>
       </section>
 
@@ -124,16 +143,16 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
         class="resource-state"
         data-testid="eligibility-rule-edit-error"
       >
-        <h2 class="resource-state__title">Eligibility rule edit unavailable</h2>
+        <h2 class="resource-state__title">無法載入資格條件規則編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested eligibility rule could not be loaded.' }}
+          {{ error?.message || '找不到指定的資格條件規則。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" :to="`/campaigns/${campaignId}`">
-            Back to campaign
+            返回活動
           </NuxtLink>
         </div>
       </section>
@@ -144,13 +163,13 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
         data-testid="eligibility-rule-edit-panel"
       >
         <h2 class="resource-section__title">
-          Edit {{ formatPlatformLabel(eligibilityRule.platform) }} Rule
+          編輯 {{ formatPlatformLabel(eligibilityRule.platform) }} 規則
         </h2>
         <EligibilityRuleForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update eligibility rule"
+          submit-label="更新資格條件規則"
           :cancel-to="`/campaigns/${campaignId}/eligibility-rules/${eligibilityRuleId}`"
           @submit="handleSubmit"
         />

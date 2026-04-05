@@ -61,10 +61,15 @@ def get_campaign_safety(campaign_id: str) -> CampaignSafetyDetail:
 def create_campaign_safety(
     campaign_id: str,
     payload: CampaignSafetyCreate,
+    current_actor_id: str | None = None,
 ) -> CampaignSafetyDetail:
-    from app.modules.campaigns.service import ensure_campaign_exists
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
 
-    ensure_campaign_exists(campaign_id)
+    ensure_campaign_owned_by_actor(
+        campaign_id,
+        current_actor_id,
+        resource="campaign_safety",
+    )
 
     if repository.has_safety_for_campaign(campaign_id):
         raise AppError(
@@ -98,10 +103,15 @@ def create_campaign_safety(
 def update_campaign_safety(
     campaign_id: str,
     payload: CampaignSafetyUpdate,
+    current_actor_id: str | None = None,
 ) -> CampaignSafetyDetail:
-    from app.modules.campaigns.service import ensure_campaign_exists
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
 
-    ensure_campaign_exists(campaign_id)
+    ensure_campaign_owned_by_actor(
+        campaign_id,
+        current_actor_id,
+        resource="campaign_safety",
+    )
 
     current = ensure_campaign_safety_exists(campaign_id)
     updated = replace(

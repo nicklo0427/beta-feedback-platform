@@ -57,11 +57,11 @@ const hasReputationSignals = computed(() => {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" to="/device-profiles">
-          Device Profiles
+          裝置設定檔
         </NuxtLink>
-        <h1 class="resource-shell__title">Device Profile Detail Shell</h1>
+        <h1 class="resource-shell__title">裝置設定檔詳情</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一 Tester Device Profile 的核心欄位，提供後續 eligibility、task 與 feedback 流程可依附的裝置上下文。
+          這個頁面先承接單一測試裝置設定檔的核心欄位，提供後續 eligibility、task 與 feedback 流程可依附的裝置上下文。
         </p>
         <div
           v-if="deviceProfile"
@@ -72,7 +72,7 @@ const hasReputationSignals = computed(() => {
             data-testid="device-profile-edit-link"
             :to="`/device-profiles/${deviceProfile.id}/edit`"
           >
-            Edit device profile
+            編輯裝置設定檔
           </NuxtLink>
         </div>
       </header>
@@ -82,9 +82,9 @@ const hasReputationSignals = computed(() => {
         class="resource-state"
         data-testid="device-profile-detail-loading"
       >
-        <h2 class="resource-state__title">Loading device profile detail</h2>
+        <h2 class="resource-state__title">載入裝置設定檔詳情中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Tester Device Profile detail。
+          正在從 API 載入測試裝置設定檔詳情。
         </p>
       </section>
 
@@ -93,16 +93,16 @@ const hasReputationSignals = computed(() => {
         class="resource-state"
         data-testid="device-profile-detail-error"
       >
-        <h2 class="resource-state__title">Device profile detail unavailable</h2>
+        <h2 class="resource-state__title">無法載入裝置設定檔詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested device profile could not be loaded.' }}
+          {{ error?.message || '找不到指定的裝置設定檔。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/device-profiles">
-            Back to device profiles
+            返回裝置設定檔列表
           </NuxtLink>
         </div>
       </section>
@@ -116,7 +116,7 @@ const hasReputationSignals = computed(() => {
 
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
-            Platform {{ formatPlatformLabel(deviceProfile.platform) }}
+            平台 {{ formatPlatformLabel(deviceProfile.platform) }}
           </span>
           <span class="resource-shell__meta-chip">{{ deviceProfile.device_model }}</span>
           <span class="resource-shell__meta-chip">{{ deviceProfile.os_name }}</span>
@@ -124,53 +124,59 @@ const hasReputationSignals = computed(() => {
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Device Profile ID</span>
+            <span class="resource-key-value__label">裝置設定檔 ID</span>
             <span class="resource-key-value__value">{{ deviceProfile.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Device Model</span>
+            <span class="resource-key-value__label">裝置型號</span>
             <span class="resource-key-value__value">{{ deviceProfile.device_model }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">OS Name</span>
+            <span class="resource-key-value__label">擁有者帳號</span>
+            <span class="resource-key-value__value">
+              {{ deviceProfile.owner_account_id || '目前尚未建立擁有者基線。' }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">作業系統名稱</span>
             <span class="resource-key-value__value">{{ deviceProfile.os_name }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">OS Version</span>
+            <span class="resource-key-value__label">作業系統版本</span>
             <span class="resource-key-value__value">
-              {{ deviceProfile.os_version || 'Not provided yet.' }}
+              {{ deviceProfile.os_version || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Browser Name</span>
+            <span class="resource-key-value__label">瀏覽器名稱</span>
             <span class="resource-key-value__value">
-              {{ deviceProfile.browser_name || 'Not provided yet.' }}
+              {{ deviceProfile.browser_name || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Browser Version</span>
+            <span class="resource-key-value__label">瀏覽器版本</span>
             <span class="resource-key-value__value">
-              {{ deviceProfile.browser_version || 'Not provided yet.' }}
+              {{ deviceProfile.browser_version || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Locale</span>
+            <span class="resource-key-value__label">語系</span>
             <span class="resource-key-value__value">
-              {{ deviceProfile.locale || 'Not provided yet.' }}
+              {{ deviceProfile.locale || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Updated At</span>
+            <span class="resource-key-value__label">更新時間</span>
             <span class="resource-key-value__value">{{ deviceProfile.updated_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Created At</span>
+            <span class="resource-key-value__label">建立時間</span>
             <span class="resource-key-value__value">{{ deviceProfile.created_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Notes</span>
+            <span class="resource-key-value__label">備註</span>
             <span class="resource-key-value__value">
-              {{ deviceProfile.notes || 'No notes provided yet.' }}
+              {{ deviceProfile.notes || '目前沒有備註。' }}
             </span>
           </div>
         </div>
@@ -181,14 +187,14 @@ const hasReputationSignals = computed(() => {
         class="resource-section"
         data-testid="device-profile-reputation-section"
       >
-        <h2 class="resource-section__title">Reputation Summary</h2>
+        <h2 class="resource-section__title">信譽摘要</h2>
 
         <div
           v-if="reputationPending"
           class="resource-state"
           data-testid="device-profile-reputation-loading"
         >
-          <h3 class="resource-state__title">Loading reputation summary</h3>
+          <h3 class="resource-state__title">載入信譽摘要中</h3>
           <p class="resource-state__description">
             正在根據既有 tasks 與 feedback 推導這個 device profile 的最小 reputation summary。
           </p>
@@ -199,13 +205,13 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="device-profile-reputation-error"
         >
-          <h3 class="resource-state__title">Reputation unavailable</h3>
+          <h3 class="resource-state__title">無法載入信譽摘要</h3>
           <p class="resource-state__description">
             {{ reputationError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshReputation()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -215,9 +221,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="device-profile-reputation-zero"
         >
-          <h3 class="resource-state__title">No reputation signals yet</h3>
+          <h3 class="resource-state__title">目前還沒有信譽訊號</h3>
           <p class="resource-state__description">
-            這個 device profile 還沒有累積任何 assignment、submission 或 feedback 紀錄，目前 summary 維持在 zero state。
+            這個裝置設定檔還沒有累積任何指派、提交或回饋紀錄，目前摘要維持在零狀態。
           </p>
         </div>
 
@@ -228,40 +234,40 @@ const hasReputationSignals = computed(() => {
         >
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              Submission rate {{ reputation.submission_rate.toFixed(2) }}
+              提交率 {{ reputation.submission_rate.toFixed(2) }}
             </span>
             <span class="resource-shell__meta-chip">
-              Feedback {{ reputation.feedback_submitted_count }}
+              回饋數 {{ reputation.feedback_submitted_count }}
             </span>
           </div>
 
           <div class="resource-key-value">
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Tasks Assigned</span>
+              <span class="resource-key-value__label">已指派任務數</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_assigned_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Tasks Submitted</span>
+              <span class="resource-key-value__label">已提交任務數</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_submitted_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Feedback Submitted</span>
+              <span class="resource-key-value__label">已提交回饋數</span>
               <span class="resource-key-value__value">
                 {{ reputation.feedback_submitted_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Last Feedback At</span>
+              <span class="resource-key-value__label">最近回饋時間</span>
               <span class="resource-key-value__value">
-                {{ reputation.last_feedback_at || 'No feedback submitted yet.' }}
+                {{ reputation.last_feedback_at || '尚未提交任何回饋。' }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Updated At</span>
+              <span class="resource-key-value__label">更新時間</span>
               <span class="resource-key-value__value">{{ reputation.updated_at }}</span>
             </div>
           </div>

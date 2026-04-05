@@ -2,7 +2,12 @@
 import { computed } from 'vue'
 
 import { fetchTaskFeedback } from '~/features/feedback/api'
+import {
+  formatFeedbackCategoryLabel,
+  formatFeedbackSeverityLabel
+} from '~/features/feedback/types'
 import { fetchTaskDetail } from '~/features/tasks/api'
+import { formatTaskStatusLabel } from '~/features/tasks/types'
 
 const route = useRoute()
 const taskId = computed(() => String(route.params.taskId))
@@ -48,11 +53,11 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" to="/tasks">
-          Tasks
+          任務
         </NuxtLink>
-        <h1 class="resource-shell__title">Task Detail Shell</h1>
+        <h1 class="resource-shell__title">任務詳情</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一 Task 的最小欄位、assignment target 與 status flow 上下文，為後續 feedback 流程預留清楚入口。
+          這個頁面先承接單一任務的最小欄位、指派目標與狀態流上下文，為後續回饋流程預留清楚入口。
         </p>
         <div
           v-if="task"
@@ -63,7 +68,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             data-testid="task-edit-link"
             :to="`/tasks/${task.id}/edit`"
           >
-            Edit task
+            編輯任務
           </NuxtLink>
         </div>
       </header>
@@ -73,9 +78,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="task-detail-loading"
       >
-        <h2 class="resource-state__title">Loading task detail</h2>
+        <h2 class="resource-state__title">載入任務詳情中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Task detail。
+          正在從 API 載入任務詳情。
         </p>
       </section>
 
@@ -84,16 +89,16 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="task-detail-error"
       >
-        <h2 class="resource-state__title">Task detail unavailable</h2>
+        <h2 class="resource-state__title">無法載入任務詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested task could not be loaded.' }}
+          {{ error?.message || '找不到指定的任務。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/tasks">
-            Back to tasks
+            返回任務列表
           </NuxtLink>
         </div>
       </section>
@@ -106,24 +111,24 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         <h2 class="resource-section__title">{{ task.title }}</h2>
 
         <div class="resource-shell__meta">
-          <span class="resource-shell__meta-chip">Status {{ task.status }}</span>
-          <span class="resource-shell__meta-chip">Campaign {{ task.campaign_id }}</span>
+          <span class="resource-shell__meta-chip">狀態 {{ formatTaskStatusLabel(task.status) }}</span>
+          <span class="resource-shell__meta-chip">活動 {{ task.campaign_id }}</span>
           <span class="resource-shell__meta-chip">
             {{
               task.device_profile_id
-                ? `Device Profile ${task.device_profile_id}`
-                : 'No device profile assigned'
+                ? `裝置設定檔 ${task.device_profile_id}`
+                : '目前尚未指派裝置設定檔'
             }}
           </span>
         </div>
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Task ID</span>
+            <span class="resource-key-value__label">任務 ID</span>
             <span class="resource-key-value__value">{{ task.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Campaign</span>
+            <span class="resource-key-value__label">活動</span>
             <NuxtLink
               class="resource-key-value__value"
               :to="`/campaigns/${task.campaign_id}`"
@@ -132,7 +137,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             </NuxtLink>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Device Profile</span>
+            <span class="resource-key-value__label">裝置設定檔</span>
             <NuxtLink
               v-if="task.device_profile_id"
               class="resource-key-value__value"
@@ -141,27 +146,27 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
               {{ task.device_profile_id }}
             </NuxtLink>
             <span v-else class="resource-key-value__value">
-              Not assigned yet.
+              尚未指派。
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Instruction Summary</span>
+            <span class="resource-key-value__label">任務說明摘要</span>
             <span class="resource-key-value__value">
-              {{ task.instruction_summary || 'No instruction summary provided yet.' }}
+              {{ task.instruction_summary || '目前尚未提供任務說明摘要。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Submitted At</span>
+            <span class="resource-key-value__label">提交時間</span>
             <span class="resource-key-value__value">
-              {{ task.submitted_at || 'Not submitted yet.' }}
+              {{ task.submitted_at || '尚未提交。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Updated At</span>
+            <span class="resource-key-value__label">更新時間</span>
             <span class="resource-key-value__value">{{ task.updated_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Created At</span>
+            <span class="resource-key-value__label">建立時間</span>
             <span class="resource-key-value__value">{{ task.created_at }}</span>
           </div>
         </div>
@@ -173,13 +178,13 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         data-testid="task-feedback-section"
       >
         <div class="resource-state__actions">
-          <h2 class="resource-section__title">Feedback</h2>
+          <h2 class="resource-section__title">回饋</h2>
           <NuxtLink
             class="resource-action"
             data-testid="task-feedback-create-link"
             :to="`/tasks/${task.id}/feedback/new`"
           >
-            Submit feedback
+            提交回饋
           </NuxtLink>
         </div>
 
@@ -188,9 +193,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="task-feedback-loading"
         >
-          <h3 class="resource-state__title">Loading feedback</h3>
+          <h3 class="resource-state__title">載入回饋中</h3>
           <p class="resource-state__description">
-            正在載入這個 Task 底下的結構化 feedback。
+            正在載入這個任務底下的結構化回饋。
           </p>
         </div>
 
@@ -199,13 +204,13 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="task-feedback-error"
         >
-          <h3 class="resource-state__title">Feedback unavailable</h3>
+          <h3 class="resource-state__title">無法載入回饋</h3>
           <p class="resource-state__description">
             {{ feedbackError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshFeedback()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -215,9 +220,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="task-feedback-empty"
         >
-          <h3 class="resource-state__title">No feedback yet</h3>
+          <h3 class="resource-state__title">目前還沒有回饋</h3>
           <p class="resource-state__description">
-            目前這個 Task 尚未收到任何結構化 feedback，後續可在 backend 建立後由此區塊直接承接。
+            目前這個任務尚未收到任何結構化回饋，後續可在後端建立後由此區塊直接承接。
           </p>
           <div class="resource-state__actions">
             <NuxtLink
@@ -225,7 +230,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
               data-testid="task-feedback-empty-create-link"
               :to="`/tasks/${task.id}/feedback/new`"
             >
-              Submit first feedback
+              提交第一筆回饋
             </NuxtLink>
           </div>
         </div>
@@ -242,13 +247,13 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             :data-testid="`feedback-card-${feedback.id}`"
             :to="`/tasks/${task.id}/feedback/${feedback.id}`"
           >
-            <span class="resource-shell__breadcrumb">Feedback</span>
+            <span class="resource-shell__breadcrumb">回饋</span>
             <h3 class="resource-card__title">{{ feedback.summary }}</h3>
             <p class="resource-card__description">
-              {{ feedback.category }} · {{ feedback.severity }}
+              {{ formatFeedbackCategoryLabel(feedback.category) }} · {{ formatFeedbackSeverityLabel(feedback.severity) }}
             </p>
             <div class="resource-card__meta">
-              <span class="resource-card__chip">Submitted {{ feedback.submitted_at }}</span>
+              <span class="resource-card__chip">提交於 {{ feedback.submitted_at }}</span>
             </div>
           </NuxtLink>
         </div>

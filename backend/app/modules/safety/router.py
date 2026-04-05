@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Response, status
+from typing import Optional
 
+from fastapi import APIRouter, Depends, Response, status
+
+from app.api.deps import get_current_actor_id_dep, require_current_actor_id
 from app.modules.safety.schemas import (
     CampaignSafetyCreate,
     CampaignSafetyDetail,
@@ -30,16 +33,20 @@ def get_campaign_safety_route(campaign_id: str) -> CampaignSafetyDetail:
 def create_campaign_safety_route(
     campaign_id: str,
     payload: CampaignSafetyCreate,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> CampaignSafetyDetail:
-    return create_campaign_safety(campaign_id, payload)
+    actor_id = require_current_actor_id(current_actor_id)
+    return create_campaign_safety(campaign_id, payload, actor_id)
 
 
 @router.patch("/campaigns/{campaign_id}/safety", response_model=CampaignSafetyDetail)
 def update_campaign_safety_route(
     campaign_id: str,
     payload: CampaignSafetyUpdate,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> CampaignSafetyDetail:
-    return update_campaign_safety(campaign_id, payload)
+    actor_id = require_current_actor_id(current_actor_id)
+    return update_campaign_safety(campaign_id, payload, actor_id)
 
 
 @router.delete("/campaigns/{campaign_id}/safety", status_code=status.HTTP_204_NO_CONTENT)

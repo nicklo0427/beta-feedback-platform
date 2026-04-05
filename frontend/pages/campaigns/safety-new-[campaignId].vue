@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchCampaignDetail } from '~/features/campaigns/api'
 import CampaignSafetyForm from '~/features/safety/CampaignSafetyForm.vue'
 import { createCampaignSafety } from '~/features/safety/api'
@@ -13,11 +19,13 @@ import {
   createEmptyCampaignSafetyFormValues
 } from '~/features/safety/form'
 import type { CampaignSafetyFormValues } from '~/features/safety/types'
-import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const campaignId = computed(() => String(route.params.campaignId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = createEmptyCampaignSafetyFormValues()
@@ -38,17 +46,26 @@ const {
 )
 
 async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
+  if (!currentActorId.value) {
+    submitError.value = '建立活動安全資訊前，請先選擇目前操作帳號。'
+    return
+  }
+
   submitError.value = null
   submitting.value = true
 
   try {
-    await createCampaignSafety(campaignId.value, buildCampaignSafetyCreatePayload(values))
+    await createCampaignSafety(
+      campaignId.value,
+      buildCampaignSafetyCreatePayload(values),
+      currentActorId.value
+    )
     await router.push(`/campaigns/${campaignId.value}`)
   } catch (submitFailure) {
-    submitError.value =
-      submitFailure instanceof ApiClientError
-        ? submitFailure.message
-        : 'Unable to save the campaign safety right now.'
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法儲存活動安全資訊。'
+    )
   } finally {
     submitting.value = false
   }
@@ -60,31 +77,36 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/campaigns/${campaignId}`">
-          Campaign Detail
+          活動詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Create Campaign Safety</h1>
+        <h1 class="resource-shell__title">建立活動安全資訊</h1>
         <p class="resource-shell__description">
-          為目前的 Campaign 建立最小來源標示與風險資訊，讓測試分發方式、風險等級與 review status 可以被清楚辨識。
+          為目前的活動建立最小來源標示與風險資訊，讓測試分發方式、風險等級與審核狀態可以被清楚辨識。
         </p>
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
             {{
               campaign
-                ? `Campaign ${campaign.name}`
-                : `Campaign ${campaignId}`
+                ? `活動 ${campaign.name}`
+                : `活動 ${campaignId}`
             }}
           </span>
         </div>
       </header>
+
+      <CurrentActorSelector
+        title="安全設定操作帳號"
+        description="選擇目前正在操作的開發者帳號。建立安全設定時，系統會驗證這個活動是否屬於你。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="campaign-safety-create-loading"
       >
-        <h2 class="resource-state__title">Loading campaign safety form</h2>
+        <h2 class="resource-state__title">載入活動安全表單中</h2>
         <p class="resource-state__description">
-          正在載入 campaign context。
+          正在載入活動情境。
         </p>
       </section>
 
@@ -93,16 +115,16 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
         class="resource-state"
         data-testid="campaign-safety-create-error"
       >
-        <h2 class="resource-state__title">Campaign safety create unavailable</h2>
+        <h2 class="resource-state__title">無法載入活動安全建立表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The campaign safety create form could not be loaded.' }}
+          {{ error?.message || '目前無法載入活動安全建立表單。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/campaigns">
-            Back to campaigns
+            返回活動列表
           </NuxtLink>
         </div>
       </section>
@@ -112,12 +134,12 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
         class="resource-section"
         data-testid="campaign-safety-create-panel"
       >
-        <h2 class="resource-section__title">New Safety Profile</h2>
+        <h2 class="resource-section__title">新增安全設定</h2>
         <CampaignSafetyForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Create safety profile"
+          submit-label="建立安全設定"
           :cancel-to="`/campaigns/${campaignId}`"
           @submit="handleSubmit"
         />

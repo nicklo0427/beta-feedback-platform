@@ -4,6 +4,8 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.accounts.schemas import AccountCreate, AccountRole
+from app.modules.accounts.service import create_account
 from app.modules.device_profiles.schemas import (
     DeviceProfileCreate,
     DeviceProfilePlatform,
@@ -42,6 +44,84 @@ def test_device_profile_service_create_and_list_returns_expected_items() -> None
     assert listed_device_profiles.items[0].name == "QA iPhone 15"
     assert listed_device_profiles.items[0].platform == DeviceProfilePlatform.IOS
     assert listed_device_profiles.items[0].device_model == "iPhone 15 Pro"
+
+
+def test_device_profile_service_create_assigns_owner_when_actor_is_tester() -> None:
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+
+    created_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        tester.id,
+    )
+
+    assert created_device_profile.owner_account_id == tester.id
+
+
+def test_device_profile_service_create_rejects_non_tester_actor() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Lead", role=AccountRole.DEVELOPER)
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        create_device_profile(
+            DeviceProfileCreate(
+                name="QA iPhone 15",
+                platform=DeviceProfilePlatform.IOS,
+                device_model="iPhone 15 Pro",
+                os_name="iOS",
+            ),
+            developer.id,
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "conflict"
+    assert error.details == {
+        "resource": "device_profile",
+        "account_id": developer.id,
+        "expected_role": "tester",
+        "actual_role": "developer",
+    }
+
+
+def test_device_profile_service_list_filters_by_owner_account_id() -> None:
+    first_tester = create_account(
+        AccountCreate(display_name="QA A", role=AccountRole.TESTER)
+    )
+    second_tester = create_account(
+        AccountCreate(display_name="QA B", role=AccountRole.TESTER)
+    )
+    owned_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        first_tester.id,
+    )
+    create_device_profile(
+        DeviceProfileCreate(
+            name="QA Pixel 9",
+            platform=DeviceProfilePlatform.ANDROID,
+            device_model="Pixel 9",
+            os_name="Android",
+        ),
+        second_tester.id,
+    )
+
+    listed_device_profiles = list_device_profiles(owner_account_id=first_tester.id)
+
+    assert listed_device_profiles.total == 1
+    assert listed_device_profiles.items[0].id == owned_profile.id
+    assert listed_device_profiles.items[0].owner_account_id == first_tester.id
 
 
 def test_device_profile_service_ensure_exists_raises_not_found() -> None:

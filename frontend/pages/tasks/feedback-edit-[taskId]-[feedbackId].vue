@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import FeedbackForm from '~/features/feedback/FeedbackForm.vue'
 import { fetchFeedbackDetail, updateFeedback } from '~/features/feedback/api'
 import {
@@ -17,11 +23,17 @@ import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const taskId = computed(() => String(route.params.taskId))
 const feedbackId = computed(() => String(route.params.feedbackId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = ref(createEmptyFeedbackFormValues())
+const isResubmission = computed(
+  () => feedback.value?.review_status === 'needs_more_info'
+)
 
 const {
   data: feedback,
@@ -55,14 +67,19 @@ watch(
 
 async function handleSubmit(values: FeedbackFormValues): Promise<void> {
   if (!feedback.value) {
-    submitError.value = 'Feedback detail is unavailable.'
+    submitError.value = '目前無法取得回饋內容。'
+    return
+  }
+
+  if (!currentActorId.value) {
+    submitError.value = '更新回饋前，請先選擇目前操作帳號。'
     return
   }
 
   const payload = buildFeedbackUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -70,13 +87,17 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
   submitting.value = true
 
   try {
-    const updatedFeedback = await updateFeedback(feedbackId.value, payload)
+    const updatedFeedback = await updateFeedback(
+      feedbackId.value,
+      payload,
+      currentActorId.value
+    )
     await router.push(`/tasks/${taskId.value}/feedback/${updatedFeedback.id}`)
-  } catch (submitErr) {
-    submitError.value =
-      submitErr instanceof ApiClientError
-        ? submitErr.message
-        : 'Unable to update feedback right now.'
+  } catch (submitFailure) {
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法更新回饋。'
+    )
   } finally {
     submitting.value = false
   }
@@ -88,22 +109,27 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/tasks/${taskId}/feedback/${feedbackId}`">
-          Feedback Detail
+          回饋詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Feedback</h1>
+        <h1 class="resource-shell__title">編輯回饋</h1>
         <p class="resource-shell__description">
-          更新既有 feedback 的最小結構化欄位，保持 task context 與既有回饋內容一致。
+          更新既有回饋的最小結構化欄位，保持任務情境與既有回饋內容一致。
         </p>
       </header>
+
+      <CurrentActorSelector
+        title="回饋操作帳號"
+        description="選擇目前正在操作的測試者帳號。更新回饋與重新提交時，系統會驗證這筆回饋是否屬於你的任務指派。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="feedback-edit-loading"
       >
-        <h2 class="resource-state__title">Loading feedback edit form</h2>
+        <h2 class="resource-state__title">載入回饋編輯表單中</h2>
         <p class="resource-state__description">
-          正在載入既有 feedback 內容。
+          正在載入既有回饋內容。
         </p>
       </section>
 
@@ -112,16 +138,16 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
         class="resource-state"
         data-testid="feedback-edit-error"
       >
-        <h2 class="resource-state__title">Feedback edit unavailable</h2>
+        <h2 class="resource-state__title">無法載入回饋編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The feedback edit form could not be loaded.' }}
+          {{ error?.message || '目前無法載入回饋編輯表單。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry feedback
+            重試回饋資料
           </button>
           <NuxtLink class="resource-action" :to="`/tasks/${taskId}`">
-            Back to task
+            返回任務
           </NuxtLink>
         </div>
       </section>
@@ -131,12 +157,30 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
         class="resource-section"
         data-testid="feedback-edit-panel"
       >
-        <h2 class="resource-section__title">Edit {{ feedback.summary }}</h2>
+        <h2 class="resource-section__title">編輯 {{ feedback.summary }}</h2>
+        <div
+          v-if="isResubmission"
+          class="resource-state"
+          data-testid="feedback-resubmission-context"
+        >
+          <h3 class="resource-state__title">需要重新提交</h3>
+          <p class="resource-state__description">
+            這筆回饋目前為「需補充資訊」。更新內容並送出後，系統會自動將審閱狀態改回「已提交」。
+          </p>
+          <div class="resource-key-value">
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">開發者註記</span>
+              <span class="resource-key-value__value">
+                {{ feedback.developer_note || '目前沒有補充說明。' }}
+              </span>
+            </div>
+          </div>
+        </div>
         <FeedbackForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update feedback"
+          :submit-label="isResubmission ? '重新提交回饋' : '更新回饋'"
           :cancel-to="`/tasks/${taskId}/feedback/${feedbackId}`"
           @submit="handleSubmit"
         />

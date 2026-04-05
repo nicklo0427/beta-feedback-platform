@@ -3,7 +3,11 @@ import { reactive, ref, watch } from 'vue'
 
 import { formatPlatformLabel } from '~/features/platform-display'
 import type { DeviceProfileListItem } from '~/features/device-profiles/types'
-import { TASK_STATUSES, type TaskFormValues } from '~/features/tasks/types'
+import {
+  TASK_STATUSES,
+  formatTaskStatusLabel,
+  type TaskFormValues
+} from '~/features/tasks/types'
 
 const props = withDefaults(
   defineProps<{
@@ -17,7 +21,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save task'
+    submitLabel: '儲存任務'
   }
 )
 
@@ -44,7 +48,7 @@ watch(
 
 function validateForm(): boolean {
   if (!values.title.trim()) {
-    validationMessage.value = 'Title is required.'
+    validationMessage.value = '標題為必填。'
     return false
   }
 
@@ -77,7 +81,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Title</span>
+        <span class="resource-field__label">標題</span>
         <input
           v-model="values.title"
           class="resource-input"
@@ -89,7 +93,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Status</span>
+        <span class="resource-field__label">狀態</span>
         <select
           v-model="values.status"
           class="resource-select"
@@ -102,13 +106,13 @@ function handleSubmit(): void {
             :key="status"
             :value="status"
           >
-            {{ status }}
+            {{ formatTaskStatusLabel(status) }}
           </option>
         </select>
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Device Profile</span>
+        <span class="resource-field__label">裝置設定檔</span>
         <select
           v-model="values.device_profile_id"
           class="resource-select"
@@ -116,7 +120,7 @@ function handleSubmit(): void {
           name="device_profile_id"
           :disabled="pending"
         >
-          <option value="">No device profile assigned</option>
+          <option value="">尚未指派裝置設定檔</option>
           <option
             v-for="deviceProfile in deviceProfiles"
             :key="deviceProfile.id"
@@ -129,7 +133,7 @@ function handleSubmit(): void {
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Instruction Summary</span>
+      <span class="resource-field__label">任務說明摘要</span>
       <textarea
         v-model="values.instruction_summary"
         class="resource-textarea"
@@ -147,10 +151,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

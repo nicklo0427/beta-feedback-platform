@@ -21,4 +21,5 @@ class FeedbackRecord:
     review_status: str
     developer_note: Optional[str]
     submitted_at: str
+    resubmitted_at: Optional[str]
     updated_at: str

@@ -9,6 +9,8 @@ from fastapi import status
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
 from app.modules.projects import repository
+from app.modules.accounts.schemas import AccountRole
+from app.modules.accounts.service import ensure_account_exists
 from app.modules.projects.models import ProjectRecord
 from app.modules.projects.schemas import (
     ProjectCreate,
@@ -54,8 +56,33 @@ def ensure_project_exists(project_id: str) -> ProjectRecord:
     return record
 
 
-def list_projects() -> ProjectListResponse:
-    items = [_to_project_list_item(record) for record in repository.list_projects()]
+def _resolve_project_owner_account_id(current_actor_id: str | None) -> str | None:
+    if current_actor_id is None:
+        return None
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role != AccountRole.DEVELOPER.value:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="conflict",
+            message="Developer account is required to own a project.",
+            details={
+                "resource": "project",
+                "account_id": actor.id,
+                "expected_role": AccountRole.DEVELOPER.value,
+                "actual_role": actor.role,
+            },
+        )
+
+    return actor.id
+
+
+def list_projects(owner_account_id: str | None = None) -> ProjectListResponse:
+    items = [
+        _to_project_list_item(record)
+        for record in repository.list_projects()
+        if owner_account_id is None or record.owner_account_id == owner_account_id
+    ]
     return ProjectListResponse.model_validate(build_list_response(items))
 
 
@@ -63,12 +90,16 @@ def get_project(project_id: str) -> ProjectDetail:
     return _to_project_detail(ensure_project_exists(project_id))
 
 
-def create_project(payload: ProjectCreate) -> ProjectDetail:
+def create_project(
+    payload: ProjectCreate,
+    current_actor_id: str | None = None,
+) -> ProjectDetail:
     timestamp = _utc_now_iso()
     record = ProjectRecord(
         id=_generate_project_id(),
         name=payload.name,
         description=payload.description,
+        owner_account_id=_resolve_project_owner_account_id(current_actor_id),
         created_at=timestamp,
         updated_at=timestamp,
     )

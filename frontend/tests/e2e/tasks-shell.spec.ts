@@ -1,6 +1,15 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
+
+const developerAccount = {
+  id: 'acct_dev_123',
+  display_name: 'Release Owner',
+  role: 'developer',
+  updated_at: '2026-04-05T09:30:00Z'
+}
 
 const taskListItem = {
   id: 'task_123',
@@ -23,7 +32,20 @@ const taskDetail = {
   updated_at: '2026-04-03T11:30:00Z'
 }
 
+async function mockAccounts(page: Page): Promise<void> {
+  await mockApiJson(page, '/accounts', {
+    items: [developerAccount],
+    total: 1
+  })
+}
+
 test.describe('tasks shell flows', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
+    })
+  })
+
   test('navigates from home to tasks list and detail', async ({ page }) => {
     await mockApiJson(page, '/tasks', {
       items: [taskListItem],
@@ -44,7 +66,7 @@ test.describe('tasks shell flows', () => {
     const taskCard = page.getByTestId('task-card-task_123')
     await expect(taskCard).toBeVisible()
     await expect(taskCard).toContainText(taskListItem.title)
-    await expect(taskCard).toContainText(taskListItem.status)
+    await expect(taskCard).toContainText(formatTaskStatusLabel(taskListItem.status as TaskStatus))
 
     await taskCard.click()
 
@@ -53,7 +75,7 @@ test.describe('tasks shell flows', () => {
     const detailPanel = page.getByTestId('task-detail-panel')
     await expect(detailPanel).toBeVisible()
     await expect(detailPanel).toContainText(taskDetail.title)
-    await expect(detailPanel).toContainText(taskDetail.status)
+    await expect(detailPanel).toContainText(formatTaskStatusLabel(taskDetail.status as TaskStatus))
     await expect(detailPanel).toContainText(taskDetail.submitted_at)
     await expect(page.getByTestId('task-feedback-empty')).toBeVisible()
   })
@@ -98,6 +120,7 @@ test.describe('tasks shell flows', () => {
     let createRequestBody: unknown = null
     let hasCreatedTask = false
 
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiError(
       page,
@@ -150,6 +173,7 @@ test.describe('tasks shell flows', () => {
         return
       }
 
+      expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
       createRequestBody = JSON.parse(route.request().postData() ?? '{}')
       hasCreatedTask = true
 
@@ -172,6 +196,7 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/tasks\/new$/)
     await expect(page.getByTestId('task-form')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('task-title-input').fill('Validate paywall copy')
     await page
@@ -190,7 +215,9 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_456$/)
     await expect(page.getByTestId('task-detail-panel')).toContainText(createdTask.title)
-    await expect(page.getByTestId('task-detail-panel')).toContainText(createdTask.status)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(
+      formatTaskStatusLabel(createdTask.status as TaskStatus)
+    )
   })
 
   test('shows task create validation and backend status-transition errors', async ({ page }) => {
@@ -206,6 +233,7 @@ test.describe('tasks shell flows', () => {
       updated_at: '2026-04-03T10:00:00Z'
     }
 
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiJson(page, '/device-profiles', {
       items: [],
@@ -234,9 +262,16 @@ test.describe('tasks shell flows', () => {
     await page.goto('/campaigns/camp_123/tasks/new')
     await page.getByTestId('task-submit').click()
 
-    await expect(page.getByTestId('task-form-error')).toContainText('Title is required.')
+    await expect(page.getByTestId('task-form-error')).toContainText('標題為必填。')
 
     await page.getByTestId('task-title-input').fill('Validate paywall copy')
+    await page.getByTestId('task-submit').click()
+
+    await expect(page.getByTestId('task-form-error')).toContainText(
+      '建立任務前，請先選擇目前操作帳號。'
+    )
+
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 
@@ -261,6 +296,7 @@ test.describe('tasks shell flows', () => {
     let taskResponse = editableTask
     let updateRequestBody: unknown = null
 
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
       const method = route.request().method()
 
@@ -274,6 +310,7 @@ test.describe('tasks shell flows', () => {
       }
 
       if (method === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
         updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
         taskResponse = updatedTask
         await route.fulfill({
@@ -309,6 +346,7 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/edit$/)
     await expect(page.getByTestId('task-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('task-title-input').fill('Validate onboarding flow v2')
     await page
@@ -325,10 +363,13 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123$/)
     await expect(page.getByTestId('task-detail-panel')).toContainText(updatedTask.title)
-    await expect(page.getByTestId('task-detail-panel')).toContainText(updatedTask.status)
+    await expect(page.getByTestId('task-detail-panel')).toContainText(
+      formatTaskStatusLabel(updatedTask.status as TaskStatus)
+    )
   })
 
   test('shows backend conflict when a task status transition is invalid', async ({ page }) => {
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
       const method = route.request().method()
 
@@ -375,6 +416,7 @@ test.describe('tasks shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/edit')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 

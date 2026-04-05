@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 import { formatPlatformLabel } from '~/features/platform-display'
 
@@ -37,6 +37,27 @@ const eligibilityRuleDetail = {
   is_active: true,
   created_at: '2026-04-02T10:00:00Z',
   updated_at: '2026-04-03T10:00:00Z'
+}
+
+const developerAccount = {
+  id: 'acct_dev_123',
+  display_name: 'Alice Developer',
+  role: 'developer',
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
+const testerAccount = {
+  id: 'acct_tester_123',
+  display_name: 'Tim Tester',
+  role: 'tester',
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
+async function mockAccounts(page: Page): Promise<void> {
+  await mockApiJson(page, '/accounts', {
+    items: [developerAccount, testerAccount],
+    total: 2
+  })
 }
 
 test.describe('eligibility shell flows', () => {
@@ -111,8 +132,10 @@ test.describe('eligibility shell flows', () => {
     }
 
     let createRequestBody: unknown = null
+    let createRequestActorId: string | undefined
     let hasCreatedRule = false
 
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiError(
       page,
@@ -162,6 +185,7 @@ test.describe('eligibility shell flows', () => {
       }
 
       if (method === 'POST') {
+        createRequestActorId = route.request().headers()['x-actor-id']
         createRequestBody = JSON.parse(route.request().postData() ?? '{}')
         hasCreatedRule = true
         await route.fulfill({
@@ -188,8 +212,10 @@ test.describe('eligibility shell flows', () => {
     await page
       .getByTestId('eligibility-rule-install-channel-input')
       .fill('google-play-testing')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('eligibility-rule-submit').click()
 
+    expect(createRequestActorId).toBe(developerAccount.id)
     expect(createRequestBody).toEqual({
       platform: 'android',
       os_name: 'Android',
@@ -207,6 +233,7 @@ test.describe('eligibility shell flows', () => {
   })
 
   test('shows create eligibility form validation and backend errors', async ({ page }) => {
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/campaigns\/camp_123\/eligibility-rules$/, async (route) => {
       if (route.request().method() !== 'POST') {
         await route.fallback()
@@ -237,10 +264,17 @@ test.describe('eligibility shell flows', () => {
     await page.getByTestId('eligibility-rule-submit').click()
 
     await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
-      'Platform is required.'
+      '平台為必填。'
     )
 
     await page.getByTestId('eligibility-rule-platform-select').selectOption('ios')
+    await page.getByTestId('eligibility-rule-submit').click()
+
+    await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
+      '建立資格條件規則前，請先選擇目前操作帳號。'
+    )
+
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('eligibility-rule-submit').click()
 
     await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
@@ -261,7 +295,9 @@ test.describe('eligibility shell flows', () => {
 
     let detailResponse = originalEligibilityRule
     let updateRequestBody: unknown = null
+    let updateRequestActorId: string | undefined
 
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/eligibility-rules\/er_123$/, async (route) => {
       const method = route.request().method()
 
@@ -275,6 +311,7 @@ test.describe('eligibility shell flows', () => {
       }
 
       if (method === 'PATCH') {
+        updateRequestActorId = route.request().headers()['x-actor-id']
         updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
         detailResponse = updatedEligibilityRule
         await route.fulfill({
@@ -293,6 +330,7 @@ test.describe('eligibility shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/eligibility-rules\/er_123\/edit$/)
     await expect(page.getByTestId('eligibility-rule-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('eligibility-rule-os-version-max-input').fill('18.4')
     await page
@@ -301,6 +339,7 @@ test.describe('eligibility shell flows', () => {
     await page.getByTestId('eligibility-rule-is-active-input').uncheck()
     await page.getByTestId('eligibility-rule-submit').click()
 
+    expect(updateRequestActorId).toBe(developerAccount.id)
     expect(updateRequestBody).toEqual({
       os_version_max: '18.4',
       install_channel: 'manual-invite',
@@ -311,6 +350,57 @@ test.describe('eligibility shell flows', () => {
     await expect(page.getByTestId('eligibility-rule-detail-panel')).toContainText('18.4')
     await expect(page.getByTestId('eligibility-rule-detail-panel')).toContainText(
       'manual-invite'
+    )
+  })
+
+  test('shows ownership mismatch errors when editing an eligibility rule outside the actor scope', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+    await page.route(/\/api\/v1\/eligibility-rules\/er_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(eligibilityRuleDetail)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'ownership_mismatch',
+            message: 'Current actor does not own the target resource.',
+            details: {
+              actor_id: developerAccount.id,
+              resource: 'eligibility_rule',
+              ownership_anchor: {
+                resource: 'project',
+                id: 'proj_other',
+                owner_account_id: 'acct_other_123'
+              }
+            }
+          })
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto('/campaigns/camp_123/eligibility-rules/er_123/edit')
+    await expect(page.getByTestId('eligibility-rule-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('eligibility-rule-os-version-max-input').fill('18.4')
+    await page.getByTestId('eligibility-rule-submit').click()
+
+    await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
+      '你不能操作不屬於自己的資源。'
     )
   })
 

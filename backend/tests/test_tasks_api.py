@@ -2,13 +2,31 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.modules.accounts.schemas import AccountCreate
+from app.modules.accounts.service import create_account
+from app.modules.projects.schemas import ProjectCreate
+from app.modules.projects.service import create_project
+
+
+def _create_developer_account(name: str = "Dev Owner"):
+    return create_account(AccountCreate(display_name=name, role="developer"))
+
+
+def _create_tester_account(name: str = "QA Tester"):
+    return create_account(AccountCreate(display_name=name, role="tester"))
+
+
+def _actor_headers(actor_id: str) -> dict[str, str]:
+    return {"X-Actor-Id": actor_id}
+
 
 def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -> None:
-    project_response = client.post(
-        "/api/v1/projects",
-        json={"name": "HabitQuest"},
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
     )
-    project_id = project_response.json()["id"]
+    project_id = project.id
 
     campaign_response = client.post(
         "/api/v1/campaigns",
@@ -17,6 +35,7 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
 
@@ -39,6 +58,7 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
             "device_profile_id": device_profile_id,
             "status": "assigned",
         },
+        headers=_actor_headers(developer.id),
     )
 
     assert create_response.status_code == 201
@@ -77,6 +97,7 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
     patch_in_progress_response = client.patch(
         f"/api/v1/tasks/{task_id}",
         json={"status": "in_progress"},
+        headers=_actor_headers(developer.id),
     )
     assert patch_in_progress_response.status_code == 200
     in_progress_task = patch_in_progress_response.json()
@@ -86,6 +107,7 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
     patch_submitted_response = client.patch(
         f"/api/v1/tasks/{task_id}",
         json={"status": "submitted"},
+        headers=_actor_headers(developer.id),
     )
     assert patch_submitted_response.status_code == 200
     submitted_task = patch_submitted_response.json()
@@ -98,11 +120,13 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
 
 
 def test_task_create_requires_existing_campaign(client: TestClient) -> None:
+    developer = _create_developer_account()
     response = client.post(
         "/api/v1/campaigns/camp_missing/tasks",
         json={
             "title": "Validate onboarding flow",
         },
+        headers=_actor_headers(developer.id),
     )
 
     assert response.status_code == 404
@@ -117,8 +141,12 @@ def test_task_create_requires_existing_campaign(client: TestClient) -> None:
 
 
 def test_task_patch_rejects_campaign_id_updates(client: TestClient) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
     campaign_response = client.post(
         "/api/v1/campaigns",
         json={
@@ -126,17 +154,20 @@ def test_task_patch_rejects_campaign_id_updates(client: TestClient) -> None:
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
     task_response = client.post(
         f"/api/v1/campaigns/{campaign_id}/tasks",
         json={"title": "Validate onboarding flow"},
+        headers=_actor_headers(developer.id),
     )
     task_id = task_response.json()["id"]
 
     response = client.patch(
         f"/api/v1/tasks/{task_id}",
         json={"campaign_id": "camp_other"},
+        headers=_actor_headers(developer.id),
     )
 
     assert response.status_code == 422
@@ -155,8 +186,12 @@ def test_task_patch_rejects_campaign_id_updates(client: TestClient) -> None:
 
 
 def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
     campaign_response = client.post(
         "/api/v1/campaigns",
         json={
@@ -164,6 +199,7 @@ def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> Non
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
     device_profile_response = client.post(
@@ -183,12 +219,14 @@ def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> Non
             "device_profile_id": device_profile_id,
             "status": "assigned",
         },
+        headers=_actor_headers(developer.id),
     )
     task_id = task_response.json()["id"]
 
     response = client.patch(
         f"/api/v1/tasks/{task_id}",
         json={"status": "submitted"},
+        headers=_actor_headers(developer.id),
     )
 
     assert response.status_code == 409
@@ -204,8 +242,13 @@ def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> Non
 
 
 def test_task_delete_conflicts_when_feedback_exists(client: TestClient) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
     campaign_response = client.post(
         "/api/v1/campaigns",
         json={
@@ -213,11 +256,26 @@ def test_task_delete_conflicts_when_feedback_exists(client: TestClient) -> None:
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
     task_response = client.post(
         f"/api/v1/campaigns/{campaign_id}/tasks",
-        json={"title": "Validate onboarding flow"},
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": client.post(
+                "/api/v1/device-profiles",
+                headers=_actor_headers(tester.id),
+                json={
+                    "name": "QA iPhone 15",
+                    "platform": "ios",
+                    "device_model": "iPhone 15 Pro",
+                    "os_name": "iOS",
+                },
+            ).json()["id"],
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
     )
     task_id = task_response.json()["id"]
 
@@ -228,6 +286,7 @@ def test_task_delete_conflicts_when_feedback_exists(client: TestClient) -> None:
             "severity": "high",
             "category": "bug",
         },
+        headers=_actor_headers(tester.id),
     )
 
     response = client.delete(f"/api/v1/tasks/{task_id}")
@@ -240,5 +299,361 @@ def test_task_delete_conflicts_when_feedback_exists(client: TestClient) -> None:
             "resource": "task",
             "id": task_id,
             "related_resource": "feedback",
+        },
+    }
+
+
+def test_tasks_list_supports_mine_filter_for_tester_inbox(client: TestClient) -> None:
+    tester_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA Tester", "role": "tester"},
+    )
+    other_tester_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA Backup", "role": "tester"},
+    )
+    tester_id = tester_response.json()["id"]
+    other_tester_id = other_tester_response.json()["id"]
+
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project_id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+
+    owned_device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": tester_id},
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    owned_device_profile_id = owned_device_profile_response.json()["id"]
+    other_device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": other_tester_id},
+        json={
+            "name": "QA Pixel 9",
+            "platform": "android",
+            "device_model": "Pixel 9",
+            "os_name": "Android",
+        },
+    )
+    other_device_profile_id = other_device_profile_response.json()["id"]
+
+    owned_task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": owned_device_profile_id,
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Check pricing CTA",
+            "device_profile_id": other_device_profile_id,
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.get(
+        "/api/v1/tasks?mine=true&status=assigned",
+        headers={"X-Actor-Id": tester_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [
+            {
+                "id": owned_task_response.json()["id"],
+                "campaign_id": campaign_id,
+                "device_profile_id": owned_device_profile_id,
+                "title": "Validate onboarding flow",
+                "status": "assigned",
+                "updated_at": owned_task_response.json()["updated_at"],
+            }
+        ],
+        "total": 1,
+    }
+
+
+def test_tasks_mine_filter_returns_empty_when_actor_has_no_owned_device_profiles(
+    client: TestClient,
+) -> None:
+    tester_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA Tester", "role": "tester"},
+    )
+    tester_id = tester_response.json()["id"]
+
+    response = client.get(
+        "/api/v1/tasks?mine=true",
+        headers={"X-Actor-Id": tester_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 0}
+
+
+def test_tasks_mine_filter_requires_current_actor_header(client: TestClient) -> None:
+    response = client.get("/api/v1/tasks?mine=true")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_task_create_requires_current_actor_header(client: TestClient) -> None:
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={"title": "Validate onboarding flow"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_task_create_rejects_tester_actor(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={"title": "Validate onboarding flow"},
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "forbidden_actor_role",
+        "message": "Developer role is required for this operation.",
+        "details": {
+            "actor_id": tester.id,
+            "actor_role": "tester",
+            "required_role": "developer",
+        },
+    }
+
+
+def test_task_patch_supports_tester_start_for_owned_assigned_task(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_response.json()["id"],
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_response.json()['id']}",
+        json={"status": "in_progress"},
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "in_progress"
+    assert response.json()["device_profile_id"] == device_profile_response.json()["id"]
+
+
+def test_task_patch_rejects_tester_for_unowned_task(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account("Primary Tester")
+    other_tester = _create_tester_account("Other Tester")
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    other_device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(other_tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": other_device_profile_response.json()["id"],
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_response.json()['id']}",
+        json={"status": "in_progress"},
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "ownership_mismatch",
+        "message": "Current actor does not own the target resource.",
+        "details": {
+            "actor_id": tester.id,
+            "resource": "task",
+            "ownership_anchor": {
+                "resource": "device_profile",
+                "id": other_device_profile_response.json()["id"],
+                "owner_account_id": other_tester.id,
+            },
+        },
+    }
+
+
+def test_task_patch_rejects_tester_updates_other_than_start(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_response.json()["id"],
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_response.json()['id']}",
+        json={"title": "Tester should not rename task"},
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "forbidden_actor_role",
+        "message": "Tester can only start assigned tasks they own.",
+        "details": {
+            "actor_id": tester.id,
+            "actor_role": "tester",
+            "required_role": "developer",
         },
     }

@@ -22,7 +22,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save safety profile'
+    submitLabel: '儲存安全設定'
   }
 )
 
@@ -48,17 +48,17 @@ watch(
 
 function validateForm(): boolean {
   if (!values.distribution_channel) {
-    validationMessage.value = 'Distribution channel is required.'
+    validationMessage.value = '分發管道為必填。'
     return false
   }
 
   if (!values.source_label.trim()) {
-    validationMessage.value = 'Source label is required.'
+    validationMessage.value = '來源標示為必填。'
     return false
   }
 
   if (!values.risk_level) {
-    validationMessage.value = 'Risk level is required.'
+    validationMessage.value = '風險等級為必填。'
     return false
   }
 
@@ -91,7 +91,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Distribution Channel</span>
+        <span class="resource-field__label">分發管道</span>
         <select
           v-model="values.distribution_channel"
           class="resource-select"
@@ -99,7 +99,7 @@ function handleSubmit(): void {
           name="distribution_channel"
           :disabled="pending"
         >
-          <option value="">Select a distribution channel</option>
+          <option value="">請選擇分發管道</option>
           <option
             v-for="distributionChannel in DISTRIBUTION_CHANNEL_OPTIONS"
             :key="distributionChannel"
@@ -111,7 +111,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Source Label</span>
+        <span class="resource-field__label">來源標示</span>
         <input
           v-model="values.source_label"
           class="resource-input"
@@ -123,7 +123,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Source URL</span>
+        <span class="resource-field__label">來源網址</span>
         <input
           v-model="values.source_url"
           class="resource-input"
@@ -135,7 +135,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Risk Level</span>
+        <span class="resource-field__label">風險等級</span>
         <select
           v-model="values.risk_level"
           class="resource-select"
@@ -143,7 +143,7 @@ function handleSubmit(): void {
           name="risk_level"
           :disabled="pending"
         >
-          <option value="">Select a risk level</option>
+          <option value="">請選擇風險等級</option>
           <option
             v-for="riskLevel in RISK_LEVEL_OPTIONS"
             :key="riskLevel"
@@ -155,7 +155,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Review Status</span>
+        <span class="resource-field__label">審核狀態</span>
         <select
           v-model="values.review_status"
           class="resource-select"
@@ -175,7 +175,7 @@ function handleSubmit(): void {
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Risk Note</span>
+      <span class="resource-field__label">風險說明</span>
       <textarea
         v-model="values.risk_note"
         class="resource-textarea"
@@ -187,7 +187,7 @@ function handleSubmit(): void {
     </label>
 
     <label class="resource-field">
-      <span class="resource-field__label">Official Channel Only</span>
+      <span class="resource-field__label">僅限官方管道</span>
       <div class="resource-state__actions">
         <input
           v-model="values.official_channel_only"
@@ -197,7 +197,7 @@ function handleSubmit(): void {
           :disabled="pending"
         >
         <span class="resource-key-value__value">
-          Limit distribution to trusted official channels only.
+          將分發方式限制在可信任的官方管道內。
         </span>
       </div>
     </label>
@@ -209,10 +209,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

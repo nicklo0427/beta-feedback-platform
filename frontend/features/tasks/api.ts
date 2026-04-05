@@ -1,5 +1,6 @@
 import type { ListResponse } from '~/services/api/client'
 
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 import { useApiClient } from '~/services/api/client'
 
 import type {
@@ -14,6 +15,8 @@ export interface TaskListFilters {
   campaignId?: string
   deviceProfileId?: string
   status?: TaskStatus
+  mine?: boolean
+  actorId?: string | null
 }
 
 export async function fetchTasks(
@@ -34,9 +37,15 @@ export async function fetchTasks(
     params.set('status', filters.status)
   }
 
+  if (filters.mine) {
+    params.set('mine', 'true')
+  }
+
   const query = params.toString()
 
-  return request<ListResponse<TaskListItem>>(`/tasks${query ? `?${query}` : ''}`)
+  return request<ListResponse<TaskListItem>>(`/tasks${query ? `?${query}` : ''}`, {
+    headers: buildCurrentActorHeaders(filters.actorId)
+  })
 }
 
 export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
@@ -46,22 +55,35 @@ export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
 
 export async function createTask(
   campaignId: string,
-  payload: TaskCreatePayload
+  payload: TaskCreatePayload,
+  actorId?: string | null
 ): Promise<TaskDetail> {
   const { request } = useApiClient()
   return request<TaskDetail>(`/campaigns/${campaignId}/tasks`, {
     method: 'POST',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }
 
 export async function updateTask(
   taskId: string,
-  payload: TaskUpdatePayload
+  payload: TaskUpdatePayload,
+  actorId?: string | null
 ): Promise<TaskDetail> {
   const { request } = useApiClient()
   return request<TaskDetail>(`/tasks/${taskId}`, {
     method: 'PATCH',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
+}
+
+export async function startAssignedTask(
+  taskId: string,
+  actorId?: string | null
+): Promise<TaskDetail> {
+  return updateTask(taskId, {
+    status: 'in_progress'
+  }, actorId)
 }

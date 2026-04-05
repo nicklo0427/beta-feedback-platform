@@ -12,6 +12,7 @@ export interface ListResponse<T> {
 export interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   body?: BodyInit | Record<string, any> | null
+  headers?: Record<string, string>
 }
 
 export class ApiClientError extends Error {
@@ -45,7 +46,7 @@ function isApiErrorPayload(value: unknown): value is ApiErrorPayload {
 
 function normalizeApiError(error: unknown): ApiClientError {
   const fallback = new ApiClientError({
-    message: 'Unable to reach the backend API.',
+    message: '目前無法連線到後端 API。',
     code: 'internal_error'
   })
 
@@ -83,7 +84,8 @@ export function useApiClient() {
       return await $fetch<T>(path, {
         baseURL: config.public.apiBaseUrl,
         method: options.method,
-        body: options.body
+        body: options.body,
+        headers: options.headers
       })
     } catch (error) {
       throw normalizeApiError(error)

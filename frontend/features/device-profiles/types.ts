@@ -14,6 +14,7 @@ export interface DeviceProfileListItem {
   platform: DeviceProfilePlatform
   device_model: string
   os_name: string
+  owner_account_id?: string | null
   updated_at: string
 }
 
@@ -28,6 +29,7 @@ export interface DeviceProfileDetail {
   browser_version: string | null
   locale: string | null
   notes: string | null
+  owner_account_id?: string | null
   created_at: string
   updated_at: string
 }

@@ -1,32 +1,56 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchProjects } from '~/features/projects/api'
 
+useCurrentActorPersistence()
+
+const currentActorId = useCurrentActorId()
+const mineOnly = ref(false)
 const {
   data: projectResponse,
   pending,
   error,
   refresh
-} = useAsyncData('projects-list', () => fetchProjects(), {
-  server: false,
-  default: () => ({
-    items: [],
-    total: 0
-  })
-})
+} = useAsyncData(
+  () => `projects-list-${mineOnly.value ? 'mine' : 'all'}-${currentActorId.value ?? 'none'}`,
+  () =>
+    fetchProjects({
+      mine: mineOnly.value,
+      actorId: currentActorId.value
+    }),
+  {
+    server: false,
+    watch: [mineOnly, currentActorId],
+    default: () => ({
+      items: [],
+      total: 0
+    })
+  }
+)
 
 const projects = computed(() => projectResponse.value.items)
+
+watch(currentActorId, (nextActorId) => {
+  if (!nextActorId) {
+    mineOnly.value = false
+  }
+})
 </script>
 
 <template>
   <main class="app-shell">
     <section class="resource-shell">
       <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">Home</NuxtLink>
-        <h1 class="resource-shell__title">Projects Shell</h1>
+        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+        <h1 class="resource-shell__title">專案列表</h1>
         <p class="resource-shell__description">
-          這個頁面對齊 backend 的 Project list / detail contract，先提供最小可承接資料流的頁面骨架。
+          這個頁面對齊後端的專案列表與詳情契約，提供最小可承接資料流的專案頁面。
         </p>
         <div class="resource-state__actions">
           <NuxtLink
@@ -34,19 +58,30 @@ const projects = computed(() => projectResponse.value.items)
             data-testid="project-create-link"
             to="/projects/new"
           >
-            Create project
+            建立專案
           </NuxtLink>
+          <button
+            class="resource-action"
+            data-testid="projects-mine-toggle"
+            type="button"
+            :disabled="!currentActorId"
+            @click="mineOnly = !mineOnly"
+          >
+            {{ mineOnly ? '顯示全部專案' : '只顯示我的專案' }}
+          </button>
         </div>
       </header>
+
+      <CurrentActorSelector />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="projects-loading"
       >
-        <h2 class="resource-state__title">Loading projects</h2>
+        <h2 class="resource-state__title">正在載入專案</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Project list。
+          正在從 API 載入專案列表。
         </p>
       </section>
 
@@ -55,13 +90,13 @@ const projects = computed(() => projectResponse.value.items)
         class="resource-state"
         data-testid="projects-error"
       >
-        <h2 class="resource-state__title">Projects unavailable</h2>
+        <h2 class="resource-state__title">專案列表暫時無法使用</h2>
         <p class="resource-state__description">
           {{ error.message }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
         </div>
       </section>
@@ -71,9 +106,9 @@ const projects = computed(() => projectResponse.value.items)
         class="resource-state"
         data-testid="projects-empty"
       >
-        <h2 class="resource-state__title">No projects yet</h2>
+        <h2 class="resource-state__title">尚無專案</h2>
         <p class="resource-state__description">
-          目前 API 沒有回傳任何 Project。後續可在 backend 建立資料後，直接用這個頁面承接。
+          目前 API 沒有回傳任何專案。後續可在後端建立資料後，直接用這個頁面承接。
         </p>
         <div class="resource-state__actions">
           <NuxtLink
@@ -81,7 +116,7 @@ const projects = computed(() => projectResponse.value.items)
             data-testid="project-empty-create-link"
             to="/projects/new"
           >
-            Create project
+            建立專案
           </NuxtLink>
         </div>
       </section>
@@ -98,13 +133,19 @@ const projects = computed(() => projectResponse.value.items)
           :data-testid="`project-card-${project.id}`"
           :to="`/projects/${project.id}`"
         >
-          <span class="resource-shell__breadcrumb">Project</span>
+          <span class="resource-shell__breadcrumb">專案</span>
           <h2 class="resource-card__title">{{ project.name }}</h2>
           <p class="resource-card__description">
-            {{ project.description || 'No project description provided yet.' }}
+            {{ project.description || '尚未提供專案說明。' }}
           </p>
           <div class="resource-card__meta">
-            <span class="resource-card__chip">Updated {{ project.updated_at }}</span>
+            <span
+              v-if="project.owner_account_id"
+              class="resource-card__chip"
+            >
+              擁有者 {{ project.owner_account_id }}
+            </span>
+            <span class="resource-card__chip">更新時間 {{ project.updated_at }}</span>
           </div>
         </NuxtLink>
       </section>

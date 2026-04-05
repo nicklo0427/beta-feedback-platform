@@ -1,8 +1,8 @@
 export type PlatformDisplayValue = 'web' | 'h5' | 'pwa' | 'ios' | 'android'
 
 const PLATFORM_LABELS: Record<PlatformDisplayValue, string> = {
-  web: 'Web',
-  h5: 'Mobile Web',
+  web: '網頁',
+  h5: '行動網頁',
   pwa: 'PWA',
   ios: 'iOS',
   android: 'Android'

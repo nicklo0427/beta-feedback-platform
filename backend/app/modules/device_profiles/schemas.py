@@ -101,6 +101,7 @@ class DeviceProfileListItem(BaseModel):
     platform: DeviceProfilePlatform
     device_model: str
     os_name: str
+    owner_account_id: Optional[str] = None
     updated_at: str
 
 
@@ -115,6 +116,7 @@ class DeviceProfileDetail(BaseModel):
     browser_version: Optional[str] = None
     locale: Optional[str] = None
     notes: Optional[str] = None
+    owner_account_id: Optional[str] = None
     created_at: str
     updated_at: str
 

@@ -6,11 +6,14 @@ from fastapi import status
 from app.common.exceptions import AppError
 from app.modules.campaigns.schemas import CampaignCreate
 from app.modules.campaigns.service import create_campaign
+from app.modules.accounts.schemas import AccountCreate
+from app.modules.accounts.service import create_account
 from app.modules.device_profiles.schemas import DeviceProfileCreate, DeviceProfilePlatform
 from app.modules.device_profiles.service import create_device_profile
 from app.modules.feedback.schemas import (
     FeedbackCategory,
     FeedbackCreate,
+    FeedbackQueueResponse,
     FeedbackReviewStatus,
     FeedbackSeverity,
     FeedbackUpdate,
@@ -19,6 +22,7 @@ from app.modules.feedback.service import (
     create_feedback,
     ensure_feedback_exists,
     list_feedback,
+    list_feedback_queue,
     update_feedback,
 )
 from app.modules.projects.schemas import ProjectCreate
@@ -158,3 +162,259 @@ def test_feedback_service_update_changes_only_allowed_fields() -> None:
         updated_feedback.developer_note
         == "Please include the exact device state before launch."
     )
+    assert updated_feedback.resubmitted_at is None
+
+
+def test_feedback_service_resubmission_resets_review_status_and_sets_timestamp() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+        ),
+    )
+    created_feedback = create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="App crashes on launch",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+            actual_result="App exits immediately.",
+        ),
+    )
+
+    review_requested_feedback = update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+            developer_note="Please include the exact time between launch and crash.",
+        ),
+    )
+
+    resubmitted_feedback = update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            actual_result="App exits immediately after three seconds on a cold launch.",
+            note="Retested with screen recording enabled.",
+        ),
+    )
+
+    assert review_requested_feedback.review_status == FeedbackReviewStatus.NEEDS_MORE_INFO
+    assert review_requested_feedback.resubmitted_at is None
+    assert resubmitted_feedback.review_status == FeedbackReviewStatus.SUBMITTED
+    assert resubmitted_feedback.resubmitted_at is not None
+    assert (
+        resubmitted_feedback.developer_note
+        == "Please include the exact time between launch and crash."
+    )
+    assert (
+        resubmitted_feedback.actual_result
+        == "App exits immediately after three seconds on a cold launch."
+    )
+
+
+def test_feedback_service_content_update_does_not_set_resubmitted_at_when_not_requested() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+        ),
+    )
+    created_feedback = create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="App crashes on launch",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+    )
+
+    updated_feedback = update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            note="Retested on a second device.",
+        ),
+    )
+
+    assert updated_feedback.review_status == FeedbackReviewStatus.SUBMITTED
+    assert updated_feedback.resubmitted_at is None
+
+
+def test_feedback_service_list_queue_supports_mine_filter_for_owned_projects() -> None:
+    developer = create_account(
+        AccountCreate(
+            display_name="Release Owner",
+            role="developer",
+        )
+    )
+    other_developer = create_account(
+        AccountCreate(
+            display_name="Another Dev",
+            role="developer",
+        )
+    )
+    tester = create_account(
+        AccountCreate(
+            display_name="QA Tester",
+            role="tester",
+        )
+    )
+
+    owned_project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    other_project = create_project(
+        ProjectCreate(name="FocusFlow"),
+        current_actor_id=other_developer.id,
+    )
+
+    owned_campaign = create_campaign(
+        CampaignCreate(
+            project_id=owned_project.id,
+            name="Owned Campaign",
+            target_platforms=["ios"],
+        )
+    )
+    other_campaign = create_campaign(
+        CampaignCreate(
+            project_id=other_project.id,
+            name="Other Campaign",
+            target_platforms=["android"],
+        )
+    )
+
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        current_actor_id=tester.id,
+    )
+
+    owned_task = create_task(
+        owned_campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+    )
+    other_task = create_task(
+        other_campaign.id,
+        TaskCreate(
+            title="Validate Android onboarding",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+    )
+
+    owned_feedback = create_feedback(
+        owned_task.id,
+        FeedbackCreate(
+            summary="Owned feedback",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+    )
+    create_feedback(
+        other_task.id,
+        FeedbackCreate(
+            summary="Other feedback",
+            severity=FeedbackSeverity.MEDIUM,
+            category=FeedbackCategory.USABILITY,
+        ),
+    )
+
+    queue = list_feedback_queue(mine=True, current_actor_id=developer.id)
+
+    assert isinstance(queue, FeedbackQueueResponse)
+    assert queue.total == 1
+    assert queue.items[0].id == owned_feedback.id
+    assert queue.items[0].campaign_id == owned_campaign.id
+    assert queue.items[0].review_status == FeedbackReviewStatus.SUBMITTED
+
+
+def test_feedback_service_list_queue_supports_review_status_filter() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(title="Validate onboarding flow"),
+    )
+    feedback = create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="Need more details",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+    )
+    update_feedback(
+        feedback.id,
+        FeedbackUpdate(
+            review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+        ),
+    )
+
+    queue = list_feedback_queue(review_status=FeedbackReviewStatus.NEEDS_MORE_INFO)
+
+    assert queue.total == 1
+    assert queue.items[0].id == feedback.id
+    assert queue.items[0].review_status == FeedbackReviewStatus.NEEDS_MORE_INFO
+
+
+def test_feedback_service_list_queue_mine_requires_current_actor() -> None:
+    with pytest.raises(AppError) as exc_info:
+        list_feedback_queue(mine=True)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_400_BAD_REQUEST
+    assert error.code == "missing_actor_context"
+    assert error.details == {
+        "header": "X-Actor-Id",
+    }
+
+
+def test_feedback_service_list_queue_mine_rejects_non_developer_actor() -> None:
+    tester = create_account(
+        AccountCreate(
+            display_name="QA Tester",
+            role="tester",
+        )
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        list_feedback_queue(mine=True, current_actor_id=tester.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "forbidden_actor_role"
+    assert error.details == {
+        "actor_id": tester.id,
+        "actor_role": "tester",
+        "required_role": "developer",
+    }

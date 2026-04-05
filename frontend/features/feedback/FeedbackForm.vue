@@ -5,6 +5,8 @@ import {
   FEEDBACK_CATEGORY_OPTIONS,
   FEEDBACK_RATING_OPTIONS,
   FEEDBACK_SEVERITY_OPTIONS,
+  formatFeedbackCategoryLabel,
+  formatFeedbackSeverityLabel,
   type FeedbackFormValues
 } from '~/features/feedback/types'
 
@@ -19,7 +21,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save feedback'
+    submitLabel: '儲存回饋'
   }
 )
 
@@ -45,17 +47,17 @@ watch(
 
 function validateForm(): boolean {
   if (!values.summary.trim()) {
-    validationMessage.value = 'Summary is required.'
+    validationMessage.value = '摘要為必填。'
     return false
   }
 
   if (!values.severity) {
-    validationMessage.value = 'Severity is required.'
+    validationMessage.value = '嚴重程度為必填。'
     return false
   }
 
   if (!values.category) {
-    validationMessage.value = 'Category is required.'
+    validationMessage.value = '分類為必填。'
     return false
   }
 
@@ -88,7 +90,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Summary</span>
+        <span class="resource-field__label">摘要</span>
         <input
           v-model="values.summary"
           class="resource-input"
@@ -100,7 +102,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Rating</span>
+        <span class="resource-field__label">評分</span>
         <select
           v-model="values.rating"
           class="resource-select"
@@ -108,7 +110,7 @@ function handleSubmit(): void {
           name="rating"
           :disabled="pending"
         >
-          <option value="">Not provided</option>
+          <option value="">未提供</option>
           <option
             v-for="rating in FEEDBACK_RATING_OPTIONS"
             :key="rating"
@@ -120,7 +122,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Severity</span>
+        <span class="resource-field__label">嚴重程度</span>
         <select
           v-model="values.severity"
           class="resource-select"
@@ -128,19 +130,19 @@ function handleSubmit(): void {
           name="severity"
           :disabled="pending"
         >
-          <option value="">Select severity</option>
+          <option value="">請選擇嚴重程度</option>
           <option
             v-for="severity in FEEDBACK_SEVERITY_OPTIONS"
             :key="severity"
             :value="severity"
           >
-            {{ severity }}
+            {{ formatFeedbackSeverityLabel(severity) }}
           </option>
         </select>
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Category</span>
+        <span class="resource-field__label">分類</span>
         <select
           v-model="values.category"
           class="resource-select"
@@ -148,20 +150,20 @@ function handleSubmit(): void {
           name="category"
           :disabled="pending"
         >
-          <option value="">Select category</option>
+          <option value="">請選擇分類</option>
           <option
             v-for="category in FEEDBACK_CATEGORY_OPTIONS"
             :key="category"
             :value="category"
           >
-            {{ category }}
+            {{ formatFeedbackCategoryLabel(category) }}
           </option>
         </select>
       </label>
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Reproduction Steps</span>
+      <span class="resource-field__label">重現步驟</span>
       <textarea
         v-model="values.reproduction_steps"
         class="resource-textarea"
@@ -173,7 +175,7 @@ function handleSubmit(): void {
     </label>
 
     <label class="resource-field">
-      <span class="resource-field__label">Expected Result</span>
+      <span class="resource-field__label">預期結果</span>
       <textarea
         v-model="values.expected_result"
         class="resource-textarea"
@@ -185,7 +187,7 @@ function handleSubmit(): void {
     </label>
 
     <label class="resource-field">
-      <span class="resource-field__label">Actual Result</span>
+      <span class="resource-field__label">實際結果</span>
       <textarea
         v-model="values.actual_result"
         class="resource-textarea"
@@ -197,7 +199,7 @@ function handleSubmit(): void {
     </label>
 
     <label class="resource-field">
-      <span class="resource-field__label">Note</span>
+      <span class="resource-field__label">備註</span>
       <textarea
         v-model="values.note"
         class="resource-textarea"
@@ -215,10 +217,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

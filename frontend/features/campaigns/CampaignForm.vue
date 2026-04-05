@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
 
-import { CAMPAIGN_STATUSES, CAMPAIGN_TARGET_PLATFORM_OPTIONS, type CampaignFormValues } from '~/features/campaigns/types'
+import {
+  CAMPAIGN_STATUSES,
+  CAMPAIGN_TARGET_PLATFORM_OPTIONS,
+  formatCampaignStatusLabel,
+  type CampaignFormValues
+} from '~/features/campaigns/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 
 const props = withDefaults(
@@ -16,7 +21,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save campaign',
+    submitLabel: '儲存活動',
     allowStatusEdit: false
   }
 )
@@ -63,12 +68,12 @@ function toggleTargetPlatform(platform: typeof CAMPAIGN_TARGET_PLATFORM_OPTIONS[
 
 function validateForm(): boolean {
   if (!values.name.trim()) {
-    validationMessage.value = 'Name is required.'
+    validationMessage.value = '名稱為必填。'
     return false
   }
 
   if (values.target_platforms.length === 0) {
-    validationMessage.value = 'Select at least one target platform.'
+    validationMessage.value = '請至少選擇一個目標平台。'
     return false
   }
 
@@ -104,7 +109,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Name</span>
+        <span class="resource-field__label">名稱</span>
         <input
           v-model="values.name"
           class="resource-input"
@@ -116,7 +121,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Version Label</span>
+        <span class="resource-field__label">版本標籤</span>
         <input
           v-model="values.version_label"
           class="resource-input"
@@ -131,7 +136,7 @@ function handleSubmit(): void {
         v-if="allowStatusEdit"
         class="resource-field"
       >
-        <span class="resource-field__label">Status</span>
+        <span class="resource-field__label">狀態</span>
         <select
           v-model="values.status"
           class="resource-select"
@@ -144,14 +149,14 @@ function handleSubmit(): void {
             :key="status"
             :value="status"
           >
-            {{ status }}
+            {{ formatCampaignStatusLabel(status) }}
           </option>
         </select>
       </label>
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Description</span>
+      <span class="resource-field__label">說明</span>
       <textarea
         v-model="values.description"
         class="resource-textarea"
@@ -163,7 +168,7 @@ function handleSubmit(): void {
     </label>
 
     <label class="resource-field">
-      <span class="resource-field__label">Target Platforms</span>
+      <span class="resource-field__label">目標平台</span>
       <div class="resource-state">
         <div class="resource-state__actions">
           <label
@@ -189,9 +194,9 @@ function handleSubmit(): void {
       v-if="!allowStatusEdit"
       class="resource-field"
     >
-      <span class="resource-field__label">Initial Status</span>
+      <span class="resource-field__label">初始狀態</span>
       <span class="resource-key-value__value" data-testid="campaign-status-default-note">
-        New campaigns start as <strong>draft</strong> by default.
+        新建立的活動預設會以 <strong>草稿</strong> 狀態開始。
       </span>
     </label>
 
@@ -202,10 +207,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

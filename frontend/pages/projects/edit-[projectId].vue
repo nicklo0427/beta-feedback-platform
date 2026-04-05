@@ -54,14 +54,14 @@ watch(
 
 async function handleSubmit(values: ProjectFormValues): Promise<void> {
   if (!project.value) {
-    submitError.value = 'Project detail is unavailable.'
+    submitError.value = '專案詳情暫時無法使用。'
     return
   }
 
   const payload = buildProjectUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -75,7 +75,7 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
     submitError.value =
       submitFailure instanceof ApiClientError
         ? submitFailure.message
-        : 'Unable to update the project right now.'
+        : '目前無法更新專案。'
   } finally {
     submitting.value = false
   }
@@ -87,11 +87,11 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/projects/${projectId}`">
-          Project Detail
+          專案詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Project</h1>
+        <h1 class="resource-shell__title">編輯專案</h1>
         <p class="resource-shell__description">
-          更新既有 Project 的最小欄位，讓上游產品與測試範圍資訊維持一致。
+          更新既有專案的最小欄位，讓上游產品與測試範圍資訊維持一致。
         </p>
       </header>
 
@@ -100,9 +100,9 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
         class="resource-state"
         data-testid="project-edit-loading"
       >
-        <h2 class="resource-state__title">Loading project edit form</h2>
+        <h2 class="resource-state__title">正在載入專案編輯表單</h2>
         <p class="resource-state__description">
-          正在從 API 載入既有 Project。
+          正在從 API 載入既有專案。
         </p>
       </section>
 
@@ -111,16 +111,16 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
         class="resource-state"
         data-testid="project-edit-error"
       >
-        <h2 class="resource-state__title">Project edit unavailable</h2>
+        <h2 class="resource-state__title">專案編輯暫時無法使用</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested project could not be loaded.' }}
+          {{ error?.message || '無法載入指定的專案。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/projects">
-            Back to projects
+            返回專案列表
           </NuxtLink>
         </div>
       </section>
@@ -130,12 +130,12 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
         class="resource-section"
         data-testid="project-edit-panel"
       >
-        <h2 class="resource-section__title">Edit {{ project.name }}</h2>
+        <h2 class="resource-section__title">編輯 {{ project.name }}</h2>
         <ProjectForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update project"
+          submit-label="更新專案"
           :cancel-to="`/projects/${projectId}`"
           @submit="handleSubmit"
         />

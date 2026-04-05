@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchCampaigns } from '~/features/campaigns/api'
+import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 
 const {
@@ -24,10 +25,10 @@ const campaigns = computed(() => campaignResponse.value.items)
   <main class="app-shell">
     <section class="resource-shell">
       <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">Home</NuxtLink>
-        <h1 class="resource-shell__title">Campaigns Shell</h1>
+        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+        <h1 class="resource-shell__title">活動列表</h1>
         <p class="resource-shell__description">
-          這個頁面對齊 backend 的 Campaign list / detail contract，先承接 MVP 階段的活動列表、狀態與平台欄位。
+          這個頁面對齊後端的活動列表與詳情契約，先承接 MVP 階段的活動列表、狀態與平台欄位。
         </p>
       </header>
 
@@ -36,9 +37,9 @@ const campaigns = computed(() => campaignResponse.value.items)
         class="resource-state"
         data-testid="campaigns-loading"
       >
-        <h2 class="resource-state__title">Loading campaigns</h2>
+        <h2 class="resource-state__title">載入活動中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Campaign list。
+          正在從 API 載入活動列表。
         </p>
       </section>
 
@@ -47,13 +48,13 @@ const campaigns = computed(() => campaignResponse.value.items)
         class="resource-state"
         data-testid="campaigns-error"
       >
-        <h2 class="resource-state__title">Campaigns unavailable</h2>
+        <h2 class="resource-state__title">無法載入活動</h2>
         <p class="resource-state__description">
           {{ error.message }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
         </div>
       </section>
@@ -63,9 +64,9 @@ const campaigns = computed(() => campaignResponse.value.items)
         class="resource-state"
         data-testid="campaigns-empty"
       >
-        <h2 class="resource-state__title">No campaigns yet</h2>
+        <h2 class="resource-state__title">目前還沒有活動</h2>
         <p class="resource-state__description">
-          目前 API 沒有回傳任何 Campaign。後續建立測試批次後，這個頁面會直接承接資料。
+          目前 API 沒有回傳任何活動。後續建立測試批次後，這個頁面會直接承接資料。
         </p>
       </section>
 
@@ -81,18 +82,18 @@ const campaigns = computed(() => campaignResponse.value.items)
           :data-testid="`campaign-card-${campaign.id}`"
           :to="`/campaigns/${campaign.id}`"
         >
-          <span class="resource-shell__breadcrumb">Campaign</span>
+          <span class="resource-shell__breadcrumb">活動</span>
           <h2 class="resource-card__title">{{ campaign.name }}</h2>
           <p class="resource-card__description">
             {{
               campaign.version_label
-                ? `Version ${campaign.version_label}`
-                : 'No version label yet.'
+                ? `版本 ${campaign.version_label}`
+                : '目前尚未提供版本標記。'
             }}
           </p>
           <div class="resource-card__meta">
-            <span class="resource-card__chip">Status {{ campaign.status }}</span>
-            <span class="resource-card__chip">Project {{ campaign.project_id }}</span>
+            <span class="resource-card__chip">狀態 {{ formatCampaignStatusLabel(campaign.status) }}</span>
+            <span class="resource-card__chip">專案 {{ campaign.project_id }}</span>
           </div>
           <div class="resource-card__meta">
             <span

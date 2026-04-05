@@ -1,6 +1,16 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
+import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatPlatformLabel } from '~/features/platform-display'
+import {
+  type DistributionChannel,
+  formatDistributionChannelLabel,
+  type ReviewStatus,
+  formatReviewStatusLabel,
+  formatRiskLevelLabel,
+  type RiskLevel
+} from '~/features/safety/types'
+import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
 
@@ -77,6 +87,27 @@ const projectDetail = {
   updated_at: '2026-04-03T10:00:00Z'
 }
 
+const developerAccount = {
+  id: 'acct_dev_123',
+  display_name: 'Alice Developer',
+  role: 'developer',
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
+const testerAccount = {
+  id: 'acct_tester_123',
+  display_name: 'Tim Tester',
+  role: 'tester',
+  updated_at: '2026-04-03T10:00:00Z'
+}
+
+async function mockAccounts(page: Page): Promise<void> {
+  await mockApiJson(page, '/accounts', {
+    items: [developerAccount, testerAccount],
+    total: 2
+  })
+}
+
 test.describe('campaigns shell flows', () => {
   test('navigates from home to campaigns list and campaign detail, then links back to project detail', async ({
     page
@@ -126,8 +157,12 @@ test.describe('campaigns shell flows', () => {
     const safetyPanel = page.getByTestId('campaign-safety-panel')
     await expect(safetyPanel).toBeVisible()
     await expect(safetyPanel).toContainText(campaignSafety.source_label)
-    await expect(safetyPanel).toContainText(campaignSafety.risk_level)
-    await expect(safetyPanel).toContainText(campaignSafety.review_status)
+    await expect(safetyPanel).toContainText(
+      formatRiskLevelLabel(campaignSafety.risk_level as RiskLevel)
+    )
+    await expect(safetyPanel).toContainText(
+      formatReviewStatusLabel(campaignSafety.review_status as ReviewStatus)
+    )
 
     const reputationPanel = page.getByTestId('campaign-reputation-panel')
     await expect(reputationPanel).toBeVisible()
@@ -144,7 +179,7 @@ test.describe('campaigns shell flows', () => {
     const tasksList = page.getByTestId('campaign-tasks-list')
     await expect(tasksList).toBeVisible()
     await expect(tasksList).toContainText(taskListItem.title)
-    await expect(tasksList).toContainText(taskListItem.status)
+    await expect(tasksList).toContainText(formatTaskStatusLabel(taskListItem.status as TaskStatus))
 
     await detailPanel.getByRole('link', { name: campaignDetail.project_id }).click()
 
@@ -166,7 +201,9 @@ test.describe('campaigns shell flows', () => {
     }
 
     let createRequestBody: unknown = null
+    let createRequestActorId: string | undefined
 
+    await mockAccounts(page)
     await mockApiJson(page, '/projects/proj_123', projectDetail)
     await mockApiJson(page, '/campaigns?project_id=proj_123', {
       items: [],
@@ -180,6 +217,7 @@ test.describe('campaigns shell flows', () => {
         return
       }
 
+      createRequestActorId = route.request().headers()['x-actor-id']
       createRequestBody = JSON.parse(route.request().postData() ?? '{}')
       await route.fulfill({
         status: 201,
@@ -227,7 +265,7 @@ test.describe('campaigns shell flows', () => {
     await expect(page).toHaveURL(/\/projects\/proj_123\/campaigns\/new$/)
     await expect(page.getByTestId('campaign-form')).toBeVisible()
     await expect(page.getByTestId('campaign-status-default-note')).toContainText(
-      'draft'
+      '草稿'
     )
 
     await page.getByTestId('campaign-name-input').fill('Closed Beta Round 2')
@@ -235,10 +273,12 @@ test.describe('campaigns shell flows', () => {
       .getByTestId('campaign-description-input')
       .fill('Validate pricing copy on the Mobile Web beta experience.')
     await page.getByTestId('campaign-version-label-input').fill('0.9.1-beta.2')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('campaign-platform-checkbox-h5').check()
     await page.getByTestId('campaign-platform-checkbox-ios').check()
     await page.getByTestId('campaign-submit').click()
 
+    expect(createRequestActorId).toBe(developerAccount.id)
     expect(createRequestBody).toEqual({
       project_id: 'proj_123',
       name: 'Closed Beta Round 2',
@@ -251,10 +291,11 @@ test.describe('campaigns shell flows', () => {
     await expect(page.getByTestId('campaign-detail-panel')).toContainText(
       createdCampaign.name
     )
-    await expect(page.getByTestId('campaign-detail-panel')).toContainText('Mobile Web')
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText('行動網頁')
   })
 
   test('shows campaign create validation and backend errors', async ({ page }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/projects/proj_123', projectDetail)
     await page.route(/\/api\/v1\/campaigns$/, async (route) => {
       if (route.request().method() !== 'POST') {
@@ -285,17 +326,18 @@ test.describe('campaigns shell flows', () => {
     await page.getByTestId('campaign-submit').click()
 
     await expect(page.getByTestId('campaign-form-error')).toContainText(
-      'Name is required.'
+      '名稱為必填。'
     )
 
     await page.getByTestId('campaign-name-input').fill('Closed Beta Round 2')
+    await page.getByTestId('campaign-platform-checkbox-ios').check()
     await page.getByTestId('campaign-submit').click()
 
     await expect(page.getByTestId('campaign-form-error')).toContainText(
-      'Select at least one target platform.'
+      '建立活動前，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('campaign-platform-checkbox-ios').check()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('campaign-submit').click()
 
     await expect(page.getByTestId('campaign-form-error')).toContainText(
@@ -317,7 +359,9 @@ test.describe('campaigns shell flows', () => {
 
     let detailResponse = originalCampaign
     let updateRequestBody: unknown = null
+    let updateRequestActorId: string | undefined
 
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/campaigns\/camp_123$/, async (route) => {
       const method = route.request().method()
 
@@ -331,6 +375,7 @@ test.describe('campaigns shell flows', () => {
       }
 
       if (method === 'PATCH') {
+        updateRequestActorId = route.request().headers()['x-actor-id']
         updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
         detailResponse = updatedCampaign
         await route.fulfill({
@@ -359,6 +404,7 @@ test.describe('campaigns shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/edit$/)
     await expect(page.getByTestId('campaign-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-description-input')
@@ -368,6 +414,7 @@ test.describe('campaigns shell flows', () => {
     await page.getByTestId('campaign-status-field').selectOption('closed')
     await page.getByTestId('campaign-submit').click()
 
+    expect(updateRequestActorId).toBe(developerAccount.id)
     expect(updateRequestBody).toEqual({
       description: 'Updated campaign summary for the Mobile Web rollout.',
       target_platforms: ['h5', 'ios', 'android'],
@@ -380,7 +427,9 @@ test.describe('campaigns shell flows', () => {
       updatedCampaign.description
     )
     await expect(page.getByTestId('campaign-detail-panel')).toContainText('Mobile Web')
-    await expect(page.getByTestId('campaign-detail-panel')).toContainText('closed')
+    await expect(page.getByTestId('campaign-detail-panel')).toContainText(
+      formatCampaignStatusLabel('closed')
+    )
   })
 
   test('renders the campaign edit error state when the record cannot be loaded', async ({
@@ -511,7 +560,9 @@ test.describe('campaigns shell flows', () => {
 
     let currentSafety: typeof createdSafety | null = null
     let createRequestBody: unknown = null
+    let createRequestActorId: string | undefined
 
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
     await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
@@ -551,6 +602,7 @@ test.describe('campaigns shell flows', () => {
       }
 
       if (method === 'POST') {
+        createRequestActorId = route.request().headers()['x-actor-id']
         createRequestBody = JSON.parse(route.request().postData() ?? '{}')
         currentSafety = createdSafety
         await route.fulfill({
@@ -581,6 +633,7 @@ test.describe('campaigns shell flows', () => {
     await page
       .getByTestId('campaign-safety-source-url-input')
       .fill('https://play.google.com/apps/testing/com.example.closed-beta')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await page.getByTestId('campaign-safety-risk-level-field').selectOption('medium')
     await page.getByTestId('campaign-safety-review-status-field').selectOption('approved')
     await page.getByTestId('campaign-safety-risk-note-input').fill(
@@ -588,6 +641,7 @@ test.describe('campaigns shell flows', () => {
     )
     await page.getByTestId('campaign-safety-submit').click()
 
+    expect(createRequestActorId).toBe(developerAccount.id)
     expect(createRequestBody).toEqual({
       distribution_channel: 'google_play_testing',
       source_label: 'Google Play Internal Testing',
@@ -601,13 +655,18 @@ test.describe('campaigns shell flows', () => {
     await expect(page).toHaveURL(/\/campaigns\/camp_123$/)
     const safetyPanel = page.getByTestId('campaign-safety-panel')
     await expect(safetyPanel).toContainText(createdSafety.source_label)
-    await expect(safetyPanel).toContainText('Google Play Testing')
-    await expect(safetyPanel).toContainText(createdSafety.risk_level)
+    await expect(safetyPanel).toContainText(
+      formatDistributionChannelLabel(createdSafety.distribution_channel as DistributionChannel)
+    )
+    await expect(safetyPanel).toContainText(
+      formatRiskLevelLabel(createdSafety.risk_level as RiskLevel)
+    )
   })
 
   test('shows campaign safety create conflict errors without leaving the form', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await page.route(/\/api\/v1\/campaigns\/camp_123\/safety$/, async (route) => {
       const method = route.request().method()
@@ -633,6 +692,7 @@ test.describe('campaigns shell flows', () => {
 
     await page.goto('/campaigns/camp_123/safety/new')
     await expect(page.getByTestId('campaign-safety-form')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-safety-distribution-channel-field')
@@ -645,6 +705,47 @@ test.describe('campaigns shell flows', () => {
       'Campaign safety already exists.'
     )
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/new$/)
+  })
+
+  test('shows role mismatch errors when a tester tries to create campaign safety', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/safety$/, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.fallback()
+        return
+      }
+
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'forbidden_actor_role',
+          message: 'Developer role is required for this operation.',
+          details: {
+            actor_id: testerAccount.id,
+            actor_role: 'tester',
+            required_role: 'developer'
+          }
+        })
+      })
+    })
+
+    await page.goto('/campaigns/camp_123/safety/new')
+    await expect(page.getByTestId('campaign-safety-form')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page
+      .getByTestId('campaign-safety-distribution-channel-field')
+      .selectOption('testflight')
+    await page.getByTestId('campaign-safety-source-label-input').fill('TestFlight')
+    await page.getByTestId('campaign-safety-risk-level-field').selectOption('low')
+    await page.getByTestId('campaign-safety-submit').click()
+
+    await expect(page.getByTestId('campaign-safety-form-error')).toContainText(
+      '目前操作帳號角色不符合這項操作。'
+    )
   })
 
   test('renders the campaign safety error state when the safety request fails', async ({
@@ -699,7 +800,9 @@ test.describe('campaigns shell flows', () => {
       ...campaignSafety
     }
     let updateRequestBody: unknown = null
+    let updateRequestActorId: string | undefined
 
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
     await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
@@ -723,6 +826,7 @@ test.describe('campaigns shell flows', () => {
       }
 
       if (method === 'PATCH') {
+        updateRequestActorId = route.request().headers()['x-actor-id']
         updateRequestBody = JSON.parse(route.request().postData() ?? '{}')
         currentSafety = updatedSafety
         await route.fulfill({
@@ -741,6 +845,7 @@ test.describe('campaigns shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/edit$/)
     await expect(page.getByTestId('campaign-safety-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-safety-distribution-channel-field')
@@ -759,6 +864,7 @@ test.describe('campaigns shell flows', () => {
     await page.getByTestId('campaign-safety-official-channel-only-input').uncheck()
     await page.getByTestId('campaign-safety-submit').click()
 
+    expect(updateRequestActorId).toBe(developerAccount.id)
     expect(updateRequestBody).toEqual({
       distribution_channel: 'web_url',
       source_label: 'Official Web Beta Portal',
@@ -772,8 +878,12 @@ test.describe('campaigns shell flows', () => {
     await expect(page).toHaveURL(/\/campaigns\/camp_123$/)
     const safetyPanel = page.getByTestId('campaign-safety-panel')
     await expect(safetyPanel).toContainText(updatedSafety.source_label)
-    await expect(safetyPanel).toContainText('Web URL')
-    await expect(safetyPanel).toContainText(updatedSafety.review_status)
+    await expect(safetyPanel).toContainText(
+      formatDistributionChannelLabel(updatedSafety.distribution_channel as DistributionChannel)
+    )
+    await expect(safetyPanel).toContainText(
+      formatReviewStatusLabel(updatedSafety.review_status as ReviewStatus)
+    )
   })
 
   test('renders the campaign safety edit error state when the safety record cannot be loaded', async ({

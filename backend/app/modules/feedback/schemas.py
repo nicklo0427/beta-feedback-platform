@@ -129,9 +129,26 @@ class FeedbackDetail(BaseModel):
     review_status: FeedbackReviewStatus
     developer_note: Optional[str] = None
     submitted_at: str
+    resubmitted_at: Optional[str] = None
     updated_at: str
 
 
 class FeedbackListResponse(BaseModel):
     items: list[FeedbackListItem]
+    total: int
+
+
+class FeedbackQueueItem(BaseModel):
+    id: str
+    task_id: str
+    campaign_id: str
+    summary: str
+    severity: FeedbackSeverity
+    category: FeedbackCategory
+    review_status: FeedbackReviewStatus
+    submitted_at: str
+
+
+class FeedbackQueueResponse(BaseModel):
+    items: list[FeedbackQueueItem]
     total: int

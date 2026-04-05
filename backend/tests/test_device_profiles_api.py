@@ -2,6 +2,19 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.modules.accounts.schemas import AccountCreate
+from app.modules.accounts.service import create_account
+from app.modules.projects.schemas import ProjectCreate
+from app.modules.projects.service import create_project
+
+
+def _create_developer_account(name: str = "Dev Owner"):
+    return create_account(AccountCreate(display_name=name, role="developer"))
+
+
+def _actor_headers(actor_id: str) -> dict[str, str]:
+    return {"X-Actor-Id": actor_id}
+
 
 def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -> None:
     create_response = client.post(
@@ -117,8 +130,12 @@ def test_device_profile_patch_rejects_unknown_fields(client: TestClient) -> None
 
 
 def test_device_profile_delete_conflicts_when_tasks_exist(client: TestClient) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
 
     campaign_response = client.post(
         "/api/v1/campaigns",
@@ -127,6 +144,7 @@ def test_device_profile_delete_conflicts_when_tasks_exist(client: TestClient) ->
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
 
@@ -148,6 +166,7 @@ def test_device_profile_delete_conflicts_when_tasks_exist(client: TestClient) ->
             "device_profile_id": device_profile_id,
             "status": "assigned",
         },
+        headers=_actor_headers(developer.id),
     )
 
     response = client.delete(f"/api/v1/device-profiles/{device_profile_id}")
@@ -160,5 +179,124 @@ def test_device_profile_delete_conflicts_when_tasks_exist(client: TestClient) ->
             "resource": "device_profile",
             "id": device_profile_id,
             "related_resource": "task",
+        },
+    }
+
+
+def test_device_profile_create_assigns_owner_from_current_actor_header(
+    client: TestClient,
+) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "QA Tester",
+            "role": "tester",
+        },
+    )
+    account_id = account_response.json()["id"]
+
+    response = client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": account_id},
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["owner_account_id"] == account_id
+
+
+def test_device_profiles_list_supports_mine_filter(client: TestClient) -> None:
+    first_account_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA A", "role": "tester"},
+    )
+    second_account_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA B", "role": "tester"},
+    )
+    first_account_id = first_account_response.json()["id"]
+    second_account_id = second_account_response.json()["id"]
+
+    client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": first_account_id},
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": second_account_id},
+        json={
+            "name": "QA Pixel 9",
+            "platform": "android",
+            "device_model": "Pixel 9",
+            "os_name": "Android",
+        },
+    )
+
+    response = client.get(
+        "/api/v1/device-profiles?mine=true",
+        headers={"X-Actor-Id": first_account_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+    assert response.json()["items"][0]["owner_account_id"] == first_account_id
+
+
+def test_device_profiles_mine_filter_requires_current_actor_header(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/v1/device-profiles?mine=true")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_device_profile_create_rejects_non_tester_actor(client: TestClient) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "Dev Lead",
+            "role": "developer",
+        },
+    )
+    account_id = account_response.json()["id"]
+
+    response = client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": account_id},
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "conflict",
+        "message": "Tester account is required to own a device profile.",
+        "details": {
+            "resource": "device_profile",
+            "account_id": account_id,
+            "expected_role": "tester",
+            "actual_role": "developer",
         },
     }

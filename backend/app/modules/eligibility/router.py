@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Response, status
+from typing import Optional
 
+from fastapi import APIRouter, Depends, Response, status
+
+from app.api.deps import get_current_actor_id_dep, require_current_actor_id
 from app.modules.eligibility.schemas import (
     EligibilityRuleCreate,
     EligibilityRuleDetail,
@@ -35,8 +38,10 @@ def list_eligibility_rules_route(campaign_id: str) -> EligibilityRuleListRespons
 def create_eligibility_rule_route(
     campaign_id: str,
     payload: EligibilityRuleCreate,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> EligibilityRuleDetail:
-    return create_eligibility_rule(campaign_id, payload)
+    actor_id = require_current_actor_id(current_actor_id)
+    return create_eligibility_rule(campaign_id, payload, actor_id)
 
 
 @router.get("/eligibility-rules/{eligibility_rule_id}", response_model=EligibilityRuleDetail)
@@ -51,8 +56,10 @@ def get_eligibility_rule_route(eligibility_rule_id: str) -> EligibilityRuleDetai
 def update_eligibility_rule_route(
     eligibility_rule_id: str,
     payload: EligibilityRuleUpdate,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> EligibilityRuleDetail:
-    return update_eligibility_rule(eligibility_rule_id, payload)
+    actor_id = require_current_actor_id(current_actor_id)
+    return update_eligibility_rule(eligibility_rule_id, payload, actor_id)
 
 
 @router.delete("/eligibility-rules/{eligibility_rule_id}", status_code=status.HTTP_204_NO_CONTENT)

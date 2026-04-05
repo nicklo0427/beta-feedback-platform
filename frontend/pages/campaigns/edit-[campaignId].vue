@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import CampaignForm from '~/features/campaigns/CampaignForm.vue'
 import { fetchCampaignDetail, updateCampaign } from '~/features/campaigns/api'
 import {
@@ -13,11 +19,13 @@ import {
   toCampaignFormValues
 } from '~/features/campaigns/form'
 import type { CampaignFormValues } from '~/features/campaigns/types'
-import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const campaignId = computed(() => String(route.params.campaignId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = ref(createEmptyCampaignFormValues())
@@ -54,14 +62,19 @@ watch(
 
 async function handleSubmit(values: CampaignFormValues): Promise<void> {
   if (!campaign.value) {
-    submitError.value = 'Campaign detail is unavailable.'
+    submitError.value = '目前無法取得活動內容。'
+    return
+  }
+
+  if (!currentActorId.value) {
+    submitError.value = '更新活動前，請先選擇目前操作帳號。'
     return
   }
 
   const payload = buildCampaignUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -69,13 +82,17 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
   submitting.value = true
 
   try {
-    const updatedCampaign = await updateCampaign(campaignId.value, payload)
+    const updatedCampaign = await updateCampaign(
+      campaignId.value,
+      payload,
+      currentActorId.value
+    )
     await router.push(`/campaigns/${updatedCampaign.id}`)
   } catch (submitFailure) {
-    submitError.value =
-      submitFailure instanceof ApiClientError
-        ? submitFailure.message
-        : 'Unable to update the campaign right now.'
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法更新活動。'
+    )
   } finally {
     submitting.value = false
   }
@@ -87,22 +104,27 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/campaigns/${campaignId}`">
-          Campaign Detail
+          活動詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Campaign</h1>
+        <h1 class="resource-shell__title">編輯活動</h1>
         <p class="resource-shell__description">
-          更新既有 Campaign 的最小欄位、target platforms 與 status，讓後續 safety、eligibility 與 task 流程維持一致。
+          更新既有活動的最小欄位、目標平台與狀態，讓後續安全設定、資格條件與任務流程維持一致。
         </p>
       </header>
+
+      <CurrentActorSelector
+        title="活動操作帳號"
+        description="選擇目前正在操作的開發者帳號。更新活動時，系統會用它驗證活動所屬專案的擁有權。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="campaign-edit-loading"
       >
-        <h2 class="resource-state__title">Loading campaign edit form</h2>
+        <h2 class="resource-state__title">載入活動編輯表單中</h2>
         <p class="resource-state__description">
-          正在從 API 載入既有 Campaign。
+          正在從 API 載入既有活動。
         </p>
       </section>
 
@@ -111,16 +133,16 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
         class="resource-state"
         data-testid="campaign-edit-error"
       >
-        <h2 class="resource-state__title">Campaign edit unavailable</h2>
+        <h2 class="resource-state__title">無法載入活動編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested campaign could not be loaded.' }}
+          {{ error?.message || '找不到指定的活動。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/campaigns">
-            Back to campaigns
+            返回活動列表
           </NuxtLink>
         </div>
       </section>
@@ -130,12 +152,12 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
         class="resource-section"
         data-testid="campaign-edit-panel"
       >
-        <h2 class="resource-section__title">Edit {{ campaign.name }}</h2>
+        <h2 class="resource-section__title">編輯 {{ campaign.name }}</h2>
         <CampaignForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update campaign"
+          submit-label="更新活動"
           :cancel-to="`/campaigns/${campaignId}`"
           allow-status-edit
           @submit="handleSubmit"

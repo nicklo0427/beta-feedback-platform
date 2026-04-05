@@ -1,11 +1,21 @@
 import { expect, test } from '@playwright/test'
 
+import { formatCampaignStatusLabel, type CampaignStatus } from '~/features/campaigns/types'
+
 import { mockApiError, mockApiJson } from './support/api-mocks'
+
+const developerAccount = {
+  id: 'acct_dev_123',
+  display_name: 'Dev Lead',
+  role: 'developer',
+  updated_at: '2026-04-03T09:30:00Z'
+}
 
 const projectListItem = {
   id: 'proj_123',
   name: 'HabitQuest',
   description: 'Cross-platform habit tracking app beta program.',
+  owner_account_id: developerAccount.id,
   updated_at: '2026-04-03T10:00:00Z'
 }
 
@@ -13,6 +23,7 @@ const projectDetail = {
   id: 'proj_123',
   name: 'HabitQuest',
   description: 'Cross-platform habit tracking app beta program.',
+  owner_account_id: developerAccount.id,
   created_at: '2026-04-01T09:00:00Z',
   updated_at: '2026-04-03T10:00:00Z'
 }
@@ -31,6 +42,10 @@ test.describe('projects shell flows', () => {
   test('navigates from home to projects list and project detail with related campaigns', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/projects', {
       items: [projectListItem],
       total: 1
@@ -50,6 +65,7 @@ test.describe('projects shell flows', () => {
     const projectCard = page.getByTestId('project-card-proj_123')
     await expect(projectCard).toBeVisible()
     await expect(projectCard).toContainText(projectListItem.name)
+    await expect(projectCard).toContainText(projectListItem.owner_account_id)
     await expect(projectCard).toContainText(projectListItem.updated_at)
 
     await projectCard.click()
@@ -61,6 +77,7 @@ test.describe('projects shell flows', () => {
     await expect(detailPanel).toContainText(projectDetail.name)
     await expect(detailPanel).toContainText(projectDetail.id)
     await expect(detailPanel).toContainText(projectDetail.created_at)
+    await expect(detailPanel).toContainText(projectDetail.owner_account_id)
 
     const relatedCampaignsList = page.getByTestId('project-campaigns-list')
     await expect(relatedCampaignsList).toBeVisible()
@@ -68,7 +85,9 @@ test.describe('projects shell flows', () => {
     const relatedCampaignCard = page.getByTestId('project-campaign-card-camp_123')
     await expect(relatedCampaignCard).toBeVisible()
     await expect(relatedCampaignCard).toContainText(relatedCampaign.name)
-    await expect(relatedCampaignCard).toContainText(relatedCampaign.status)
+    await expect(relatedCampaignCard).toContainText(
+      formatCampaignStatusLabel(relatedCampaign.status as CampaignStatus)
+    )
   })
 
   test('supports creating a project from the frontend form', async ({ page }) => {
@@ -76,11 +95,13 @@ test.describe('projects shell flows', () => {
       id: 'proj_456',
       name: 'FocusFlow',
       description: 'A focused productivity beta workspace.',
+      owner_account_id: developerAccount.id,
       created_at: '2026-04-03T12:00:00Z',
       updated_at: '2026-04-03T12:00:00Z'
     }
 
     let createRequestBody: unknown = null
+    let actorHeader: string | undefined
 
     await page.route(/\/api\/v1\/projects$/, async (route) => {
       const method = route.request().method()
@@ -99,6 +120,7 @@ test.describe('projects shell flows', () => {
 
       if (method === 'POST') {
         createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        actorHeader = route.request().headers()['x-actor-id']
         await route.fulfill({
           status: 201,
           contentType: 'application/json',
@@ -110,6 +132,10 @@ test.describe('projects shell flows', () => {
       await route.fallback()
     })
 
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/projects/proj_456', createdProject)
     await mockApiJson(page, '/campaigns?project_id=proj_456', {
       items: [],
@@ -120,6 +146,7 @@ test.describe('projects shell flows', () => {
     await page.getByTestId('project-create-link').click()
 
     await expect(page).toHaveURL(/\/projects\/new$/)
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await expect(page.getByTestId('project-form')).toBeVisible()
 
     await page.getByTestId('project-name-input').fill('FocusFlow')
@@ -132,14 +159,23 @@ test.describe('projects shell flows', () => {
       name: 'FocusFlow',
       description: 'A focused productivity beta workspace.'
     })
+    expect(actorHeader).toBe(developerAccount.id)
 
     await expect(page).toHaveURL(/\/projects\/proj_456$/)
     await expect(page.getByTestId('project-detail-panel')).toContainText(
       createdProject.name
     )
+    await expect(page.getByTestId('project-detail-panel')).toContainText(
+      createdProject.owner_account_id
+    )
   })
 
   test('shows project create form validation and backend errors', async ({ page }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
+
     await page.route(/\/api\/v1\/projects$/, async (route) => {
       if (route.request().method() !== 'POST') {
         await route.fallback()
@@ -165,11 +201,12 @@ test.describe('projects shell flows', () => {
     })
 
     await page.goto('/projects/new')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
     await expect(page.getByTestId('project-form')).toBeVisible()
     await page.getByTestId('project-submit').click()
 
     await expect(page.getByTestId('project-form-error')).toContainText(
-      'Name is required.'
+      '名稱為必填。'
     )
 
     await page.getByTestId('project-name-input').fill('FocusFlow')
@@ -178,6 +215,54 @@ test.describe('projects shell flows', () => {
     await expect(page.getByTestId('project-form-error')).toContainText(
       'Request validation failed.'
     )
+  })
+
+  test('supports mine-only filtering with the current actor header', async ({ page }) => {
+    const mineProject = {
+      ...projectListItem
+    }
+
+    let mineRequestHeader: string | undefined
+
+    await page.route(/\/api\/v1\/projects(?:\?mine=true)?$/, async (route) => {
+      const url = route.request().url()
+
+      if (url.endsWith('/api/v1/projects?mine=true')) {
+        mineRequestHeader = route.request().headers()['x-actor-id']
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [mineProject],
+            total: 1
+          })
+        })
+        return
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [],
+          total: 0
+        })
+      })
+    })
+
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
+
+    await page.goto('/projects')
+
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('projects-mine-toggle').click()
+
+    await expect(page.getByTestId('projects-list')).toBeVisible()
+    await expect(page.getByTestId('project-card-proj_123')).toBeVisible()
+    expect(mineRequestHeader).toBe(developerAccount.id)
   })
 
   test('supports editing a project from the frontend form', async ({ page }) => {
@@ -279,6 +364,10 @@ test.describe('projects shell flows', () => {
   test('renders the projects empty state when the API returns no items', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/projects', {
       items: [],
       total: 0
@@ -293,6 +382,10 @@ test.describe('projects shell flows', () => {
   test('renders the project detail error state when the detail request fails', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [developerAccount],
+      total: 1
+    })
     await mockApiError(
       page,
       '/projects/proj_missing',

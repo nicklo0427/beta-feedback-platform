@@ -14,7 +14,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save project'
+    submitLabel: '儲存專案'
   }
 )
 
@@ -40,7 +40,7 @@ watch(
 
 function validateForm(): boolean {
   if (!values.name.trim()) {
-    validationMessage.value = 'Name is required.'
+    validationMessage.value = '名稱為必填。'
     return false
   }
 
@@ -73,7 +73,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Name</span>
+        <span class="resource-field__label">名稱</span>
         <input
           v-model="values.name"
           class="resource-input"
@@ -86,7 +86,7 @@ function handleSubmit(): void {
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Description</span>
+      <span class="resource-field__label">說明</span>
       <textarea
         v-model="values.description"
         class="resource-textarea"
@@ -104,10 +104,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

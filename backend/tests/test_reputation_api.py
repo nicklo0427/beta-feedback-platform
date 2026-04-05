@@ -2,10 +2,28 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.modules.accounts.schemas import AccountCreate
+from app.modules.accounts.service import create_account
+from app.modules.projects.schemas import ProjectCreate
+from app.modules.projects.service import create_project
+
+
+def _create_developer_account(name: str = "Dev Owner"):
+    return create_account(AccountCreate(display_name=name, role="developer"))
+
+
+def _actor_headers(actor_id: str) -> dict[str, str]:
+    return {"X-Actor-Id": actor_id}
+
 
 def test_device_profile_reputation_api_returns_summary_metrics(client: TestClient) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    tester = create_account(AccountCreate(display_name="QA Tester", role="tester"))
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
 
     campaign_response = client.post(
         "/api/v1/campaigns",
@@ -14,11 +32,13 @@ def test_device_profile_reputation_api_returns_summary_metrics(client: TestClien
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
 
     device_profile_response = client.post(
         "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
         json={
             "name": "QA iPhone 15",
             "platform": "ios",
@@ -35,6 +55,7 @@ def test_device_profile_reputation_api_returns_summary_metrics(client: TestClien
             "device_profile_id": device_profile_id,
             "status": "assigned",
         },
+        headers=_actor_headers(developer.id),
     )
     submitted_task_response = client.post(
         f"/api/v1/campaigns/{campaign_id}/tasks",
@@ -43,6 +64,7 @@ def test_device_profile_reputation_api_returns_summary_metrics(client: TestClien
             "device_profile_id": device_profile_id,
             "status": "submitted",
         },
+        headers=_actor_headers(developer.id),
     )
     submitted_task_id = submitted_task_response.json()["id"]
 
@@ -53,6 +75,7 @@ def test_device_profile_reputation_api_returns_summary_metrics(client: TestClien
             "severity": "high",
             "category": "bug",
         },
+        headers=_actor_headers(tester.id),
     )
 
     response = client.get(f"/api/v1/device-profiles/{device_profile_id}/reputation")
@@ -70,8 +93,12 @@ def test_device_profile_reputation_api_returns_summary_metrics(client: TestClien
 def test_campaign_reputation_api_returns_zero_state_for_existing_campaign(
     client: TestClient,
 ) -> None:
-    project_response = client.post("/api/v1/projects", json={"name": "HabitQuest"})
-    project_id = project_response.json()["id"]
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    project_id = project.id
 
     campaign_response = client.post(
         "/api/v1/campaigns",
@@ -80,6 +107,7 @@ def test_campaign_reputation_api_returns_zero_state_for_existing_campaign(
             "name": "Closed Beta Round 1",
             "target_platforms": ["ios"],
         },
+        headers=_actor_headers(developer.id),
     )
     campaign_id = campaign_response.json()["id"]
 

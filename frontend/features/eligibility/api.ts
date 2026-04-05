@@ -1,6 +1,7 @@
 import type { ListResponse } from '~/services/api/client'
 
 import { useApiClient } from '~/services/api/client'
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 
 import type {
   EligibilityRuleCreatePayload,
@@ -27,22 +28,26 @@ export async function fetchEligibilityRuleDetail(
 
 export async function createEligibilityRule(
   campaignId: string,
-  payload: EligibilityRuleCreatePayload
+  payload: EligibilityRuleCreatePayload,
+  actorId?: string | null
 ): Promise<EligibilityRuleDetail> {
   const { request } = useApiClient()
   return request<EligibilityRuleDetail>(`/campaigns/${campaignId}/eligibility-rules`, {
     method: 'POST',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }
 
 export async function updateEligibilityRule(
   eligibilityRuleId: string,
-  payload: EligibilityRuleUpdatePayload
+  payload: EligibilityRuleUpdatePayload,
+  actorId?: string | null
 ): Promise<EligibilityRuleDetail> {
   const { request } = useApiClient()
   return request<EligibilityRuleDetail>(`/eligibility-rules/${eligibilityRuleId}`, {
     method: 'PATCH',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }

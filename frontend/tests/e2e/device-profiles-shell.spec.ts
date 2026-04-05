@@ -4,12 +4,20 @@ import { formatPlatformLabel } from '~/features/platform-display'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
 
+const testerAccount = {
+  id: 'acct_tester_123',
+  display_name: 'QA Tester',
+  role: 'tester',
+  updated_at: '2026-04-03T09:30:00Z'
+}
+
 const deviceProfileListItem = {
   id: 'dp_123',
   name: 'QA iPhone 15',
   platform: 'ios',
   device_model: 'iPhone 15 Pro',
   os_name: 'iOS',
+  owner_account_id: testerAccount.id,
   updated_at: '2026-04-03T10:00:00Z'
 }
 
@@ -24,6 +32,7 @@ const deviceProfileDetail = {
   browser_version: '18.0',
   locale: 'zh-TW',
   notes: 'Internal device',
+  owner_account_id: testerAccount.id,
   created_at: '2026-04-01T09:00:00Z',
   updated_at: '2026-04-03T10:00:00Z'
 }
@@ -40,6 +49,10 @@ const deviceProfileReputation = {
 
 test.describe('device profiles shell flows', () => {
   test('navigates from home to device profiles list and detail', async ({ page }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [testerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/device-profiles', {
       items: [deviceProfileListItem],
       total: 1
@@ -59,6 +72,7 @@ test.describe('device profiles shell flows', () => {
     await expect(deviceProfileCard).toContainText(
       formatPlatformLabel(deviceProfileListItem.platform)
     )
+    await expect(deviceProfileCard).toContainText(deviceProfileListItem.owner_account_id)
 
     await deviceProfileCard.click()
 
@@ -69,6 +83,7 @@ test.describe('device profiles shell flows', () => {
     await expect(detailPanel).toContainText(deviceProfileDetail.name)
     await expect(detailPanel).toContainText(deviceProfileDetail.device_model)
     await expect(detailPanel).toContainText(deviceProfileDetail.os_version)
+    await expect(detailPanel).toContainText(deviceProfileDetail.owner_account_id)
 
     const reputationPanel = page.getByTestId('device-profile-reputation-panel')
     await expect(reputationPanel).toBeVisible()
@@ -89,11 +104,13 @@ test.describe('device profiles shell flows', () => {
       browser_version: '136',
       locale: 'en-US',
       notes: 'Owned by the internal QA team.',
+      owner_account_id: testerAccount.id,
       created_at: '2026-04-03T12:00:00Z',
       updated_at: '2026-04-03T12:00:00Z'
     }
 
     let createRequestBody: unknown = null
+    let actorHeader: string | undefined
 
     await page.route(/\/api\/v1\/device-profiles$/, async (route) => {
       const method = route.request().method()
@@ -112,6 +129,7 @@ test.describe('device profiles shell flows', () => {
 
       if (method === 'POST') {
         createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        actorHeader = route.request().headers()['x-actor-id']
         await route.fulfill({
           status: 201,
           contentType: 'application/json',
@@ -123,12 +141,17 @@ test.describe('device profiles shell flows', () => {
       await route.fallback()
     })
 
+    await mockApiJson(page, '/accounts', {
+      items: [testerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/device-profiles/dp_456', createdDeviceProfile)
 
     await page.goto('/device-profiles')
     await page.getByTestId('device-profile-create-link').click()
 
     await expect(page).toHaveURL(/\/device-profiles\/new$/)
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
     await expect(page.getByTestId('device-profile-form')).toBeVisible()
     await page.waitForLoadState('networkidle')
 
@@ -156,14 +179,23 @@ test.describe('device profiles shell flows', () => {
       locale: 'en-US',
       notes: 'Owned by the internal QA team.'
     })
+    expect(actorHeader).toBe(testerAccount.id)
 
     await expect(page).toHaveURL(/\/device-profiles\/dp_456$/)
     await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
       createdDeviceProfile.name
     )
+    await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
+      createdDeviceProfile.owner_account_id
+    )
   })
 
   test('shows create form validation and backend errors', async ({ page }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [testerAccount],
+      total: 1
+    })
+
     await page.route(/\/api\/v1\/device-profiles$/, async (route) => {
       if (route.request().method() !== 'POST') {
         await route.fallback()
@@ -189,11 +221,12 @@ test.describe('device profiles shell flows', () => {
     })
 
     await page.goto('/device-profiles/new')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
     await expect(page.getByTestId('device-profile-form')).toBeVisible()
     await page.getByTestId('device-profile-submit').click()
 
     await expect(page.getByTestId('device-profile-form-error')).toContainText(
-      'Name is required.'
+      '名稱為必填。'
     )
 
     await page.getByTestId('device-profile-name-input').fill('QA Web Device')
@@ -304,6 +337,10 @@ test.describe('device profiles shell flows', () => {
   test('renders the device profiles empty state when the API returns no items', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [testerAccount],
+      total: 1
+    })
     await mockApiJson(page, '/device-profiles', {
       items: [],
       total: 0

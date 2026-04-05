@@ -4,6 +4,8 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.accounts.schemas import AccountCreate, AccountRole
+from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate
 from app.modules.campaigns.service import create_campaign
 from app.modules.projects.schemas import ProjectCreate, ProjectUpdate
@@ -32,6 +34,55 @@ def test_project_service_create_and_list_returns_expected_items() -> None:
     assert listed_projects.items[0].description == (
         "Cross-platform habit tracking app beta program."
     )
+
+
+def test_project_service_create_assigns_owner_when_actor_is_developer() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Lead", role=AccountRole.DEVELOPER)
+    )
+
+    created_project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        developer.id,
+    )
+
+    assert created_project.owner_account_id == developer.id
+
+
+def test_project_service_create_rejects_non_developer_actor() -> None:
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        create_project(ProjectCreate(name="HabitQuest"), tester.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "conflict"
+    assert error.details == {
+        "resource": "project",
+        "account_id": tester.id,
+        "expected_role": "developer",
+        "actual_role": "tester",
+    }
+
+
+def test_project_service_list_filters_by_owner_account_id() -> None:
+    first_developer = create_account(
+        AccountCreate(display_name="Dev A", role=AccountRole.DEVELOPER)
+    )
+    second_developer = create_account(
+        AccountCreate(display_name="Dev B", role=AccountRole.DEVELOPER)
+    )
+    owned_project = create_project(ProjectCreate(name="HabitQuest"), first_developer.id)
+    create_project(ProjectCreate(name="FocusFlow"), second_developer.id)
+
+    listed_projects = list_projects(owner_account_id=first_developer.id)
+
+    assert listed_projects.total == 1
+    assert listed_projects.items[0].id == owned_project.id
+    assert listed_projects.items[0].owner_account_id == first_developer.id
 
 
 def test_project_service_ensure_project_exists_raises_not_found() -> None:

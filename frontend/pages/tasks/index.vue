@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchTasks } from '~/features/tasks/api'
-import { isTaskStatus } from '~/features/tasks/types'
+import { formatTaskStatusLabel, isTaskStatus } from '~/features/tasks/types'
 
 const route = useRoute()
 
@@ -46,12 +46,12 @@ const {
 const tasks = computed(() => taskResponse.value.items)
 const activeFilters = computed(() => [
   campaignIdFilter.value
-    ? `Campaign ${campaignIdFilter.value}`
+    ? `活動 ${campaignIdFilter.value}`
     : null,
   deviceProfileIdFilter.value
-    ? `Device Profile ${deviceProfileIdFilter.value}`
+    ? `裝置設定檔 ${deviceProfileIdFilter.value}`
     : null,
-  statusFilter.value ? `Status ${statusFilter.value}` : null
+  statusFilter.value ? `狀態 ${formatTaskStatusLabel(statusFilter.value)}` : null
 ].filter(Boolean) as string[])
 </script>
 
@@ -59,21 +59,28 @@ const activeFilters = computed(() => [
   <main class="app-shell">
     <section class="resource-shell">
       <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">Home</NuxtLink>
-        <h1 class="resource-shell__title">Tasks Shell</h1>
+        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+        <h1 class="resource-shell__title">任務列表</h1>
         <p class="resource-shell__description">
-          這個頁面對齊 backend 的 Task list / detail contract，先承接任務清單、assignment anchor 與最小 status flow 的頁面骨架。
+          這個頁面對齊後端的任務列表與詳情契約，先承接任務清單、指派錨點與最小狀態流的頁面骨架。
         </p>
         <div
-          v-if="campaignIdFilter"
           class="resource-state__actions"
         >
           <NuxtLink
             class="resource-action"
+            data-testid="tasks-my-inbox-link"
+            to="/my/tasks"
+          >
+            開啟我的測試者收件匣
+          </NuxtLink>
+          <NuxtLink
+            v-if="campaignIdFilter"
+            class="resource-action"
             data-testid="tasks-create-link"
             :to="`/campaigns/${campaignIdFilter}/tasks/new`"
           >
-            Create task for this campaign
+            為此活動建立任務
           </NuxtLink>
         </div>
         <div v-if="activeFilters.length > 0" class="resource-shell__meta">
@@ -92,9 +99,9 @@ const activeFilters = computed(() => [
         class="resource-state"
         data-testid="tasks-loading"
       >
-        <h2 class="resource-state__title">Loading tasks</h2>
+        <h2 class="resource-state__title">載入任務中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Task list。
+          正在從 API 載入任務列表。
         </p>
       </section>
 
@@ -103,13 +110,13 @@ const activeFilters = computed(() => [
         class="resource-state"
         data-testid="tasks-error"
       >
-        <h2 class="resource-state__title">Tasks unavailable</h2>
+        <h2 class="resource-state__title">無法載入任務</h2>
         <p class="resource-state__description">
           {{ error.message }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
         </div>
       </section>
@@ -119,9 +126,9 @@ const activeFilters = computed(() => [
         class="resource-state"
         data-testid="tasks-empty"
       >
-        <h2 class="resource-state__title">No tasks yet</h2>
+        <h2 class="resource-state__title">目前還沒有任務</h2>
         <p class="resource-state__description">
-          目前 API 沒有回傳任何 Task。後續建立任務後，這個頁面會直接承接清單結果。
+          目前 API 沒有回傳任何任務。後續建立任務後，這個頁面會直接承接清單結果。
         </p>
         <div
           v-if="campaignIdFilter"
@@ -132,7 +139,7 @@ const activeFilters = computed(() => [
             data-testid="tasks-empty-create-link"
             :to="`/campaigns/${campaignIdFilter}/tasks/new`"
           >
-            Create the first task
+            建立第一筆任務
           </NuxtLink>
         </div>
       </section>
@@ -149,19 +156,19 @@ const activeFilters = computed(() => [
           :data-testid="`task-card-${task.id}`"
           :to="`/tasks/${task.id}`"
         >
-          <span class="resource-shell__breadcrumb">Task</span>
+          <span class="resource-shell__breadcrumb">任務</span>
           <h2 class="resource-card__title">{{ task.title }}</h2>
           <p class="resource-card__description">
             {{
               task.device_profile_id
-                ? `Assigned to ${task.device_profile_id}`
-                : 'No device profile assigned yet.'
+                ? `已指派給 ${task.device_profile_id}`
+                : '目前尚未指派裝置設定檔。'
             }}
           </p>
           <div class="resource-card__meta">
-            <span class="resource-card__chip">Campaign {{ task.campaign_id }}</span>
-            <span class="resource-card__chip">Status {{ task.status }}</span>
-            <span class="resource-card__chip">Updated {{ task.updated_at }}</span>
+            <span class="resource-card__chip">活動 {{ task.campaign_id }}</span>
+            <span class="resource-card__chip">狀態 {{ formatTaskStatusLabel(task.status) }}</span>
+            <span class="resource-card__chip">更新於 {{ task.updated_at }}</span>
           </div>
         </NuxtLink>
       </section>

@@ -4,6 +4,8 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.accounts.schemas import AccountCreate, AccountRole
+from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate
 from app.modules.campaigns.service import create_campaign
 from app.modules.device_profiles.schemas import DeviceProfileCreate, DeviceProfilePlatform
@@ -59,7 +61,7 @@ def test_task_service_create_and_list_supports_filters() -> None:
     listed_tasks = list_tasks(
         campaign_id=campaign.id,
         device_profile_id=device_profile.id,
-        status=TaskStatus.ASSIGNED,
+        status_filter=TaskStatus.ASSIGNED,
     )
 
     assert listed_tasks.total == 1
@@ -67,6 +69,93 @@ def test_task_service_create_and_list_supports_filters() -> None:
     assert listed_tasks.items[0].campaign_id == campaign.id
     assert listed_tasks.items[0].device_profile_id == device_profile.id
     assert listed_tasks.items[0].status == TaskStatus.ASSIGNED
+
+
+def test_task_service_list_supports_mine_filter_for_owned_device_profiles() -> None:
+    project = create_project(ProjectCreate(name="HabitQuest"))
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        )
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    other_tester = create_account(
+        AccountCreate(display_name="QA Backup", role=AccountRole.TESTER)
+    )
+    owned_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        tester.id,
+    )
+    other_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA Pixel 9",
+            platform=DeviceProfilePlatform.ANDROID,
+            device_model="Pixel 9",
+            os_name="Android",
+        ),
+        other_tester.id,
+    )
+    owned_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=owned_device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+    )
+    create_task(
+        campaign.id,
+        TaskCreate(
+            title="Check pricing CTA",
+            device_profile_id=other_device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+    )
+
+    listed_tasks = list_tasks(
+        mine=True,
+        current_actor_id=tester.id,
+        status_filter=TaskStatus.ASSIGNED,
+    )
+
+    assert listed_tasks.total == 1
+    assert listed_tasks.items[0].id == owned_task.id
+    assert listed_tasks.items[0].device_profile_id == owned_device_profile.id
+
+
+def test_task_service_list_mine_returns_empty_when_actor_has_no_owned_device_profiles() -> None:
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+
+    listed_tasks = list_tasks(
+        mine=True,
+        current_actor_id=tester.id,
+    )
+
+    assert listed_tasks.total == 0
+    assert listed_tasks.items == []
+
+
+def test_task_service_list_mine_requires_current_actor() -> None:
+    with pytest.raises(AppError) as exc_info:
+        list_tasks(mine=True)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_400_BAD_REQUEST
+    assert error.code == "missing_actor_context"
+    assert error.details == {
+        "header": "X-Actor-Id",
+    }
 
 
 def test_task_service_create_requires_existing_campaign() -> None:

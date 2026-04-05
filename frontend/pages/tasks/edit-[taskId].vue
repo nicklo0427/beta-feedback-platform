@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchDeviceProfiles } from '~/features/device-profiles/api'
 import TaskForm from '~/features/tasks/TaskForm.vue'
 import { fetchTaskDetail, updateTask } from '~/features/tasks/api'
@@ -14,7 +20,10 @@ import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const taskId = computed(() => String(route.params.taskId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = ref(createEmptyTaskFormValues())
@@ -68,14 +77,19 @@ watch(
 
 async function handleSubmit(values: TaskFormValues): Promise<void> {
   if (!task.value) {
-    submitError.value = 'Task detail is unavailable.'
+    submitError.value = '目前無法取得任務內容。'
+    return
+  }
+
+  if (!currentActorId.value) {
+    submitError.value = '更新任務前，請先選擇目前操作帳號。'
     return
   }
 
   const payload = buildTaskUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -83,13 +97,13 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
   submitting.value = true
 
   try {
-    const updatedTask = await updateTask(taskId.value, payload)
+    const updatedTask = await updateTask(taskId.value, payload, currentActorId.value)
     await router.push(`/tasks/${updatedTask.id}`)
-  } catch (error) {
-    submitError.value =
-      error instanceof ApiClientError
-        ? error.message
-        : 'Unable to update the task right now.'
+  } catch (submitFailure) {
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法更新任務。'
+    )
   } finally {
     submitting.value = false
   }
@@ -101,22 +115,27 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/tasks/${taskId}`">
-          Task Detail
+          任務詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Task</h1>
+        <h1 class="resource-shell__title">編輯任務</h1>
         <p class="resource-shell__description">
-          更新單一 Task 的最小欄位、assignment target 與 status，並讓 backend 驗證狀態流轉是否合法。
+          更新單一任務的最小欄位、指派目標與狀態，並讓後端驗證狀態流轉是否合法。
         </p>
       </header>
+
+      <CurrentActorSelector
+        title="任務操作帳號"
+        description="選擇目前正在操作的開發者帳號。更新任務時，系統會驗證這個任務是否屬於你。"
+      />
 
       <section
         v-if="taskPending || deviceProfilesPending"
         class="resource-state"
         data-testid="task-edit-loading"
       >
-        <h2 class="resource-state__title">Loading task edit form</h2>
+        <h2 class="resource-state__title">載入任務編輯表單中</h2>
         <p class="resource-state__description">
-          正在載入既有 Task 與可選 device profiles。
+          正在載入既有任務與可選的裝置設定檔。
         </p>
       </section>
 
@@ -125,23 +144,23 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="task-edit-error"
       >
-        <h2 class="resource-state__title">Task edit unavailable</h2>
+        <h2 class="resource-state__title">無法載入任務編輯表單</h2>
         <p class="resource-state__description">
           {{
             taskError?.message
               || deviceProfilesError?.message
-              || 'The task edit form could not be loaded.'
+              || '目前無法載入任務編輯表單。'
           }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshTask()">
-            Retry task
+            重試任務資料
           </button>
           <button class="resource-action" type="button" @click="refreshDeviceProfiles()">
-            Retry device profiles
+            重試裝置設定檔
           </button>
           <NuxtLink class="resource-action" to="/tasks">
-            Back to tasks
+            返回任務列表
           </NuxtLink>
         </div>
       </section>
@@ -151,13 +170,13 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-section"
         data-testid="task-edit-panel"
       >
-        <h2 class="resource-section__title">Edit {{ task.title }}</h2>
+        <h2 class="resource-section__title">編輯 {{ task.title }}</h2>
         <TaskForm
           :initial-values="initialValues"
           :device-profiles="deviceProfileResponse.items"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update task"
+          submit-label="更新任務"
           :cancel-to="`/tasks/${taskId}`"
           @submit="handleSubmit"
         />

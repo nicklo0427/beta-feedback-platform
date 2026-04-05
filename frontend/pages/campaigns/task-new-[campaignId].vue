@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchCampaignDetail } from '~/features/campaigns/api'
 import { fetchDeviceProfiles } from '~/features/device-profiles/api'
 import TaskForm from '~/features/tasks/TaskForm.vue'
@@ -15,7 +21,10 @@ import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const campaignId = computed(() => String(route.params.campaignId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = createEmptyTaskFormValues()
@@ -53,17 +62,26 @@ const {
 )
 
 async function handleSubmit(values: TaskFormValues): Promise<void> {
+  if (!currentActorId.value) {
+    submitError.value = '建立任務前，請先選擇目前操作帳號。'
+    return
+  }
+
   submitError.value = null
   submitting.value = true
 
   try {
-    const createdTask = await createTask(campaignId.value, buildTaskCreatePayload(values))
+    const createdTask = await createTask(
+      campaignId.value,
+      buildTaskCreatePayload(values),
+      currentActorId.value
+    )
     await router.push(`/tasks/${createdTask.id}`)
-  } catch (error) {
-    submitError.value =
-      error instanceof ApiClientError
-        ? error.message
-        : 'Unable to save the task right now.'
+  } catch (submitFailure) {
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法儲存任務。'
+    )
   } finally {
     submitting.value = false
   }
@@ -75,31 +93,36 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/campaigns/${campaignId}`">
-          Campaign Detail
+          活動詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Create Task</h1>
+        <h1 class="resource-shell__title">建立任務</h1>
         <p class="resource-shell__description">
-          在目前的 Campaign 底下建立最小 Task，並決定要不要先指派到某個 device profile。
+          在目前的活動底下建立最小任務，並決定要不要先指派到某個裝置設定檔。
         </p>
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
             {{
               campaign
-                ? `Campaign ${campaign.name}`
-                : `Campaign ${campaignId}`
+                ? `活動 ${campaign.name}`
+                : `活動 ${campaignId}`
             }}
           </span>
         </div>
       </header>
+
+      <CurrentActorSelector
+        title="任務操作帳號"
+        description="選擇目前正在操作的開發者帳號。建立任務時，系統會驗證這個活動是否屬於你。"
+      />
 
       <section
         v-if="campaignPending || deviceProfilesPending"
         class="resource-state"
         data-testid="task-create-loading"
       >
-        <h2 class="resource-state__title">Loading task create form</h2>
+        <h2 class="resource-state__title">載入任務建立表單中</h2>
         <p class="resource-state__description">
-          正在載入 campaign context 與可選 device profiles。
+          正在載入活動情境與可選的裝置設定檔。
         </p>
       </section>
 
@@ -108,23 +131,23 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="task-create-error"
       >
-        <h2 class="resource-state__title">Task create unavailable</h2>
+        <h2 class="resource-state__title">無法載入任務建立表單</h2>
         <p class="resource-state__description">
           {{
             campaignError?.message
               || deviceProfilesError?.message
-              || 'The task create form could not be loaded.'
+              || '目前無法載入任務建立表單。'
           }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshCampaign()">
-            Retry campaign
+            重試活動資料
           </button>
           <button class="resource-action" type="button" @click="refreshDeviceProfiles()">
-            Retry device profiles
+            重試裝置設定檔
           </button>
           <NuxtLink class="resource-action" :to="`/campaigns/${campaignId}`">
-            Back to campaign
+            返回活動
           </NuxtLink>
         </div>
       </section>
@@ -134,13 +157,13 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-section"
         data-testid="task-create-panel"
       >
-        <h2 class="resource-section__title">New Task</h2>
+        <h2 class="resource-section__title">新增任務</h2>
         <TaskForm
           :initial-values="initialValues"
           :device-profiles="deviceProfileResponse.items"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Create task"
+          submit-label="建立任務"
           :cancel-to="`/campaigns/${campaignId}`"
           @submit="handleSubmit"
         />

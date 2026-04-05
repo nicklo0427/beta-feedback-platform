@@ -1,4 +1,5 @@
 import { ApiClientError, useApiClient } from '~/services/api/client'
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 
 import type {
   CampaignSafetyCreatePayload,
@@ -31,22 +32,26 @@ export async function fetchCampaignSafetyDetail(
 
 export async function createCampaignSafety(
   campaignId: string,
-  payload: CampaignSafetyCreatePayload
+  payload: CampaignSafetyCreatePayload,
+  actorId?: string | null
 ): Promise<CampaignSafetyDetail> {
   const { request } = useApiClient()
   return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
     method: 'POST',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }
 
 export async function updateCampaignSafety(
   campaignId: string,
-  payload: CampaignSafetyUpdatePayload
+  payload: CampaignSafetyUpdatePayload,
+  actorId?: string | null
 ): Promise<CampaignSafetyDetail> {
   const { request } = useApiClient()
   return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
     method: 'PATCH',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }

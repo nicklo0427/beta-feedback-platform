@@ -1,6 +1,7 @@
 import type { ListResponse } from '~/services/api/client'
 
 import { useApiClient } from '~/services/api/client'
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 
 import type {
   CampaignCreatePayload,
@@ -9,13 +10,34 @@ import type {
   CampaignUpdatePayload
 } from './types'
 
-export async function fetchCampaigns(
+export interface CampaignListOptions {
   projectId?: string
+  mine?: boolean
+  actorId?: string | null
+}
+
+export async function fetchCampaigns(
+  options: CampaignListOptions = {}
 ): Promise<ListResponse<CampaignListItem>> {
   const { request } = useApiClient()
-  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''
+  const searchParams = new URLSearchParams()
 
-  return request<ListResponse<CampaignListItem>>(`/campaigns${query}`)
+  if (options.projectId) {
+    searchParams.set('project_id', options.projectId)
+  }
+
+  if (options.mine) {
+    searchParams.set('mine', 'true')
+  }
+
+  const query = searchParams.toString()
+
+  return request<ListResponse<CampaignListItem>>(
+    `/campaigns${query ? `?${query}` : ''}`,
+    {
+      headers: buildCurrentActorHeaders(options.actorId)
+    }
+  )
 }
 
 export async function fetchCampaignDetail(
@@ -26,22 +48,26 @@ export async function fetchCampaignDetail(
 }
 
 export async function createCampaign(
-  payload: CampaignCreatePayload
+  payload: CampaignCreatePayload,
+  actorId?: string | null
 ): Promise<CampaignDetail> {
   const { request } = useApiClient()
   return request<CampaignDetail>('/campaigns', {
     method: 'POST',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }
 
 export async function updateCampaign(
   campaignId: string,
-  payload: CampaignUpdatePayload
+  payload: CampaignUpdatePayload,
+  actorId?: string | null
 ): Promise<CampaignDetail> {
   const { request } = useApiClient()
   return request<CampaignDetail>(`/campaigns/${campaignId}`, {
     method: 'PATCH',
-    body: payload
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
   })
 }

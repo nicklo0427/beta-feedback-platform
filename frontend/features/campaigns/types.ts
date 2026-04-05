@@ -16,6 +16,16 @@ export const CAMPAIGN_STATUSES: CampaignStatus[] = [
   'closed'
 ]
 
+const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
+  draft: '草稿',
+  active: '啟用中',
+  closed: '已關閉'
+}
+
+export function formatCampaignStatusLabel(value: CampaignStatus): string {
+  return CAMPAIGN_STATUS_LABELS[value]
+}
+
 export interface CampaignListItem {
   id: string
   project_id: string

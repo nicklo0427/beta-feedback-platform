@@ -66,6 +66,7 @@ class ProjectListItem(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    owner_account_id: Optional[str] = None
     updated_at: str
 
 
@@ -73,6 +74,7 @@ class ProjectDetail(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    owner_account_id: Optional[str] = None
     created_at: str
     updated_at: str
 

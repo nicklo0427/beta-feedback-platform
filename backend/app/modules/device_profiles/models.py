@@ -16,5 +16,6 @@ class DeviceProfileRecord:
     browser_version: Optional[str]
     locale: Optional[str]
     notes: Optional[str]
+    owner_account_id: Optional[str]
     created_at: str
     updated_at: str

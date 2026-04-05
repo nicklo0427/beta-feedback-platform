@@ -77,10 +77,15 @@ def get_eligibility_rule(eligibility_rule_id: str) -> EligibilityRuleDetail:
 def create_eligibility_rule(
     campaign_id: str,
     payload: EligibilityRuleCreate,
+    current_actor_id: str | None = None,
 ) -> EligibilityRuleDetail:
-    from app.modules.campaigns.service import ensure_campaign_exists
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
 
-    ensure_campaign_exists(campaign_id)
+    ensure_campaign_owned_by_actor(
+        campaign_id,
+        current_actor_id,
+        resource="eligibility_rule",
+    )
 
     timestamp = _utc_now_iso()
     record = EligibilityRuleRecord(
@@ -102,8 +107,17 @@ def create_eligibility_rule(
 def update_eligibility_rule(
     eligibility_rule_id: str,
     payload: EligibilityRuleUpdate,
+    current_actor_id: str | None = None,
 ) -> EligibilityRuleDetail:
     current = ensure_eligibility_rule_exists(eligibility_rule_id)
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
+
+    ensure_campaign_owned_by_actor(
+        current.campaign_id,
+        current_actor_id,
+        resource="eligibility_rule",
+    )
+
     updated = replace(
         current,
         platform=payload.platform.value if payload.platform is not None else current.platform,

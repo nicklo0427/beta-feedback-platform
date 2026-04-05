@@ -16,13 +16,39 @@
 
 - `Project -> Campaign -> Device Profile -> Eligibility -> Task -> Feedback`
 
-並已進入第一輪產品化補強階段，包含：
+並已進入 role-aware collaboration baseline 階段，包含：
 
 - shell-level 頁面
 - create / edit form
 - safety metadata
 - feedback review baseline
+- feedback supplement / resubmission baseline
 - reputation summary baseline
+- account / ownership baseline
+- current actor context
+- role-aware homepage / tester inbox / developer review queue
+
+### 1.1 目前階段判斷
+
+截至目前為止，repo 可以視為已完成：
+
+- `T011` 到 `T042`
+- MVP 主流程閉環
+- 第一輪產品化補強
+- role-aware collaboration baseline
+- 前端繁體中文文案整理
+
+目前最重要的判斷是：
+
+- 系統已不是單純 shell prototype
+- 主要 create / edit / review flow 已能在 UI 中操作
+- developer / tester 已有最小 role-aware 入口
+- actor-aware mutation guards 與 developer owned workspace 已有 baseline
+- role-aware demo seed 與 owned fixtures 已可直接支撐手動驗收
+
+這代表下一步不應再擴新的核心 domain，而應優先補：
+
+- account collaboration summary
 
 ## 2. 第一階段平台範圍
 
@@ -64,6 +90,7 @@
 
 目前 backend 已有以下模組與 API baseline：
 
+- `accounts`
 - `projects`
 - `campaigns`
 - `device_profiles`
@@ -86,6 +113,8 @@
 
 目前 frontend 已完成：
 
+- homepage role-aware overview shell
+- `accounts` list / detail / create / edit
 - homepage IA / overview shell
 - `projects` list / detail / create / edit
 - `campaigns` list / detail / create / edit
@@ -93,9 +122,13 @@
 - `device profiles` list / detail / create / edit
 - `eligibility rules` list / detail / create / edit
 - `tasks` list / detail / create / edit
+- `/my/tasks` tester inbox
 - `feedback` list / detail / submit / edit
 - `feedback review` panel
+- `/review/feedback` developer review queue
+- feedback supplement / resubmission flow
 - `reputation summary` shell
+- current actor selector
 
 ### 4.3 測試
 
@@ -137,6 +170,7 @@ beta-feedback-platform/
 ├── frontend/
 ├── scripts/
 ├── tickets/
+├── NEXT_PHASE_PLAN.md
 ├── API_CONVENTIONS.md
 ├── ARCHITECTURE.md
 ├── DATA_MODEL_DRAFT.md
@@ -152,6 +186,7 @@ beta-feedback-platform/
 - `frontend/`：Nuxt 3 application
 - `scripts/`：本地工具，例如 demo seed workflow
 - `tickets/`：逐張開發票與工作拆解
+- `NEXT_PHASE_PLAN.md`：`T029` 之後的下一階段規劃與 ticket 順序
 - `LOCAL_DEMO_SEED.md`：本地 demo seed 使用說明
 - `MANUAL_QA.md`：瀏覽器手動驗收清單
 
@@ -217,13 +252,19 @@ npx playwright test --reporter=list --workers=1
 目前可直接打開的主要頁面包含：
 
 - `/`
+- `/accounts`
 - `/projects`
 - `/campaigns`
 - `/device-profiles`
 - `/tasks`
+- `/my/projects`
+- `/my/campaigns`
+- `/my/tasks`
+- `/review/feedback`
 
 關聯 detail route 會依資料建立結果而定，例如：
 
+- `/accounts/:accountId`
 - `/projects/:projectId`
 - `/campaigns/:campaignId`
 - `/device-profiles/:deviceProfileId`
@@ -240,6 +281,27 @@ npx playwright test --reporter=list --workers=1
 
 - 前置條件
 - demo seed 方式
+- current actor 與 role-aware 驗收前置
+
+## 11. 接下來建議做什麼
+
+下一個 phase 建議聚焦在：
+
+- `Account Collaboration Summary`
+- `Owned Resource Panels`
+
+建議優先順序：
+
+1. 補 account collaboration summary 與 owned resource panels
+2. 再規劃下一輪 role-aware hardening 或更接近 production 的 access model
+
+對應 tickets 為：
+
+- `T043`
+
+完整規劃請看：
+
+- [NEXT_PHASE_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/NEXT_PHASE_PLAN.md)
 - 可以在網頁直接測試的主要清單
 - 推薦驗收順序
 
@@ -247,7 +309,9 @@ npx playwright test --reporter=list --workers=1
 
 - backend 仍是 in-memory repository
 - backend restart 後資料會消失
-- 目前尚未導入 auth
+- 目前尚未導入正式 auth
+- current actor 目前只是 `X-Actor-Id` / localStorage baseline，不是 session 或 RBAC
+- role-aware `mine=true` filters 只覆蓋目前已落地的 ownership baseline
 - 目前尚未導入正式 persistence / migration
 - 目前不做 notification、search、Steam / Desktop / Extension
 

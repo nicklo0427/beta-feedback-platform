@@ -15,8 +15,21 @@ export const TASK_STATUSES: TaskStatus[] = [
   'closed'
 ]
 
+const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  draft: '草稿',
+  open: '開放中',
+  assigned: '已指派',
+  in_progress: '進行中',
+  submitted: '已提交',
+  closed: '已關閉'
+}
+
 export function isTaskStatus(value: unknown): value is TaskStatus {
   return typeof value === 'string' && TASK_STATUSES.includes(value as TaskStatus)
+}
+
+export function formatTaskStatusLabel(value: TaskStatus): string {
+  return TASK_STATUS_LABELS[value]
 }
 
 export interface TaskListItem {

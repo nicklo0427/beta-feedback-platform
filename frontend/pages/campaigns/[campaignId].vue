@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchCampaignDetail } from '~/features/campaigns/api'
+import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { fetchCampaignEligibilityRules } from '~/features/eligibility/api'
 import { formatPlatformLabel } from '~/features/platform-display'
 import { fetchCampaignReputation } from '~/features/reputation/api'
@@ -12,6 +13,7 @@ import {
   formatRiskLevelLabel
 } from '~/features/safety/types'
 import { fetchTasks } from '~/features/tasks/api'
+import { formatTaskStatusLabel } from '~/features/tasks/types'
 
 const route = useRoute()
 const campaignId = computed(() => String(route.params.campaignId))
@@ -122,10 +124,10 @@ const hasReputationSignals = computed(() => {
   <main class="app-shell">
     <section class="resource-shell">
       <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/campaigns">Campaigns</NuxtLink>
-        <h1 class="resource-shell__title">Campaign Detail Shell</h1>
+        <NuxtLink class="resource-shell__breadcrumb" to="/campaigns">活動列表</NuxtLink>
+        <h1 class="resource-shell__title">活動詳情</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一 Campaign 的核心欄位，包含所屬 Project、版本、平台與活動狀態。
+          這個頁面先承接單一活動的核心欄位，包含所屬專案、版本、平台與活動狀態。
         </p>
       </header>
 
@@ -134,9 +136,9 @@ const hasReputationSignals = computed(() => {
         class="resource-state"
         data-testid="campaign-detail-loading"
       >
-        <h2 class="resource-state__title">Loading campaign detail</h2>
+        <h2 class="resource-state__title">載入活動詳情中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 Campaign detail。
+          正在從 API 載入活動詳情。
         </p>
       </section>
 
@@ -145,16 +147,16 @@ const hasReputationSignals = computed(() => {
         class="resource-state"
         data-testid="campaign-detail-error"
       >
-        <h2 class="resource-state__title">Campaign detail unavailable</h2>
+        <h2 class="resource-state__title">無法載入活動詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested campaign could not be loaded.' }}
+          {{ error?.message || '找不到指定的活動。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/campaigns">
-            Back to campaigns
+            返回活動列表
           </NuxtLink>
         </div>
       </section>
@@ -171,12 +173,12 @@ const hasReputationSignals = computed(() => {
             data-testid="campaign-edit-link"
             :to="`/campaigns/${campaign.id}/edit`"
           >
-            Edit campaign
+            編輯活動
           </NuxtLink>
         </div>
 
         <div class="resource-shell__meta">
-          <span class="resource-shell__meta-chip">Status {{ campaign.status }}</span>
+          <span class="resource-shell__meta-chip">狀態 {{ formatCampaignStatusLabel(campaign.status) }}</span>
           <span
             v-for="platform in campaign.target_platforms"
             :key="platform"
@@ -188,11 +190,11 @@ const hasReputationSignals = computed(() => {
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Campaign ID</span>
+            <span class="resource-key-value__label">活動 ID</span>
             <span class="resource-key-value__value">{{ campaign.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Project ID</span>
+            <span class="resource-key-value__label">專案 ID</span>
             <NuxtLink
               class="resource-key-value__value"
               :to="`/projects/${campaign.project_id}`"
@@ -201,23 +203,23 @@ const hasReputationSignals = computed(() => {
             </NuxtLink>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Version Label</span>
+            <span class="resource-key-value__label">版本標記</span>
             <span class="resource-key-value__value">
-              {{ campaign.version_label || 'No version label yet.' }}
+              {{ campaign.version_label || '目前尚未提供版本標記。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Updated At</span>
+            <span class="resource-key-value__label">更新時間</span>
             <span class="resource-key-value__value">{{ campaign.updated_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Created At</span>
+            <span class="resource-key-value__label">建立時間</span>
             <span class="resource-key-value__value">{{ campaign.created_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Description</span>
+            <span class="resource-key-value__label">描述</span>
             <span class="resource-key-value__value">
-              {{ campaign.description || 'No campaign description provided yet.' }}
+              {{ campaign.description || '目前尚未提供活動描述。' }}
             </span>
           </div>
         </div>
@@ -228,16 +230,16 @@ const hasReputationSignals = computed(() => {
         class="resource-section"
         data-testid="campaign-reputation-section"
       >
-        <h2 class="resource-section__title">Collaboration Summary</h2>
+        <h2 class="resource-section__title">協作摘要</h2>
 
         <div
           v-if="reputationPending"
           class="resource-state"
           data-testid="campaign-reputation-loading"
         >
-          <h3 class="resource-state__title">Loading collaboration summary</h3>
+          <h3 class="resource-state__title">載入協作摘要中</h3>
           <p class="resource-state__description">
-            正在根據 tasks 與 feedback 推導這個 campaign 的最小 collaboration summary。
+            正在根據任務與回饋推導這個活動的最小協作摘要。
           </p>
         </div>
 
@@ -246,13 +248,13 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-reputation-error"
         >
-          <h3 class="resource-state__title">Collaboration summary unavailable</h3>
+          <h3 class="resource-state__title">無法載入協作摘要</h3>
           <p class="resource-state__description">
             {{ reputationError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshReputation()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -262,9 +264,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-reputation-zero"
         >
-          <h3 class="resource-state__title">No collaboration signals yet</h3>
+          <h3 class="resource-state__title">目前還沒有協作訊號</h3>
           <p class="resource-state__description">
-            這個 campaign 還沒有累積 task completion 或 feedback 紀錄，目前 summary 維持在 zero state。
+            這個活動還沒有累積任務完成或回饋紀錄，目前摘要維持在零狀態。
           </p>
         </div>
 
@@ -275,40 +277,40 @@ const hasReputationSignals = computed(() => {
         >
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              Closure rate {{ reputation.closure_rate.toFixed(2) }}
+              關閉率 {{ reputation.closure_rate.toFixed(2) }}
             </span>
             <span class="resource-shell__meta-chip">
-              Feedback {{ reputation.feedback_received_count }}
+              回饋數 {{ reputation.feedback_received_count }}
             </span>
           </div>
 
           <div class="resource-key-value">
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Tasks Total</span>
+              <span class="resource-key-value__label">任務總數</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_total_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Tasks Closed</span>
+              <span class="resource-key-value__label">已關閉任務數</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_closed_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Feedback Received</span>
+              <span class="resource-key-value__label">收到的回饋數</span>
               <span class="resource-key-value__value">
                 {{ reputation.feedback_received_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Last Feedback At</span>
+              <span class="resource-key-value__label">最近回饋時間</span>
               <span class="resource-key-value__value">
-                {{ reputation.last_feedback_at || 'No feedback received yet.' }}
+                {{ reputation.last_feedback_at || '目前尚未收到任何回饋。' }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Updated At</span>
+              <span class="resource-key-value__label">更新時間</span>
               <span class="resource-key-value__value">{{ reputation.updated_at }}</span>
             </div>
           </div>
@@ -320,16 +322,16 @@ const hasReputationSignals = computed(() => {
         class="resource-section"
         data-testid="campaign-safety-section"
       >
-        <h2 class="resource-section__title">Safety and Source</h2>
+        <h2 class="resource-section__title">安全與來源</h2>
 
         <div
           v-if="safetyPending"
           class="resource-state"
           data-testid="campaign-safety-loading"
         >
-          <h3 class="resource-state__title">Loading campaign safety</h3>
+          <h3 class="resource-state__title">載入活動安全資訊中</h3>
           <p class="resource-state__description">
-            正在載入這個 Campaign 的來源標示與風險資訊。
+            正在載入這個活動的來源標示與風險資訊。
           </p>
         </div>
 
@@ -338,13 +340,13 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-safety-error"
         >
-          <h3 class="resource-state__title">Campaign safety unavailable</h3>
+          <h3 class="resource-state__title">無法載入活動安全資訊</h3>
           <p class="resource-state__description">
             {{ safetyError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshSafety()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -354,9 +356,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-safety-empty"
         >
-          <h3 class="resource-state__title">No safety profile yet</h3>
+          <h3 class="resource-state__title">目前還沒有安全設定</h3>
           <p class="resource-state__description">
-            目前這個 Campaign 尚未設定來源標示與風險資訊。後續建立 safety profile 後，這個區塊會直接承接顯示。
+            目前這個活動尚未設定來源標示與風險資訊。後續建立安全設定後，這個區塊會直接承接顯示。
           </p>
           <div class="resource-state__actions">
             <NuxtLink
@@ -364,7 +366,7 @@ const hasReputationSignals = computed(() => {
               data-testid="campaign-safety-create-link"
               :to="`/campaigns/${campaignId}/safety/new`"
             >
-              Create safety profile
+              建立安全設定
             </NuxtLink>
           </div>
         </div>
@@ -380,34 +382,34 @@ const hasReputationSignals = computed(() => {
               data-testid="campaign-safety-edit-link"
               :to="`/campaigns/${campaignId}/safety/edit`"
             >
-              Edit safety profile
+              編輯安全設定
             </NuxtLink>
           </div>
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              Risk {{ formatRiskLevelLabel(safety.risk_level) }}
+              風險 {{ formatRiskLevelLabel(safety.risk_level) }}
             </span>
             <span class="resource-shell__meta-chip">
-              Review {{ formatReviewStatusLabel(safety.review_status) }}
+              審核 {{ formatReviewStatusLabel(safety.review_status) }}
             </span>
             <span class="resource-shell__meta-chip">
-              Official channel only {{ safety.official_channel_only ? 'yes' : 'no' }}
+              僅限官方渠道 {{ safety.official_channel_only ? '是' : '否' }}
             </span>
           </div>
 
           <div class="resource-key-value">
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Source Label</span>
+              <span class="resource-key-value__label">來源標示</span>
               <span class="resource-key-value__value">{{ safety.source_label }}</span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Distribution Channel</span>
+              <span class="resource-key-value__label">分發渠道</span>
               <span class="resource-key-value__value">
                 {{ formatDistributionChannelLabel(safety.distribution_channel) }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Source URL</span>
+              <span class="resource-key-value__label">來源網址</span>
               <a
                 v-if="safety.source_url"
                 class="resource-key-value__value"
@@ -418,17 +420,17 @@ const hasReputationSignals = computed(() => {
                 {{ safety.source_url }}
               </a>
               <span v-else class="resource-key-value__value">
-                No source URL provided.
+                目前沒有來源網址。
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Risk Note</span>
+              <span class="resource-key-value__label">風險註記</span>
               <span class="resource-key-value__value">
-                {{ safety.risk_note || 'No additional risk note.' }}
+                {{ safety.risk_note || '目前沒有額外風險註記。' }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">Updated At</span>
+              <span class="resource-key-value__label">更新時間</span>
               <span class="resource-key-value__value">{{ safety.updated_at }}</span>
             </div>
           </div>
@@ -440,14 +442,14 @@ const hasReputationSignals = computed(() => {
         class="resource-section"
         data-testid="campaign-eligibility-section"
       >
-        <h2 class="resource-section__title">Eligibility Rules</h2>
+        <h2 class="resource-section__title">資格條件規則</h2>
         <div class="resource-state__actions">
           <NuxtLink
             class="resource-action"
             data-testid="eligibility-rule-create-link"
             :to="`/campaigns/${campaignId}/eligibility-rules/new`"
           >
-            Create eligibility rule
+            建立資格條件規則
           </NuxtLink>
         </div>
 
@@ -456,9 +458,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-eligibility-loading"
         >
-          <h3 class="resource-state__title">Loading eligibility rules</h3>
+          <h3 class="resource-state__title">載入資格條件規則中</h3>
           <p class="resource-state__description">
-            正在載入這個 Campaign 的最小資格條件規則。
+            正在載入這個活動的最小資格條件規則。
           </p>
         </div>
 
@@ -467,13 +469,13 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-eligibility-error"
         >
-          <h3 class="resource-state__title">Eligibility rules unavailable</h3>
+          <h3 class="resource-state__title">無法載入資格條件規則</h3>
           <p class="resource-state__description">
             {{ eligibilityError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshEligibility()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -483,9 +485,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-eligibility-empty"
         >
-          <h3 class="resource-state__title">No eligibility rules yet</h3>
+          <h3 class="resource-state__title">目前還沒有資格條件規則</h3>
           <p class="resource-state__description">
-            目前這個 Campaign 尚未建立任何 eligibility rules，後續可在 backend 建立後由此區塊直接承接。
+            目前這個活動尚未建立任何資格條件規則，後續可在後端建立後由此區塊直接承接。
           </p>
           <div class="resource-state__actions">
             <NuxtLink
@@ -493,7 +495,7 @@ const hasReputationSignals = computed(() => {
               data-testid="eligibility-rule-empty-create-link"
               :to="`/campaigns/${campaignId}/eligibility-rules/new`"
             >
-              Create the first eligibility rule
+              建立第一筆資格條件規則
             </NuxtLink>
           </div>
         </div>
@@ -510,26 +512,26 @@ const hasReputationSignals = computed(() => {
             :data-testid="`eligibility-rule-card-${eligibilityRule.id}`"
             :to="`/campaigns/${campaign.id}/eligibility-rules/${eligibilityRule.id}`"
           >
-            <span class="resource-shell__breadcrumb">Eligibility Rule</span>
+            <span class="resource-shell__breadcrumb">資格條件規則</span>
             <h3 class="resource-card__title">
               {{ formatPlatformLabel(eligibilityRule.platform) }}
             </h3>
             <p class="resource-card__description">
               {{
                 eligibilityRule.os_name
-                  ? `OS ${eligibilityRule.os_name}`
-                  : 'No OS restriction yet.'
+                  ? `作業系統 ${eligibilityRule.os_name}`
+                  : '目前尚未限制作業系統。'
               }}
             </p>
             <div class="resource-card__meta">
               <span class="resource-card__chip">
-                Active {{ eligibilityRule.is_active ? 'yes' : 'no' }}
+                啟用中 {{ eligibilityRule.is_active ? '是' : '否' }}
               </span>
               <span class="resource-card__chip">
                 {{
                   eligibilityRule.install_channel
-                    ? `Channel ${eligibilityRule.install_channel}`
-                    : 'No install channel restriction'
+                    ? `渠道 ${eligibilityRule.install_channel}`
+                    : '目前尚未限制安裝渠道'
                 }}
               </span>
             </div>
@@ -542,7 +544,7 @@ const hasReputationSignals = computed(() => {
         class="resource-section"
         data-testid="campaign-tasks-section"
       >
-        <h2 class="resource-section__title">Tasks</h2>
+        <h2 class="resource-section__title">任務</h2>
 
         <div class="resource-state__actions">
           <NuxtLink
@@ -550,14 +552,14 @@ const hasReputationSignals = computed(() => {
             data-testid="campaign-task-create-link"
             :to="`/campaigns/${campaign.id}/tasks/new`"
           >
-            Create task for this campaign
+            為此活動建立任務
           </NuxtLink>
           <NuxtLink
             class="resource-action"
             data-testid="campaign-tasks-link"
             :to="`/tasks?campaign_id=${campaign.id}`"
           >
-            View all tasks for this campaign
+            查看此活動的所有任務
           </NuxtLink>
         </div>
 
@@ -566,9 +568,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-tasks-loading"
         >
-          <h3 class="resource-state__title">Loading tasks</h3>
+          <h3 class="resource-state__title">載入任務中</h3>
           <p class="resource-state__description">
-            正在載入這個 Campaign 底下的 Task list。
+            正在載入這個活動底下的任務列表。
           </p>
         </div>
 
@@ -577,13 +579,13 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-tasks-error"
         >
-          <h3 class="resource-state__title">Tasks unavailable</h3>
+          <h3 class="resource-state__title">無法載入任務</h3>
           <p class="resource-state__description">
             {{ tasksError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshTasks()">
-              Retry
+              重試
             </button>
           </div>
         </div>
@@ -593,9 +595,9 @@ const hasReputationSignals = computed(() => {
           class="resource-state"
           data-testid="campaign-tasks-empty"
         >
-          <h3 class="resource-state__title">No tasks yet</h3>
+          <h3 class="resource-state__title">目前還沒有任務</h3>
           <p class="resource-state__description">
-            目前這個 Campaign 尚未建立任何 Task，後續可在 backend 建立後由此區塊直接承接。
+            目前這個活動尚未建立任何任務，後續可在後端建立後由此區塊直接承接。
           </p>
         </div>
 
@@ -611,18 +613,18 @@ const hasReputationSignals = computed(() => {
             :data-testid="`campaign-task-card-${task.id}`"
             :to="`/tasks/${task.id}`"
           >
-            <span class="resource-shell__breadcrumb">Task</span>
+            <span class="resource-shell__breadcrumb">任務</span>
             <h3 class="resource-card__title">{{ task.title }}</h3>
             <p class="resource-card__description">
               {{
                 task.device_profile_id
-                  ? `Assigned to ${task.device_profile_id}`
-                  : 'No device profile assigned yet.'
+                  ? `已指派給 ${task.device_profile_id}`
+                  : '目前尚未指派裝置設定檔。'
               }}
             </p>
             <div class="resource-card__meta">
-              <span class="resource-card__chip">Status {{ task.status }}</span>
-              <span class="resource-card__chip">Updated {{ task.updated_at }}</span>
+              <span class="resource-card__chip">狀態 {{ formatTaskStatusLabel(task.status) }}</span>
+              <span class="resource-card__chip">更新於 {{ task.updated_at }}</span>
             </div>
           </NuxtLink>
         </div>

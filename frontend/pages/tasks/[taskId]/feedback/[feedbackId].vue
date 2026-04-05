@@ -1,17 +1,28 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchFeedbackDetail, updateFeedback } from '~/features/feedback/api'
 import {
   FEEDBACK_REVIEW_STATUS_OPTIONS,
+  formatFeedbackCategoryLabel,
   formatFeedbackReviewStatusLabel,
+  formatFeedbackSeverityLabel,
   type FeedbackReviewStatus
 } from '~/features/feedback/types'
 import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
+useCurrentActorPersistence()
+
 const taskId = computed(() => String(route.params.taskId))
 const feedbackId = computed(() => String(route.params.feedbackId))
+const currentActorId = useCurrentActorId()
 
 const {
   data: feedback,
@@ -33,6 +44,9 @@ const developerNote = ref('')
 const reviewPending = ref(false)
 const reviewError = ref<string | null>(null)
 const reviewSuccess = ref<string | null>(null)
+const needsMoreInfo = computed(
+  () => feedback.value?.review_status === 'needs_more_info'
+)
 
 watch(
   feedback,
@@ -52,7 +66,13 @@ watch(
 
 async function handleReviewSubmit(): Promise<void> {
   if (!feedback.value) {
-    reviewError.value = 'Feedback detail is unavailable.'
+    reviewError.value = '目前無法取得回饋內容。'
+    reviewSuccess.value = null
+    return
+  }
+
+  if (!currentActorId.value) {
+    reviewError.value = '儲存審閱變更前，請先選擇目前操作帳號。'
     reviewSuccess.value = null
     return
   }
@@ -64,7 +84,7 @@ async function handleReviewSubmit(): Promise<void> {
     reviewStatus.value === feedback.value.review_status &&
     normalizedDeveloperNote === currentDeveloperNote
   ) {
-    reviewError.value = 'No review changes to save yet.'
+    reviewError.value = '目前沒有可儲存的審閱變更。'
     reviewSuccess.value = null
     return
   }
@@ -77,17 +97,17 @@ async function handleReviewSubmit(): Promise<void> {
     const updatedFeedback = await updateFeedback(feedbackId.value, {
       review_status: reviewStatus.value,
       developer_note: normalizedDeveloperNote
-    })
+    }, currentActorId.value)
 
     feedback.value = updatedFeedback
     reviewStatus.value = updatedFeedback.review_status
     developerNote.value = updatedFeedback.developer_note ?? ''
-    reviewSuccess.value = 'Review changes saved.'
+    reviewSuccess.value = '審閱變更已儲存。'
   } catch (submitFailure) {
-    reviewError.value =
-      submitFailure instanceof ApiClientError
-        ? submitFailure.message
-        : 'Unable to update feedback review right now.'
+    reviewError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法更新回饋審閱資訊。'
+    )
   } finally {
     reviewPending.value = false
   }
@@ -99,11 +119,11 @@ async function handleReviewSubmit(): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/tasks/${taskId}`">
-          Task Detail
+          任務詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Feedback Detail Shell</h1>
+        <h1 class="resource-shell__title">回饋詳情</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一 feedback 的核心欄位，提供後續 triage 與回饋整理流程可依附的最小 detail shell。
+          這個頁面先承接單一回饋的核心欄位，提供後續整理與審閱流程可依附的最小詳情頁骨架。
         </p>
         <div
           v-if="feedback"
@@ -114,19 +134,32 @@ async function handleReviewSubmit(): Promise<void> {
             data-testid="feedback-edit-link"
             :to="`/tasks/${taskId}/feedback/${feedback.id}/edit`"
           >
-            Edit feedback
+            {{ needsMoreInfo ? '回應補件要求' : '編輯回饋' }}
+          </NuxtLink>
+          <NuxtLink
+            v-if="needsMoreInfo"
+            class="resource-action"
+            data-testid="feedback-resubmit-link"
+            :to="`/tasks/${taskId}/feedback/${feedback.id}/edit`"
+          >
+            重新提交回饋
           </NuxtLink>
         </div>
       </header>
+
+      <CurrentActorSelector
+        title="回饋操作帳號"
+        description="選擇目前操作的帳號。測試者可更新自己的回饋內容，開發者可審閱屬於自己活動的回饋。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="feedback-detail-loading"
       >
-        <h2 class="resource-state__title">Loading feedback detail</h2>
+        <h2 class="resource-state__title">載入回饋詳情中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 feedback detail。
+          正在從 API 載入回饋詳情。
         </p>
       </section>
 
@@ -135,43 +168,71 @@ async function handleReviewSubmit(): Promise<void> {
         class="resource-state"
         data-testid="feedback-detail-error"
       >
-        <h2 class="resource-state__title">Feedback detail unavailable</h2>
+        <h2 class="resource-state__title">無法載入回饋詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested feedback could not be loaded.' }}
+          {{ error?.message || '找不到指定的回饋。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" :to="`/tasks/${taskId}`">
-            Back to task
+            返回任務
           </NuxtLink>
         </div>
       </section>
 
       <section
-        v-else
+        v-if="feedback && needsMoreInfo"
+        class="resource-state"
+        data-testid="feedback-supplement-banner"
+      >
+        <h2 class="resource-state__title">需要補充資訊</h2>
+        <p class="resource-state__description">
+          開發者已要求補充資訊。更新回饋後再次送出，審閱狀態會自動回到「已提交」。
+        </p>
+        <div class="resource-key-value">
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">開發者註記</span>
+            <span class="resource-key-value__value">
+              {{ feedback.developer_note || '目前沒有補充說明。' }}
+            </span>
+          </div>
+        </div>
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="feedback-supplement-edit-link"
+            :to="`/tasks/${taskId}/feedback/${feedback.id}/edit`"
+          >
+            開啟重新提交表單
+          </NuxtLink>
+        </div>
+      </section>
+
+      <section
+        v-if="feedback"
         class="resource-section"
         data-testid="feedback-detail-panel"
       >
         <h2 class="resource-section__title">{{ feedback.summary }}</h2>
 
         <div class="resource-shell__meta">
-          <span class="resource-shell__meta-chip">Severity {{ feedback.severity }}</span>
-          <span class="resource-shell__meta-chip">Category {{ feedback.category }}</span>
+          <span class="resource-shell__meta-chip">嚴重程度 {{ formatFeedbackSeverityLabel(feedback.severity) }}</span>
+          <span class="resource-shell__meta-chip">分類 {{ formatFeedbackCategoryLabel(feedback.category) }}</span>
           <span class="resource-shell__meta-chip">
-            Review {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+            審閱 {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
           </span>
-          <span class="resource-shell__meta-chip">Task {{ feedback.task_id }}</span>
+          <span class="resource-shell__meta-chip">任務 {{ feedback.task_id }}</span>
         </div>
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Feedback ID</span>
+            <span class="resource-key-value__label">回饋 ID</span>
             <span class="resource-key-value__value">{{ feedback.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Campaign ID</span>
+            <span class="resource-key-value__label">活動 ID</span>
             <NuxtLink
               class="resource-key-value__value"
               :to="`/campaigns/${feedback.campaign_id}`"
@@ -180,7 +241,7 @@ async function handleReviewSubmit(): Promise<void> {
             </NuxtLink>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Device Profile ID</span>
+            <span class="resource-key-value__label">裝置設定檔 ID</span>
             <NuxtLink
               v-if="feedback.device_profile_id"
               class="resource-key-value__value"
@@ -189,64 +250,74 @@ async function handleReviewSubmit(): Promise<void> {
               {{ feedback.device_profile_id }}
             </NuxtLink>
             <span v-else class="resource-key-value__value">
-              Not derived yet.
+              尚未推導。
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Rating</span>
+            <span class="resource-key-value__label">評分</span>
             <span class="resource-key-value__value">
-              {{ feedback.rating ?? 'Not provided yet.' }}
+              {{ feedback.rating ?? '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Reproduction Steps</span>
+            <span class="resource-key-value__label">重現步驟</span>
             <span class="resource-key-value__value">
-              {{ feedback.reproduction_steps || 'Not provided yet.' }}
+              {{ feedback.reproduction_steps || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Expected Result</span>
+            <span class="resource-key-value__label">預期結果</span>
             <span class="resource-key-value__value">
-              {{ feedback.expected_result || 'Not provided yet.' }}
+              {{ feedback.expected_result || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Actual Result</span>
+            <span class="resource-key-value__label">實際結果</span>
             <span class="resource-key-value__value">
-              {{ feedback.actual_result || 'Not provided yet.' }}
+              {{ feedback.actual_result || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Note</span>
+            <span class="resource-key-value__label">備註</span>
             <span class="resource-key-value__value">
-              {{ feedback.note || 'No note provided yet.' }}
+              {{ feedback.note || '目前沒有備註。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Review Status</span>
+            <span class="resource-key-value__label">審閱狀態</span>
             <span class="resource-key-value__value">
               {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Developer Note</span>
+            <span class="resource-key-value__label">開發者註記</span>
             <span class="resource-key-value__value">
-              {{ feedback.developer_note || 'No developer note yet.' }}
+              {{ feedback.developer_note || '目前沒有開發者註記。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Submitted At</span>
+            <span class="resource-key-value__label">提交時間</span>
             <span class="resource-key-value__value">{{ feedback.submitted_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Updated At</span>
+            <span class="resource-key-value__label">重新提交時間</span>
+            <span class="resource-key-value__value">
+              {{ feedback.resubmitted_at || '尚未重新提交。' }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">更新時間</span>
             <span class="resource-key-value__value">{{ feedback.updated_at }}</span>
           </div>
         </div>
       </section>
 
-      <section class="resource-section" data-testid="feedback-review-panel">
-        <h2 class="resource-section__title">Review Workflow</h2>
+      <section
+        v-if="feedback"
+        class="resource-section"
+        data-testid="feedback-review-panel"
+      >
+        <h2 class="resource-section__title">審閱流程</h2>
         <div class="resource-section__body">
           <p class="resource-card__description">
             開發者可在這裡標記回饋狀態，並留下最小補充要求或處理註記。
@@ -262,7 +333,7 @@ async function handleReviewSubmit(): Promise<void> {
 
           <div class="resource-form__grid">
             <label class="resource-field">
-              <span class="resource-field__label">Review Status</span>
+              <span class="resource-field__label">審閱狀態</span>
               <select
                 v-model="reviewStatus"
                 class="resource-select"
@@ -281,7 +352,7 @@ async function handleReviewSubmit(): Promise<void> {
           </div>
 
           <label class="resource-field">
-            <span class="resource-field__label">Developer Note</span>
+            <span class="resource-field__label">開發者註記</span>
             <textarea
               v-model="developerNote"
               class="resource-textarea"
@@ -299,7 +370,7 @@ async function handleReviewSubmit(): Promise<void> {
               :disabled="reviewPending"
               @click="handleReviewSubmit"
             >
-              {{ reviewPending ? 'Saving...' : 'Save review changes' }}
+              {{ reviewPending ? '儲存中...' : '儲存審閱變更' }}
             </button>
           </div>
         </div>

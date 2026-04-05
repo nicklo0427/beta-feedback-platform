@@ -57,14 +57,14 @@ watch(
 
 async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
   if (!deviceProfile.value) {
-    submitError.value = 'Device profile detail is unavailable.'
+    submitError.value = '目前無法取得裝置設定檔內容。'
     return
   }
 
   const payload = buildDeviceProfileUpdatePayload(values, initialValues.value)
 
   if (!payload) {
-    submitError.value = 'No changes to save yet.'
+    submitError.value = '目前沒有可儲存的變更。'
     return
   }
 
@@ -78,7 +78,7 @@ async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
     submitError.value =
       submitFailure instanceof ApiClientError
         ? submitFailure.message
-        : 'Unable to update the device profile right now.'
+        : '目前無法更新裝置設定檔。'
   } finally {
     submitting.value = false
   }
@@ -90,11 +90,11 @@ async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/device-profiles/${deviceProfileId}`">
-          Device Profile Detail
+          裝置設定檔詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Edit Device Profile</h1>
+        <h1 class="resource-shell__title">編輯裝置設定檔</h1>
         <p class="resource-shell__description">
-          更新既有的 Tester Device Profile，維持後續 eligibility、task 與 feedback 流程使用的裝置資訊一致。
+          更新既有的測試裝置設定檔，維持後續資格條件、任務與回饋流程使用的裝置資訊一致。
         </p>
       </header>
 
@@ -103,9 +103,9 @@ async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
         class="resource-state"
         data-testid="device-profile-edit-loading"
       >
-        <h2 class="resource-state__title">Loading device profile edit form</h2>
+        <h2 class="resource-state__title">載入裝置設定檔編輯表單中</h2>
         <p class="resource-state__description">
-          正在從 API 載入既有 Device Profile。
+          正在從 API 載入既有裝置設定檔。
         </p>
       </section>
 
@@ -114,16 +114,16 @@ async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
         class="resource-state"
         data-testid="device-profile-edit-error"
       >
-        <h2 class="resource-state__title">Device profile edit unavailable</h2>
+        <h2 class="resource-state__title">無法載入裝置設定檔編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested device profile could not be loaded.' }}
+          {{ error?.message || '找不到指定的裝置設定檔。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/device-profiles">
-            Back to device profiles
+            返回裝置設定檔列表
           </NuxtLink>
         </div>
       </section>
@@ -133,12 +133,12 @@ async function handleSubmit(values: DeviceProfileFormValues): Promise<void> {
         class="resource-section"
         data-testid="device-profile-edit-panel"
       >
-        <h2 class="resource-section__title">Edit {{ deviceProfile.name }}</h2>
+        <h2 class="resource-section__title">編輯 {{ deviceProfile.name }}</h2>
         <DeviceProfileForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Update device profile"
+          submit-label="更新裝置設定檔"
           :cancel-to="`/device-profiles/${deviceProfileId}`"
           @submit="handleSubmit"
         />

@@ -18,7 +18,7 @@ const props = withDefaults(
   {
     pending: false,
     errorMessage: null,
-    submitLabel: 'Save device profile'
+    submitLabel: '儲存裝置設定檔'
   }
 )
 
@@ -51,17 +51,17 @@ function validateForm(): boolean {
     >
     label: string
   }> = [
-    { key: 'name', label: 'Name' },
-    { key: 'platform', label: 'Platform' },
-    { key: 'device_model', label: 'Device model' },
-    { key: 'os_name', label: 'OS name' }
+    { key: 'name', label: '名稱' },
+    { key: 'platform', label: '平台' },
+    { key: 'device_model', label: '裝置型號' },
+    { key: 'os_name', label: '作業系統名稱' }
   ]
 
   for (const field of requiredFields) {
     const rawValue = values[field.key]
 
     if (typeof rawValue !== 'string' || !rawValue.trim()) {
-      validationMessage.value = `${field.label} is required.`
+      validationMessage.value = `${field.label}為必填。`
       return false
     }
   }
@@ -95,7 +95,7 @@ function handleSubmit(): void {
 
     <div class="resource-form__grid">
       <label class="resource-field">
-        <span class="resource-field__label">Name</span>
+        <span class="resource-field__label">名稱</span>
         <input
           v-model="values.name"
           class="resource-input"
@@ -107,7 +107,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Platform</span>
+        <span class="resource-field__label">平台</span>
         <select
           v-model="values.platform"
           class="resource-select"
@@ -115,7 +115,7 @@ function handleSubmit(): void {
           name="platform"
           :disabled="pending"
         >
-          <option value="">Select a platform</option>
+          <option value="">請選擇平台</option>
           <option
             v-for="platform in platformOptions"
             :key="platform"
@@ -127,7 +127,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Device Model</span>
+        <span class="resource-field__label">裝置型號</span>
         <input
           v-model="values.device_model"
           class="resource-input"
@@ -139,7 +139,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">OS Name</span>
+        <span class="resource-field__label">作業系統名稱</span>
         <input
           v-model="values.os_name"
           class="resource-input"
@@ -151,7 +151,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">OS Version</span>
+        <span class="resource-field__label">作業系統版本</span>
         <input
           v-model="values.os_version"
           class="resource-input"
@@ -163,7 +163,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Browser Name</span>
+        <span class="resource-field__label">瀏覽器名稱</span>
         <input
           v-model="values.browser_name"
           class="resource-input"
@@ -175,7 +175,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Browser Version</span>
+        <span class="resource-field__label">瀏覽器版本</span>
         <input
           v-model="values.browser_version"
           class="resource-input"
@@ -187,7 +187,7 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
-        <span class="resource-field__label">Locale</span>
+        <span class="resource-field__label">語系</span>
         <input
           v-model="values.locale"
           class="resource-input"
@@ -200,7 +200,7 @@ function handleSubmit(): void {
     </div>
 
     <label class="resource-field">
-      <span class="resource-field__label">Notes</span>
+      <span class="resource-field__label">備註</span>
       <textarea
         v-model="values.notes"
         class="resource-textarea"
@@ -218,10 +218,10 @@ function handleSubmit(): void {
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? 'Saving...' : submitLabel }}
+        {{ pending ? '儲存中...' : submitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        Cancel
+        取消
       </NuxtLink>
     </div>
   </form>

@@ -29,11 +29,11 @@ const {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/campaigns/${campaignId}`">
-          Campaign Detail
+          活動詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Eligibility Rule Detail Shell</h1>
+        <h1 class="resource-shell__title">資格條件規則詳情</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一 eligibility rule 的核心欄位，提供後續條件管理與 task 判斷流程可依附的最小 detail shell。
+          這個頁面先承接單一資格條件規則的核心欄位，提供後續條件管理與任務判斷流程可依附的最小詳情頁骨架。
         </p>
         <div
           v-if="eligibilityRule"
@@ -44,7 +44,7 @@ const {
             data-testid="eligibility-rule-edit-link"
             :to="`/campaigns/${campaignId}/eligibility-rules/${eligibilityRule.id}/edit`"
           >
-            Edit eligibility rule
+            編輯資格條件規則
           </NuxtLink>
         </div>
       </header>
@@ -54,9 +54,9 @@ const {
         class="resource-state"
         data-testid="eligibility-rule-detail-loading"
       >
-        <h2 class="resource-state__title">Loading eligibility rule detail</h2>
+        <h2 class="resource-state__title">載入資格條件規則詳情中</h2>
         <p class="resource-state__description">
-          正在從 API 載入 eligibility rule detail。
+          正在從 API 載入資格條件規則詳情。
         </p>
       </section>
 
@@ -65,16 +65,16 @@ const {
         class="resource-state"
         data-testid="eligibility-rule-detail-error"
       >
-        <h2 class="resource-state__title">Eligibility rule detail unavailable</h2>
+        <h2 class="resource-state__title">無法載入資格條件規則詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The requested eligibility rule could not be loaded.' }}
+          {{ error?.message || '找不到指定的資格條件規則。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" :to="`/campaigns/${campaignId}`">
-            Back to campaign
+            返回活動
           </NuxtLink>
         </div>
       </section>
@@ -90,48 +90,48 @@ const {
 
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
-            Active {{ eligibilityRule.is_active ? 'yes' : 'no' }}
+            啟用中 {{ eligibilityRule.is_active ? '是' : '否' }}
           </span>
           <span class="resource-shell__meta-chip">
-            Campaign {{ eligibilityRule.campaign_id }}
+            活動 {{ eligibilityRule.campaign_id }}
           </span>
         </div>
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Eligibility Rule ID</span>
+            <span class="resource-key-value__label">資格條件規則 ID</span>
             <span class="resource-key-value__value">{{ eligibilityRule.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">OS Name</span>
+            <span class="resource-key-value__label">作業系統名稱</span>
             <span class="resource-key-value__value">
-              {{ eligibilityRule.os_name || 'No OS restriction yet.' }}
+              {{ eligibilityRule.os_name || '目前尚未限制作業系統。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">OS Version Min</span>
+            <span class="resource-key-value__label">最低作業系統版本</span>
             <span class="resource-key-value__value">
-              {{ eligibilityRule.os_version_min || 'Not provided yet.' }}
+              {{ eligibilityRule.os_version_min || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">OS Version Max</span>
+            <span class="resource-key-value__label">最高作業系統版本</span>
             <span class="resource-key-value__value">
-              {{ eligibilityRule.os_version_max || 'Not provided yet.' }}
+              {{ eligibilityRule.os_version_max || '尚未提供。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Install Channel</span>
+            <span class="resource-key-value__label">安裝渠道</span>
             <span class="resource-key-value__value">
-              {{ eligibilityRule.install_channel || 'No install channel restriction.' }}
+              {{ eligibilityRule.install_channel || '目前尚未限制安裝渠道。' }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Updated At</span>
+            <span class="resource-key-value__label">更新時間</span>
             <span class="resource-key-value__value">{{ eligibilityRule.updated_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">Created At</span>
+            <span class="resource-key-value__label">建立時間</span>
             <span class="resource-key-value__value">{{ eligibilityRule.created_at }}</span>
           </div>
         </div>

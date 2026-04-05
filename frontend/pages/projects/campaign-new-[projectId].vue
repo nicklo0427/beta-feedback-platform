@@ -5,6 +5,12 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareMutationErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import CampaignForm from '~/features/campaigns/CampaignForm.vue'
 import { createCampaign } from '~/features/campaigns/api'
 import {
@@ -13,11 +19,13 @@ import {
 } from '~/features/campaigns/form'
 import type { CampaignFormValues } from '~/features/campaigns/types'
 import { fetchProjectDetail } from '~/features/projects/api'
-import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const router = useRouter()
+useCurrentActorPersistence()
+
 const projectId = computed(() => String(route.params.projectId))
+const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = createEmptyCampaignFormValues()
@@ -38,19 +46,25 @@ const {
 )
 
 async function handleSubmit(values: CampaignFormValues): Promise<void> {
+  if (!currentActorId.value) {
+    submitError.value = '建立活動前，請先選擇目前操作帳號。'
+    return
+  }
+
   submitError.value = null
   submitting.value = true
 
   try {
     const createdCampaign = await createCampaign(
-      buildCampaignCreatePayload(projectId.value, values)
+      buildCampaignCreatePayload(projectId.value, values),
+      currentActorId.value
     )
     await router.push(`/campaigns/${createdCampaign.id}`)
   } catch (submitFailure) {
-    submitError.value =
-      submitFailure instanceof ApiClientError
-        ? submitFailure.message
-        : 'Unable to save the campaign right now.'
+    submitError.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法儲存活動。'
+    )
   } finally {
     submitting.value = false
   }
@@ -62,31 +76,36 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink class="resource-shell__breadcrumb" :to="`/projects/${projectId}`">
-          Project Detail
+          專案詳情
         </NuxtLink>
-        <h1 class="resource-shell__title">Create Campaign</h1>
+        <h1 class="resource-shell__title">建立活動</h1>
         <p class="resource-shell__description">
-          在目前的 Project 底下建立最小 Campaign，作為後續 safety、eligibility、task 與 feedback 流程的操作核心。
+          在目前的專案底下建立最小活動，作為後續安全設定、資格條件、任務與回饋流程的操作核心。
         </p>
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
             {{
               project
-                ? `Project ${project.name}`
-                : `Project ${projectId}`
+                ? `專案 ${project.name}`
+                : `專案 ${projectId}`
             }}
           </span>
         </div>
       </header>
+
+      <CurrentActorSelector
+        title="活動操作帳號"
+        description="選擇目前正在操作的開發者帳號。建立活動時，系統會用它驗證專案擁有權與可操作範圍。"
+      />
 
       <section
         v-if="pending"
         class="resource-state"
         data-testid="campaign-create-loading"
       >
-        <h2 class="resource-state__title">Loading campaign create form</h2>
+        <h2 class="resource-state__title">正在載入活動建立表單</h2>
         <p class="resource-state__description">
-          正在載入 project context。
+          正在載入專案情境。
         </p>
       </section>
 
@@ -95,16 +114,16 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
         class="resource-state"
         data-testid="campaign-create-error"
       >
-        <h2 class="resource-state__title">Campaign create unavailable</h2>
+        <h2 class="resource-state__title">活動建立暫時無法使用</h2>
         <p class="resource-state__description">
-          {{ error?.message || 'The campaign create form could not be loaded.' }}
+          {{ error?.message || '無法載入活動建立表單。' }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            Retry
+            重試
           </button>
           <NuxtLink class="resource-action" to="/projects">
-            Back to projects
+            返回專案列表
           </NuxtLink>
         </div>
       </section>
@@ -114,12 +133,12 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
         class="resource-section"
         data-testid="campaign-create-panel"
       >
-        <h2 class="resource-section__title">New Campaign</h2>
+        <h2 class="resource-section__title">新增活動</h2>
         <CampaignForm
           :initial-values="initialValues"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="Create campaign"
+          submit-label="建立活動"
           :cancel-to="`/projects/${projectId}`"
           @submit="handleSubmit"
         />

@@ -43,6 +43,17 @@ export interface FeedbackListItem {
   submitted_at: string
 }
 
+export interface FeedbackQueueItem {
+  id: string
+  task_id: string
+  campaign_id: string
+  summary: string
+  severity: FeedbackSeverity
+  category: FeedbackCategory
+  review_status: FeedbackReviewStatus
+  submitted_at: string
+}
+
 export interface FeedbackDetail {
   id: string
   task_id: string
@@ -59,6 +70,7 @@ export interface FeedbackDetail {
   review_status: FeedbackReviewStatus
   developer_note: string | null
   submitted_at: string
+  resubmitted_at: string | null
   updated_at: string
 }
 
@@ -97,12 +109,41 @@ export interface FeedbackUpdatePayload {
   developer_note?: string | null
 }
 
+export interface FeedbackQueueFilters {
+  mine?: boolean
+  actorId?: string | null
+  reviewStatus?: FeedbackReviewStatus | null
+}
+
 const FEEDBACK_REVIEW_STATUS_LABELS: Record<FeedbackReviewStatus, string> = {
-  submitted: 'Submitted',
-  needs_more_info: 'Needs More Info',
-  reviewed: 'Reviewed'
+  submitted: '已提交',
+  needs_more_info: '需補充資訊',
+  reviewed: '已審閱'
+}
+
+const FEEDBACK_SEVERITY_LABELS: Record<FeedbackSeverity, string> = {
+  low: '低',
+  medium: '中',
+  high: '高',
+  critical: '嚴重'
+}
+
+const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
+  bug: '錯誤',
+  usability: '易用性',
+  performance: '效能',
+  compatibility: '相容性',
+  other: '其他'
 }
 
 export function formatFeedbackReviewStatusLabel(value: FeedbackReviewStatus): string {
   return FEEDBACK_REVIEW_STATUS_LABELS[value]
+}
+
+export function formatFeedbackSeverityLabel(value: FeedbackSeverity): string {
+  return FEEDBACK_SEVERITY_LABELS[value]
+}
+
+export function formatFeedbackCategoryLabel(value: FeedbackCategory): string {
+  return FEEDBACK_CATEGORY_LABELS[value]
 }

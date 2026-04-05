@@ -1,6 +1,26 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+
+import {
+  type FeedbackCategory,
+  formatFeedbackCategoryLabel,
+  formatFeedbackReviewStatusLabel
+} from '~/features/feedback/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
+
+const developerAccount = {
+  id: 'acct_dev_123',
+  display_name: 'Release Owner',
+  role: 'developer',
+  updated_at: '2026-04-05T09:30:00Z'
+}
+
+const testerAccount = {
+  id: 'acct_tester_123',
+  display_name: 'QA Tester',
+  role: 'tester',
+  updated_at: '2026-04-05T09:30:00Z'
+}
 
 const taskDetail = {
   id: 'task_123',
@@ -39,6 +59,7 @@ interface FeedbackDetailFixture {
   review_status: 'submitted' | 'needs_more_info' | 'reviewed'
   developer_note: string | null
   submitted_at: string
+  resubmitted_at: string | null
   updated_at: string
 }
 
@@ -58,10 +79,24 @@ const feedbackDetail: FeedbackDetailFixture = {
   review_status: 'submitted',
   developer_note: null,
   submitted_at: '2026-04-03T11:31:00Z',
+  resubmitted_at: null,
   updated_at: '2026-04-03T11:31:00Z'
 }
 
+async function mockAccounts(page: Page): Promise<void> {
+  await mockApiJson(page, '/accounts', {
+    items: [developerAccount, testerAccount],
+    total: 2
+  })
+}
+
 test.describe('feedback shell flows', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
+    })
+  })
+
   test('supports creating feedback from the task detail flow', async ({ page }) => {
     const createdFeedback = {
       ...feedbackDetail,
@@ -76,6 +111,7 @@ test.describe('feedback shell flows', () => {
       note: 'Observed on a fresh account.'
     }
 
+    await mockAccounts(page)
     await mockApiJson(page, '/tasks/task_123', taskDetail)
     await mockApiJson(page, '/tasks/task_123/feedback', {
       items: [],
@@ -88,6 +124,7 @@ test.describe('feedback shell flows', () => {
         return
       }
 
+      expect(route.request().headers()['x-actor-id']).toBe(testerAccount.id)
       await route.fulfill({
         status: 201,
         contentType: 'application/json',
@@ -108,6 +145,7 @@ test.describe('feedback shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/new$/)
     await expect(page.getByTestId('feedback-create-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('Onboarding copy is unclear')
     await page.getByTestId('feedback-severity-field').selectOption('medium')
@@ -121,11 +159,14 @@ test.describe('feedback shell flows', () => {
     const detailPanel = page.getByTestId('feedback-detail-panel')
     await expect(detailPanel).toBeVisible()
     await expect(detailPanel).toContainText(createdFeedback.summary)
-    await expect(detailPanel).toContainText(createdFeedback.category)
-    await expect(page.getByTestId('feedback-review-panel')).toContainText('Submitted')
+    await expect(detailPanel).toContainText(
+      formatFeedbackCategoryLabel(createdFeedback.category as FeedbackCategory)
+    )
+    await expect(page.getByTestId('feedback-review-panel')).toContainText('已提交')
   })
 
   test('shows feedback create validation and backend errors', async ({ page }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/tasks/task_123', taskDetail)
 
     await page.route(/\/api\/v1\/tasks\/task_123\/feedback$/, async (route) => {
@@ -155,11 +196,17 @@ test.describe('feedback shell flows', () => {
     await page.goto('/tasks/task_123/feedback/new')
 
     await page.getByTestId('feedback-submit').click()
-    await expect(page.getByTestId('feedback-form-error')).toContainText('Summary is required.')
+    await expect(page.getByTestId('feedback-form-error')).toContainText('摘要為必填。')
 
     await page.getByTestId('feedback-summary-input').fill('Animation stutters')
     await page.getByTestId('feedback-severity-field').selectOption('low')
     await page.getByTestId('feedback-category-field').selectOption('performance')
+    await page.getByTestId('feedback-submit').click()
+    await expect(page.getByTestId('feedback-form-error')).toContainText(
+      '提交回饋前，請先選擇目前操作帳號。'
+    )
+
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
     await page.getByTestId('feedback-submit').click()
 
     await expect(page.getByTestId('feedback-form-error')).toContainText(
@@ -170,6 +217,7 @@ test.describe('feedback shell flows', () => {
   test('renders task feedback list and navigates to the feedback detail page', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/tasks/task_123', taskDetail)
     await mockApiJson(page, '/tasks/task_123/feedback', {
       items: [feedbackListItem],
@@ -185,7 +233,9 @@ test.describe('feedback shell flows', () => {
     const feedbackCard = page.getByTestId('feedback-card-fb_123')
     await expect(feedbackCard).toBeVisible()
     await expect(feedbackCard).toContainText(feedbackListItem.summary)
-    await expect(feedbackCard).toContainText(feedbackListItem.category)
+    await expect(feedbackCard).toContainText(
+      formatFeedbackCategoryLabel(feedbackListItem.category as FeedbackCategory)
+    )
 
     await feedbackCard.click()
 
@@ -196,14 +246,16 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText(feedbackDetail.summary)
     await expect(detailPanel).toContainText(feedbackDetail.reproduction_steps)
     await expect(detailPanel).toContainText(String(feedbackDetail.rating))
-    await expect(detailPanel).toContainText('Submitted')
+    await expect(detailPanel).toContainText('已提交')
   })
 
   test('supports marking feedback as reviewed from the detail page', async ({ page }) => {
     let currentFeedback: FeedbackDetailFixture = { ...feedbackDetail }
 
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
       if (route.request().method() === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
         const payload = route.request().postDataJSON() as {
           review_status?: FeedbackDetailFixture['review_status']
           developer_note?: string | null
@@ -225,6 +277,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
     await page
@@ -233,9 +286,9 @@ test.describe('feedback shell flows', () => {
     await page.getByTestId('feedback-review-submit').click()
 
     await expect(page.getByTestId('feedback-review-success')).toContainText(
-      'Review changes saved.'
+      '審閱變更已儲存。'
     )
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText('Reviewed')
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText('已審閱')
     await expect(page.getByTestId('feedback-detail-panel')).toContainText(
       'Confirmed by the developer after reviewing the crash logs.'
     )
@@ -245,8 +298,10 @@ test.describe('feedback shell flows', () => {
     let currentFeedback: FeedbackDetailFixture = { ...feedbackDetail }
     let reviewRequestBody: unknown = null
 
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
       if (route.request().method() === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
         const payload = route.request().postDataJSON() as {
           review_status?: string
           developer_note?: string | null
@@ -270,6 +325,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('needs_more_info')
     await page
@@ -283,10 +339,10 @@ test.describe('feedback shell flows', () => {
     })
 
     await expect(page.getByTestId('feedback-review-success')).toContainText(
-      'Review changes saved.'
+      '審閱變更已儲存。'
     )
     await expect(page.getByTestId('feedback-detail-panel')).toContainText(
-      'Needs More Info'
+      formatFeedbackReviewStatusLabel('needs_more_info')
     )
     await expect(page.getByTestId('feedback-detail-panel')).toContainText(
       'Please include the exact time between launch and crash.'
@@ -296,6 +352,7 @@ test.describe('feedback shell flows', () => {
   test('supports editing feedback from the detail page', async ({ page }) => {
     let currentFeedback = { ...feedbackDetail }
 
+    await mockAccounts(page)
     await mockApiJson(page, '/tasks/task_123', taskDetail)
     await mockApiJson(page, '/tasks/task_123/feedback', {
       items: [feedbackListItem],
@@ -304,6 +361,7 @@ test.describe('feedback shell flows', () => {
 
     await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
       if (route.request().method() === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(testerAccount.id)
         const payload = route.request().postDataJSON() as {
           summary?: string
           note?: string | null
@@ -330,6 +388,7 @@ test.describe('feedback shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123\/edit$/)
     await expect(page.getByTestId('feedback-edit-panel')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('App crashes on launch after splash')
     await page.getByTestId('feedback-note-input').fill('Still reproducible after reinstall.')
@@ -342,7 +401,83 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText('Still reproducible after reinstall.')
   })
 
+  test('shows supplement request state and supports resubmission from the edit flow', async ({
+    page
+  }) => {
+    let currentFeedback: FeedbackDetailFixture = {
+      ...feedbackDetail,
+      review_status: 'needs_more_info',
+      developer_note: 'Please include the exact time between launch and crash.'
+    }
+    let updateRequestBody: unknown = null
+
+    await mockAccounts(page)
+    await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
+      if (route.request().method() === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(testerAccount.id)
+        const payload = route.request().postDataJSON() as {
+          actual_result?: string | null
+          note?: string | null
+        }
+
+        updateRequestBody = payload
+
+        currentFeedback = {
+          ...currentFeedback,
+          actual_result: payload.actual_result ?? currentFeedback.actual_result,
+          note: payload.note ?? currentFeedback.note,
+          review_status: 'submitted',
+          resubmitted_at: '2026-04-03T12:12:00Z',
+          updated_at: '2026-04-03T12:12:00Z'
+        }
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentFeedback)
+      })
+    })
+
+    await page.goto('/tasks/task_123/feedback/fb_123')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    await expect(page.getByTestId('feedback-supplement-banner')).toContainText(
+      'Please include the exact time between launch and crash.'
+    )
+    await page.getByTestId('feedback-resubmit-link').click()
+
+    await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123\/edit$/)
+    await expect(page.getByTestId('feedback-resubmission-context')).toContainText(
+      '需補充資訊'
+    )
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    await page
+      .getByTestId('feedback-actual-result-input')
+      .fill('App exits immediately after three seconds on a cold launch.')
+    await page
+      .getByTestId('feedback-note-input')
+      .fill('Retested with screen recording enabled.')
+    await page.getByTestId('feedback-submit').click()
+
+    expect(updateRequestBody).toEqual({
+      actual_result: 'App exits immediately after three seconds on a cold launch.',
+      note: 'Retested with screen recording enabled.'
+    })
+
+    await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123$/)
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText('已提交')
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      '2026-04-03T12:12:00Z'
+    )
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      'Please include the exact time between launch and crash.'
+    )
+  })
+
   test('shows backend errors when a feedback update is rejected', async ({ page }) => {
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -365,6 +500,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123/edit')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('Crash remains after reinstall')
     await page.getByTestId('feedback-submit').click()
@@ -377,6 +513,7 @@ test.describe('feedback shell flows', () => {
   test('shows backend validation errors when a feedback review update is rejected', async ({
     page
   }) => {
+    await mockAccounts(page)
     await page.route(/\/api\/v1\/feedback\/fb_123$/, async (route) => {
       if (route.request().method() === 'PATCH') {
         await route.fulfill({
@@ -406,6 +543,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
     await page.getByTestId('feedback-review-submit').click()
@@ -418,6 +556,7 @@ test.describe('feedback shell flows', () => {
   test('renders the feedback edit error state when the record cannot be loaded', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiError(
       page,
       '/feedback/fb_missing',
