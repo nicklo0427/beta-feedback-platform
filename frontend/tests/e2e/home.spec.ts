@@ -182,6 +182,7 @@ test('switches to a tester-aware homepage overview and opens the tester inbox', 
   await expect(page.getByTestId('home-role-card-in-progress-tasks')).toContainText('1')
   await expect(page.getByTestId('home-role-meta')).toContainText('QA Tester')
   await expect(page.getByTestId('home-role-meta')).toContainText('測試者')
+  await expect(page.getByTestId('home-role-action-eligible-campaigns')).toBeVisible()
 
   await page.getByTestId('home-role-action-my-tasks').click()
   await expect(page).toHaveURL(/\/my\/tasks$/)

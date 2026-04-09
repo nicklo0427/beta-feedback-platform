@@ -39,6 +39,7 @@ export interface TaskListItem {
   title: string
   status: TaskStatus
   updated_at: string
+  qualification_context?: TaskQualificationContext
 }
 
 export interface TaskDetail {
@@ -51,6 +52,16 @@ export interface TaskDetail {
   submitted_at: string | null
   created_at: string
   updated_at: string
+  qualification_context?: TaskQualificationContext
+}
+
+export interface TaskQualificationContext {
+  device_profile_id: string
+  device_profile_name: string
+  qualification_status: 'qualified' | 'not_qualified'
+  matched_rule_id: string | null
+  reason_summary: string | null
+  qualification_drift: boolean
 }
 
 export interface TaskFormValues {
@@ -72,4 +83,13 @@ export interface TaskUpdatePayload {
   instruction_summary?: string | null
   device_profile_id?: string | null
   status?: TaskStatus
+}
+
+export interface TaskAssignmentQualificationPreview {
+  device_profile_id: string
+  device_profile_name: string
+  qualification_status: 'qualified' | 'not_qualified'
+  matched_rule_id: string | null
+  reason_codes: string[]
+  reason_summary: string | null
 }

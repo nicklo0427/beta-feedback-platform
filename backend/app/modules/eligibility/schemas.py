@@ -93,3 +93,31 @@ class EligibilityRuleDetail(BaseModel):
 class EligibilityRuleListResponse(BaseModel):
     items: list[EligibilityRuleListItem]
     total: int
+
+
+class QualificationStatus(str, Enum):
+    QUALIFIED = "qualified"
+    NOT_QUALIFIED = "not_qualified"
+
+
+class QualificationReasonCode(str, Enum):
+    PLATFORM_MISMATCH = "platform_mismatch"
+    OS_NAME_MISMATCH = "os_name_mismatch"
+    OS_VERSION_BELOW_MIN = "os_version_below_min"
+    OS_VERSION_ABOVE_MAX = "os_version_above_max"
+    OS_VERSION_UNCOMPARABLE = "os_version_uncomparable"
+    INSTALL_CHANNEL_MISMATCH = "install_channel_mismatch"
+
+
+class CampaignQualificationResultItem(BaseModel):
+    device_profile_id: str
+    device_profile_name: str
+    qualification_status: QualificationStatus
+    matched_rule_id: Optional[str] = None
+    reason_codes: list[QualificationReasonCode]
+    reason_summary: Optional[str] = None
+
+
+class CampaignQualificationResultListResponse(BaseModel):
+    items: list[CampaignQualificationResultItem]
+    total: int

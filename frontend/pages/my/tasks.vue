@@ -12,6 +12,7 @@ import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { ApiClientError } from '~/services/api/client'
 import { fetchTasks, startAssignedTask } from '~/features/tasks/api'
 import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
+import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 
 const TESTER_INBOX_STATUSES: TaskStatus[] = [
   'assigned',
@@ -282,7 +283,34 @@ async function handleStartTask(taskId: string): Promise<void> {
               <span class="resource-card__chip">狀態 {{ formatTaskStatusLabel(task.status) }}</span>
               <span class="resource-card__chip">活動 {{ task.campaign_id }}</span>
               <span class="resource-card__chip">更新於 {{ task.updated_at }}</span>
+              <span
+                v-if="task.qualification_context"
+                class="resource-card__chip"
+              >
+                資格 {{ formatQualificationStatusLabel(task.qualification_context.qualification_status) }}
+              </span>
+              <span
+                v-if="task.qualification_context?.qualification_drift"
+                class="resource-card__chip"
+                :data-testid="`my-task-drift-chip-${task.id}`"
+              >
+                資格已漂移
+              </span>
             </div>
+            <p
+              v-if="task.qualification_context"
+              class="resource-card__description"
+              :data-testid="`my-task-qualification-summary-${task.id}`"
+            >
+              {{ task.qualification_context.reason_summary || '目前沒有額外的資格摘要。' }}
+            </p>
+            <p
+              v-if="task.qualification_context?.qualification_drift"
+              class="resource-state__description"
+              :data-testid="`my-task-drift-warning-${task.id}`"
+            >
+              這筆任務目前依照最新資格規則重新評估後，已不再符合活動條件。
+            </p>
             <div class="resource-state__actions">
               <NuxtLink
                 class="resource-action"

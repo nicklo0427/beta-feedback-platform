@@ -20,6 +20,11 @@ class CampaignStatus(str, Enum):
     CLOSED = "closed"
 
 
+class CampaignQualifyingDeviceProfileRef(BaseModel):
+    id: str
+    name: str
+
+
 class CampaignCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -132,6 +137,8 @@ class CampaignListItem(BaseModel):
     version_label: Optional[str] = None
     status: CampaignStatus
     updated_at: str
+    qualifying_device_profiles: Optional[list[CampaignQualifyingDeviceProfileRef]] = None
+    qualification_summary: Optional[str] = None
 
 
 class CampaignDetail(BaseModel):

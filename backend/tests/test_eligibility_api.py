@@ -6,6 +6,8 @@ from app.modules.accounts.schemas import AccountCreate
 from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate
 from app.modules.campaigns.service import create_campaign
+from app.modules.device_profiles.schemas import DeviceProfileCreate
+from app.modules.device_profiles.service import create_device_profile
 from app.modules.projects.schemas import ProjectCreate
 from app.modules.projects.service import create_project
 
@@ -20,6 +22,26 @@ def _create_tester_account(name: str = "Tester Owner"):
 
 def _actor_headers(actor_id: str) -> dict[str, str]:
     return {"X-Actor-Id": actor_id}
+
+
+def _create_device_profile_for_tester(
+    tester_id: str,
+    *,
+    name: str = "iPhone 15",
+    platform: str = "ios",
+    os_name: str = "iOS",
+    os_version: str | None = "17.4",
+):
+    return create_device_profile(
+        DeviceProfileCreate(
+            name=name,
+            platform=platform,
+            device_model="Device Model",
+            os_name=os_name,
+            os_version=os_version,
+        ),
+        current_actor_id=tester_id,
+    )
 
 
 def test_eligibility_rules_crud_flow_returns_expected_shapes(client: TestClient) -> None:
@@ -281,4 +303,272 @@ def test_eligibility_patch_rejects_actor_without_campaign_ownership(
                 "owner_account_id": owner.id,
             },
         },
+    }
+
+
+def test_campaign_qualification_results_returns_current_tester_results(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    matching_device_profile = _create_device_profile_for_tester(
+        tester.id,
+        name="iPhone 15 Pro",
+        platform="ios",
+        os_name="iOS",
+        os_version="17.4",
+    )
+    failing_device_profile = _create_device_profile_for_tester(
+        tester.id,
+        name="Android Pixel",
+        platform="android",
+        os_name="Android",
+        os_version="14.0",
+    )
+
+    rule_response = client.post(
+        f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    rule_id = rule_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign.id}/qualification-results?mine=true",
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [
+            {
+                "device_profile_id": matching_device_profile.id,
+                "device_profile_name": matching_device_profile.name,
+                "qualification_status": "qualified",
+                "matched_rule_id": rule_id,
+                "reason_codes": [],
+                "reason_summary": "符合目前活動的資格條件。",
+            },
+            {
+                "device_profile_id": failing_device_profile.id,
+                "device_profile_name": failing_device_profile.name,
+                "qualification_status": "not_qualified",
+                "matched_rule_id": None,
+                "reason_codes": [
+                    "platform_mismatch",
+                    "os_name_mismatch",
+                    "os_version_below_min",
+                ],
+                "reason_summary": (
+                    "主要未符合條件：平台不符合目前活動條件；"
+                    "作業系統不符合目前活動條件；"
+                    "作業系統版本低於最低要求。"
+                ),
+            },
+        ],
+        "total": 2,
+    }
+
+
+def test_campaign_qualification_results_require_current_actor(
+    client: TestClient,
+) -> None:
+    response = client.get("/api/v1/campaigns/camp_123/qualification-results?mine=true")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_campaign_qualification_results_reject_non_tester_actor(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign.id}/qualification-results?mine=true",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "forbidden_actor_role",
+        "message": "Tester role is required for this operation.",
+        "details": {
+            "actor_id": developer.id,
+            "actor_role": "developer",
+            "required_role": "tester",
+        },
+    }
+
+
+def test_campaign_qualification_results_return_empty_when_no_owned_device_profiles(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign.id}/qualification-results?mine=true",
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [],
+        "total": 0,
+    }
+
+
+def test_campaign_qualification_check_returns_preview_for_campaign_owner(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = _create_device_profile_for_tester(
+        tester.id,
+        name="iPhone 15 Pro",
+        platform="ios",
+        os_name="iOS",
+        os_version="17.4",
+    )
+    rule_response = client.post(
+        f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    rule_id = rule_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign.id}/qualification-check?device_profile_id={device_profile.id}",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "device_profile_id": device_profile.id,
+        "device_profile_name": device_profile.name,
+        "qualification_status": "qualified",
+        "matched_rule_id": rule_id,
+        "reason_codes": [],
+        "reason_summary": "符合目前活動的資格條件。",
+    }
+
+
+def test_campaign_qualification_check_returns_fail_result_for_ineligible_device_profile(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = _create_device_profile_for_tester(
+        tester.id,
+        name="Android Pixel",
+        platform="android",
+        os_name="Android",
+        os_version="14.0",
+    )
+    client.post(
+        f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign.id}/qualification-check?device_profile_id={device_profile.id}",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "device_profile_id": device_profile.id,
+        "device_profile_name": device_profile.name,
+        "qualification_status": "not_qualified",
+        "matched_rule_id": None,
+        "reason_codes": [
+            "platform_mismatch",
+            "os_name_mismatch",
+            "os_version_below_min",
+        ],
+        "reason_summary": (
+            "主要未符合條件：平台不符合目前活動條件；"
+            "作業系統不符合目前活動條件；"
+            "作業系統版本低於最低要求。"
+        ),
     }

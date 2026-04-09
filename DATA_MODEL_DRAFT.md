@@ -10,6 +10,7 @@
 - `T022-reputation-baseline-and-summary-metrics`
 - `T030-account-and-ownership-mvp-schema-draft`
 - `T038-actor-aware-workflow-guardrails-draft`
+- `T044-qualification-and-assignment-semantics-draft`
 
 的直接依據。
 
@@ -956,21 +957,221 @@ frontend 在 actor-aware flows 應遵守以下 baseline：
 - 這些能力都會把目前的 MVP baseline 快速推向正式 access control system
 - 下一階段的目標是「讓既有 role-aware collaboration 變得一致可依賴」，而不是一次引入正式 auth
 
-## 14. Usage Notes for T031 / T032 / T033 / T034 / T039 / T040
+## 14. Qualification and Assignment Semantics Draft
 
-### 14.1 For T031 Account CRUD
+### 14.1 Purpose
+
+在 `T013` 建立 eligibility rules、`T014` 建立 task assignment、`T032` 到 `T040` 建立 current actor 與 actor-aware mutation baseline 之後，系統已能表達：
+
+- developer 如何設定 campaign eligibility rules
+- tester 擁有哪些 device profiles
+- developer 如何把 task 指派給某個 device profile
+
+但如果沒有一份正式文件定義 qualification semantics，系統仍會面臨：
+
+- eligibility rules 多條並存時不清楚該如何組合
+- 沒有 active rules 時，frontend 與 backend 可能對「是否符合」有不同解讀
+- qualification result 的欄位 shape 可能在不同 API 各自生長
+- task assignment preview 與 backend assignment guard 可能用不同邏輯
+
+因此這一節的目的，是為後續 `T045` 到 `T048` 提供一個可直接引用的 MVP qualification / assignment baseline，而不是引入 matching engine、candidate ranking 或申請制工作流。
+
+### 14.2 Eligibility Evaluation Scope
+
+MVP qualification evaluator 只處理目前已存在的 eligibility 維度：
+
+- `platform`
+- `os_name`
+- `os_version_min`
+- `os_version_max`
+- `install_channel`
+- `is_active`
+
+對應的 device profile input 來源：
+
+- `platform`
+- `os_name`
+- `os_version`
+- `browser_name`
+- `browser_version`
+- `locale`
+
+但在 qualification semantics 中，真正參與判斷的只有：
+
+- `platform`
+- `os_name`
+- `os_version`
+- `install_channel`（若 device profile 或後續 assignment context 有提供）
+
+說明：
+
+- `browser_name`、`browser_version`、`locale` 目前不參與 `T044` 的 qualification 判斷
+- 這些欄位可保留給未來更細的規則擴充，但不應在這一階段偷做
+
+### 14.3 Rule Combination Baseline
+
+qualification evaluator 應採以下 MVP 規則：
+
+- 單一 rule 內各欄位為 `AND`
+- 同一 campaign 的多條 active rules 為 `OR`
+- `is_active = false` 的 rules 完全忽略，不進入候選規則集合
+- 若某條 rule 的欄位為 `null`、空字串或未提供，代表該欄位不構成限制
+- 若某個 campaign 沒有任何 active rules，視為 `qualified`
+
+換句話說：
+
+- device profile 只要命中任一條 active rule，即為 `qualified`
+- device profile 若沒有命中任何 active rules，則為 `not_qualified`
+- 若沒有 active rules 可供比對，則該 campaign 對所有 device profiles 都視為 `qualified`
+
+### 14.4 Field Comparison Baseline
+
+各欄位比對規則建議如下：
+
+| Rule Field | Device Profile Input | Comparison Rule |
+| --- | --- | --- |
+| `platform` | `platform` | 必須完全相等 |
+| `os_name` | `os_name` | 先做 trim，再以不區分大小寫的字串完全相等判斷 |
+| `os_version_min` | `os_version` | 若 rule 有值，device version 必須大於等於 min |
+| `os_version_max` | `os_version` | 若 rule 有值，device version 必須小於等於 max |
+| `install_channel` | assignment / device context | 先做 trim，再以不區分大小寫的字串完全相等判斷 |
+
+`os_version` 的 MVP 比較規則：
+
+- 只支援 dotted numeric version，例如：
+  - `16`
+  - `16.4`
+  - `17.2.1`
+- 比較時應將版本拆成 `.` 分段後，以數值逐段比較
+- 若某一方缺少尾段，視為 `0`
+  - 例如 `16.4` 等價於 `16.4.0`
+- 若 device profile 的 `os_version` 或 rule 的 min / max 不是 dotted numeric version，MVP 不做模糊解析，應視為不符合該版本條件
+
+說明：
+
+- 這個規則是為了避免後續實作時，frontend preview 與 backend guard 採用不同版本比較邏輯
+- 本階段不要引入 semver library、平台特化版本解析或 fuzzy comparison
+
+### 14.5 Qualification Result Baseline
+
+後續 qualification evaluator 的最小 per-device result shape 建議如下：
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `device_profile_id` | `string` | Yes | 被評估的 device profile |
+| `qualification_status` | `"qualified" \| "not_qualified"` | Yes | 最小 qualification 結果 |
+| `matched_rule_id` | `string \| null` | Yes | 命中的 rule；若無 active rules 而直接放行，可為 `null` |
+| `reason_codes` | `string[]` | Yes | machine-readable reason codes；qualified 時可為空陣列 |
+| `reason_summary` | `string \| null` | Yes | 給 frontend 直接顯示的簡短摘要 |
+
+`qualification_status` 的語意：
+
+- `qualified`：
+  - 命中至少一條 active rule
+  - 或該 campaign 沒有任何 active rules
+- `not_qualified`：
+  - 有 active rules，但沒有任何一條命中
+
+`matched_rule_id` 的語意：
+
+- 若因命中某條 active rule 而 qualified，應回傳該 rule id
+- 若因「沒有 active rules」而 qualified，應回 `null`
+- 若 not qualified，應回 `null`
+
+`reason_summary` 的語意：
+
+- qualified 且命中 rule 時，可為例如：
+  - `符合目前活動的資格條件。`
+- qualified 且沒有 active rules 時，可為例如：
+  - `目前沒有啟用中的資格限制。`
+- not qualified 時，應提供一段可讀摘要，說明主要未命中原因
+
+### 14.6 Failure Reason Codes Baseline
+
+MVP 階段的 `reason_codes` 不需要做成完整規則語言，但至少應支持：
+
+- `platform_mismatch`
+- `os_name_mismatch`
+- `os_version_below_min`
+- `os_version_above_max`
+- `os_version_uncomparable`
+- `install_channel_mismatch`
+
+補充規則：
+
+- `reason_codes` 只應描述「active rules 未命中」的主要原因
+- `rule_inactive` 不應出現在標準 qualification result 中，因為 inactive rules 在 evaluator 候選集合中已被忽略
+- 若同一個 device profile 對不同 active rules 都失敗，MVP 可回傳合併後去重的 reason codes，不必保留逐條 rule 的完整失敗矩陣
+
+### 14.7 Assignment Readiness and Error Baseline
+
+qualification semantics 在 task assignment 中應轉成最小 assignment baseline：
+
+- 若 `qualification_status = qualified`，則 `assignment_readiness = eligible`
+- 若 `qualification_status = not_qualified`，則 `assignment_readiness = ineligible`
+
+後續 task assignment 的 create / edit guard 應遵守：
+
+- `Task.device_profile_id` 若存在，必須先通過 campaign qualification evaluator
+- 若不符合資格，應拒絕 create / edit assignment
+- 建議錯誤代碼為：
+  - `assignment_not_eligible`
+
+`assignment_not_eligible` 的 details baseline 建議至少包含：
+
+- `campaign_id`
+- `device_profile_id`
+- `qualification_status`
+- `matched_rule_id`
+- `reason_codes`
+- `reason_summary`
+
+### 14.8 API Baseline for Next Tickets
+
+本節不新增 runtime API，但後續票可依此基線收斂：
+
+- `GET /api/v1/campaigns/{campaign_id}/qualification-results?mine=true`
+  - 回 current tester 的 owned device profiles qualification results
+- `GET /api/v1/campaigns/{campaign_id}/qualification-check?device_profile_id=...`
+  - 回單一 device profile 的 qualification / assignment preview
+- `GET /api/v1/campaigns?qualified_for_me=true`
+  - 回 current tester 目前符合的 campaigns
+- `GET /api/v1/tasks/{task_id}/qualification-context`
+  - 回 task assignment 的 qualification context
+
+### 14.9 Deferred Scope
+
+以下項目目前先不納入 qualification / assignment semantics：
+
+- candidate ranking
+- auto matching
+- tester application / approval workflow
+- recommendation engine
+- per-rule weighted scoring
+- platform-specific version parser
+- assignment history
+- qualification audit trail
+
+判斷理由：
+
+- 這些能力都會快速把目前 MVP baseline 推向複雜 matching platform
+- 下一階段的目標只是先讓 qualification 可見、可解釋、可用來 guard assignment
+
+## 15. Usage Notes for T031 / T032 / T033 / T034 / T039 / T040 / T045 / T046 / T047 / T048
+
+### 15.1 For T031 Account CRUD
 
 - `Account` 應作為獨立模組建立
 - API-facing 欄位名稱維持 `snake_case`
 - `role` 只允許 `developer`、`tester`
 
-### 14.2 For T032 Current Actor and Ownership
+### 15.2 For T032 Current Actor and Ownership
 
 - `Project.owner_account_id` 與 `DeviceProfile.owner_account_id` 應是下一階段第一批落地欄位
 - create flow 應由 current actor 自動帶入 owner
 - 不應要求使用者在 form 中手動選 owner
 
-### 14.3 For T033 Tester Inbox
+### 15.3 For T033 Tester Inbox
 
 - tester-side task inbox 應透過：
   - current actor
@@ -978,7 +1179,7 @@ frontend 在 actor-aware flows 應遵守以下 baseline：
   - assigned tasks
   推導
 
-### 14.4 For T034 Developer Review Queue
+### 15.4 For T034 Developer Review Queue
 
 - developer-side feedback queue 應透過：
   - current actor
@@ -986,14 +1187,38 @@ frontend 在 actor-aware flows 應遵守以下 baseline：
   - derived campaigns / tasks / feedback
   推導
 
-### 14.5 For T039 Campaign / Safety / Eligibility Guards
+### 15.5 For T039 Campaign / Safety / Eligibility Guards
 
 - `Campaign / Safety / Eligibility` 的 mutation 應統一視為 developer-side action
 - `project_id` 或 `campaign_id` 不應只驗證資源存在，還必須驗證其 developer ownership
 - frontend create / edit form 應一律帶 `X-Actor-Id`
 
-### 14.6 For T040 Task / Feedback Guards
+### 15.6 For T040 Task / Feedback Guards
 
 - `Task` 與 `Feedback` 的 mutation 應區分 developer-side action 與 tester-side action
 - tester-side action 的 ownership anchor 應優先以 `device_profile_id -> owner_account_id` 推導
 - developer-side review action 的 ownership anchor 應優先以 `project.owner_account_id` 推導
+
+### 15.7 For T045 Campaign Qualification Shell
+
+- `qualification-results?mine=true` 應只評估 current tester 的 owned device profiles
+- 若 campaign 沒有 active rules，應視為所有 owned device profiles 都 `qualified`
+- frontend 應優先顯示 `reason_summary`，不要求自行翻譯 `reason_codes`
+
+### 15.8 For T046 Task Assignment Preview and Guardrails
+
+- qualification preview 與 task assignment guard 必須共用同一套 evaluator semantics
+- developer 不應被允許指派 `assignment_readiness = ineligible` 的 device profile
+- `assignment_not_eligible` 的 details 應足以讓 frontend 直接顯示原因摘要
+
+### 15.9 For T047 Tester Eligible Campaigns Workspace
+
+- `qualified_for_me=true` 的語意應以「至少一個 owned device profile qualified」為主
+- workspace card 上應至少顯示一個命中的 `device_profile_id` 或其摘要
+- 不要在這張票偷做 application / accept / subscribe flow
+
+### 15.10 For T048 Task Qualification Context
+
+- task detail 與 `/my/tasks` 的 qualification context 應以 derived read-only data 為主
+- 若後續 eligibility rules 變動導致 assignment drift，先以最小 warning 呈現即可
+- 不需要在這一階段引入 assignment timeline 或 audit history

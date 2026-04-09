@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
+import {
+  formatQualificationStatusLabel,
+  type CampaignQualificationResultItem
+} from '~/features/eligibility/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 import {
   type DistributionChannel,
@@ -101,6 +105,24 @@ const testerAccount = {
   updated_at: '2026-04-03T10:00:00Z'
 }
 
+const qualificationMatchResult = {
+  device_profile_id: 'dp_123',
+  device_profile_name: 'iPhone 15 Pro',
+  qualification_status: 'qualified',
+  matched_rule_id: 'er_123',
+  reason_codes: [],
+  reason_summary: '符合目前活動的資格條件。'
+} satisfies CampaignQualificationResultItem
+
+const qualificationFailResult = {
+  device_profile_id: 'dp_456',
+  device_profile_name: 'Android Pixel',
+  qualification_status: 'not_qualified',
+  matched_rule_id: null,
+  reason_codes: ['platform_mismatch', 'os_name_mismatch'],
+  reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+} satisfies CampaignQualificationResultItem
+
 async function mockAccounts(page: Page): Promise<void> {
   await mockApiJson(page, '/accounts', {
     items: [developerAccount, testerAccount],
@@ -185,6 +207,125 @@ test.describe('campaigns shell flows', () => {
 
     await expect(page).toHaveURL(/\/projects\/proj_123$/)
     await expect(page.getByTestId('project-detail-panel')).toBeVisible()
+  })
+
+  test('shows current tester qualification results on campaign detail', async ({
+    page
+  }) => {
+    let qualificationRequestActorId: string | undefined
+    let resolveQualificationRequestActorId: ((value: string | undefined) => void) | null = null
+    const qualificationRequestActorIdPromise = new Promise<string | undefined>((resolve) => {
+      resolveQualificationRequestActorId = resolve
+    })
+
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
+      total: 1
+    })
+    await page.route(
+      /\/api\/v1\/campaigns\/camp_123\/qualification-results\?mine=true$/,
+      async (route) => {
+        qualificationRequestActorId = route.request().headers()['x-actor-id']
+        resolveQualificationRequestActorId?.(qualificationRequestActorId)
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            items: [qualificationMatchResult, qualificationFailResult],
+            total: 2
+          })
+        })
+      }
+    )
+
+    await page.goto('/campaigns/camp_123')
+
+    await expect(page.getByTestId('campaign-qualification-select-actor')).toBeVisible()
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    expect(await qualificationRequestActorIdPromise).toBe(testerAccount.id)
+
+    const qualificationList = page.getByTestId('campaign-qualification-list')
+    await expect(qualificationList).toBeVisible()
+
+    const matchCard = page.getByTestId(
+      `campaign-qualification-result-${qualificationMatchResult.device_profile_id}`
+    )
+    await expect(matchCard).toContainText(qualificationMatchResult.device_profile_name)
+    await expect(matchCard).toContainText(
+      formatQualificationStatusLabel(qualificationMatchResult.qualification_status)
+    )
+    await expect(matchCard).toContainText(qualificationMatchResult.matched_rule_id!)
+
+    const failCard = page.getByTestId(
+      `campaign-qualification-result-${qualificationFailResult.device_profile_id}`
+    )
+    await expect(failCard).toContainText(qualificationFailResult.device_profile_name)
+    await expect(failCard).toContainText(
+      formatQualificationStatusLabel(qualificationFailResult.qualification_status)
+    )
+    await expect(failCard).toContainText(qualificationFailResult.reason_summary)
+  })
+
+  test('shows qualification empty state when current tester has no owned device profiles', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/campaigns/camp_123/qualification-results?mine=true', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    const emptyState = page.getByTestId('campaign-qualification-empty')
+    await expect(emptyState).toBeVisible()
+    await expect(emptyState).toContainText('目前沒有可檢查的裝置設定檔')
+  })
+
+  test('shows qualification role mismatch when current actor is not a tester', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
+      total: 1
+    })
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+
+    const roleMismatch = page.getByTestId('campaign-qualification-role-mismatch')
+    await expect(roleMismatch).toBeVisible()
+    await expect(roleMismatch).toContainText('資格檢查需要測試者帳號')
+    await expect(roleMismatch).toContainText('開發者')
   })
 
   test('supports creating a campaign from the project context', async ({ page }) => {
@@ -435,6 +576,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign edit error state when the record cannot be loaded', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiError(
       page,
       '/campaigns/camp_missing',
@@ -475,6 +617,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign detail error state when the detail request fails', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiError(
       page,
       '/campaigns/camp_missing',
@@ -502,6 +645,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign safety empty state when no safety profile exists', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiError(
       page,
@@ -751,6 +895,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign safety error state when the safety request fails', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
     await mockApiError(
@@ -889,6 +1034,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign safety edit error state when the safety record cannot be loaded', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiError(
       page,
       '/campaigns/camp_123/safety',
@@ -915,6 +1061,7 @@ test.describe('campaigns shell flows', () => {
   test('renders the campaign reputation error state when the summary request fails', async ({
     page
   }) => {
+    await mockAccounts(page)
     await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
     await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
     await mockApiError(

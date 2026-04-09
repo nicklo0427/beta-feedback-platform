@@ -27,16 +27,23 @@
 - account / ownership baseline
 - current actor context
 - role-aware homepage / tester inbox / developer review queue
+- qualification visibility
+- assignment eligibility preview / guardrails
+- tester eligible campaigns workspace
+- task qualification context / drift warning
 
 ### 1.1 目前階段判斷
 
 截至目前為止，repo 可以視為已完成：
 
-- `T011` 到 `T042`
+- `T011` 到 `T049`
 - MVP 主流程閉環
 - 第一輪產品化補強
 - role-aware collaboration baseline
+- qualification / assignment clarity baseline
 - 前端繁體中文文案整理
+- account collaboration summary 與 owned resource panels
+- qualification-aware demo seed 與 manual QA 文件
 
 目前最重要的判斷是：
 
@@ -45,10 +52,16 @@
 - developer / tester 已有最小 role-aware 入口
 - actor-aware mutation guards 與 developer owned workspace 已有 baseline
 - role-aware demo seed 與 owned fixtures 已可直接支撐手動驗收
+- account detail 已能顯示 collaboration footprint 與 owned resource summary
+- tester 已能看見自己是否符合某個 campaign
+- developer 指派 task 時已會被 qualification guard 阻擋
+- task detail 與 tester inbox 已能看見 qualification context 與 drift warning
 
-這代表下一步不應再擴新的核心 domain，而應優先補：
+這代表 qualification phase 已完成，下一步不應回頭補同一批基礎能力，而應轉往：
 
-- account collaboration summary
+- qualification fidelity 補強
+- tester participation workflow
+- developer candidate visibility
 
 ## 2. 第一階段平台範圍
 
@@ -115,6 +128,7 @@
 
 - homepage role-aware overview shell
 - `accounts` list / detail / create / edit
+- account collaboration summary / owned resource panels
 - homepage IA / overview shell
 - `projects` list / detail / create / edit
 - `campaigns` list / detail / create / edit
@@ -123,12 +137,16 @@
 - `eligibility rules` list / detail / create / edit
 - `tasks` list / detail / create / edit
 - `/my/tasks` tester inbox
+- `/my/eligible-campaigns` tester 符合資格活動工作區
 - `feedback` list / detail / submit / edit
 - `feedback review` panel
 - `/review/feedback` developer review queue
 - feedback supplement / resubmission flow
 - `reputation summary` shell
 - current actor selector
+- campaign detail qualification panel
+- task assignment qualification preview / guardrails
+- task qualification context / drift warning
 
 ### 4.3 測試
 
@@ -186,9 +204,28 @@ beta-feedback-platform/
 - `frontend/`：Nuxt 3 application
 - `scripts/`：本地工具，例如 demo seed workflow
 - `tickets/`：逐張開發票與工作拆解
-- `NEXT_PHASE_PLAN.md`：`T029` 之後的下一階段規劃與 ticket 順序
+- `NEXT_PHASE_PLAN.md`：最新 roadmap 與目前 phase summary
 - `LOCAL_DEMO_SEED.md`：本地 demo seed 使用說明
 - `MANUAL_QA.md`：瀏覽器手動驗收清單
+
+## 6.1 Qualification Phase 已完成
+
+目前已完成 qualification / assignment clarity phase，包含：
+
+- `T044` Qualification and assignment semantics draft
+- `T045` Campaign qualification check API and current tester shell
+- `T046` Task assignment eligibility preview and guardrails
+- `T047` Tester eligible campaigns workspace
+- `T048` Qualification context panels for task detail and inbox
+- `T049` Qualification-aware demo seed and manual QA refresh
+
+這代表 `Eligibility -> Assignment -> Tester 參與` 這段現在已具備：
+
+- qualification read-only visibility
+- assignment preview 與 mutation guard
+- tester workspace entry
+- assignment 後的 qualification context 與 drift warning
+- qualification-aware seed 與手動驗收文件
 
 ## 7. 本機啟動方式
 
@@ -259,6 +296,7 @@ npx playwright test --reporter=list --workers=1
 - `/tasks`
 - `/my/projects`
 - `/my/campaigns`
+- `/my/eligible-campaigns`
 - `/my/tasks`
 - `/review/feedback`
 
@@ -282,27 +320,27 @@ npx playwright test --reporter=list --workers=1
 - 前置條件
 - demo seed 方式
 - current actor 與 role-aware 驗收前置
+- qualification / assignment 驗收路徑
 
 ## 11. 接下來建議做什麼
 
-下一個 phase 建議聚焦在：
+qualification phase 完成後，下一個 phase 建議聚焦在：
 
-- `Account Collaboration Summary`
-- `Owned Resource Panels`
+- `Qualification Fidelity`
+- `Tester Participation Workflow`
+- `Developer Candidate Visibility`
 
-建議優先順序：
+目前最值得優先補的方向：
 
-1. 補 account collaboration summary 與 owned resource panels
-2. 再規劃下一輪 role-aware hardening 或更接近 production 的 access model
+1. 讓 `device profile` 正式具備 `install_channel` baseline，避免 qualification evaluator 永遠把這類 rule 視為 fail
+2. 建立 tester 對 qualified campaign 的最小參與 / 申請入口，而不只是 read-only 符合資格列表
+3. 補 developer 端的 candidate / qualification overview，但仍避免進入 auto matching
 
-對應 tickets 為：
-
-- `T043`
+目前這些還沒正式拆成下一批 tickets，所以 `NEXT_PHASE_PLAN.md` 現在會先把 qualification phase 視為已完成的里程碑，再作為下一輪規劃的起點
 
 完整規劃請看：
 
 - [NEXT_PHASE_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/NEXT_PHASE_PLAN.md)
-- 可以在網頁直接測試的主要清單
 - 推薦驗收順序
 
 ## 11. 目前已知限制

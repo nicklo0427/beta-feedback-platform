@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -98,6 +98,15 @@ class TaskUpdate(BaseModel):
         return self
 
 
+class TaskQualificationContext(BaseModel):
+    device_profile_id: str
+    device_profile_name: str
+    qualification_status: Literal["qualified", "not_qualified"]
+    matched_rule_id: Optional[str] = None
+    reason_summary: Optional[str] = None
+    qualification_drift: bool
+
+
 class TaskListItem(BaseModel):
     id: str
     campaign_id: str
@@ -105,6 +114,7 @@ class TaskListItem(BaseModel):
     title: str
     status: TaskStatus
     updated_at: str
+    qualification_context: Optional[TaskQualificationContext] = None
 
 
 class TaskDetail(BaseModel):
@@ -117,6 +127,7 @@ class TaskDetail(BaseModel):
     submitted_at: Optional[str] = None
     created_at: str
     updated_at: str
+    qualification_context: Optional[TaskQualificationContext] = None
 
 
 class TaskListResponse(BaseModel):

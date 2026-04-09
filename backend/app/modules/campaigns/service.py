@@ -38,8 +38,18 @@ def _to_campaign_detail(record: CampaignRecord) -> CampaignDetail:
     return CampaignDetail.model_validate(asdict(record))
 
 
-def _to_campaign_list_item(record: CampaignRecord) -> CampaignListItem:
-    return CampaignListItem.model_validate(asdict(record))
+def _to_campaign_list_item(
+    record: CampaignRecord,
+    *,
+    qualifying_device_profiles: list[dict[str, str]] | None = None,
+    qualification_summary: str | None = None,
+) -> CampaignListItem:
+    payload: dict[str, object] = asdict(record)
+    if qualifying_device_profiles is not None:
+        payload["qualifying_device_profiles"] = qualifying_device_profiles
+    if qualification_summary is not None:
+        payload["qualification_summary"] = qualification_summary
+    return CampaignListItem.model_validate(payload)
 
 
 def _ensure_campaign_exists(campaign_id: str) -> CampaignRecord:
@@ -174,10 +184,48 @@ def _resolve_owned_project_ids_for_actor(current_actor_id: str) -> set[str]:
     }
 
 
+def _resolve_owned_device_profiles_for_tester(current_actor_id: str):
+    from app.modules.device_profiles import repository as device_profiles_repository
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role != AccountRole.TESTER.value:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="forbidden_actor_role",
+            message="Tester role is required to access qualified campaigns.",
+            details={
+                "actor_id": actor.id,
+                "actor_role": actor.role,
+                "required_role": AccountRole.TESTER.value,
+            },
+        )
+
+    return [
+        record
+        for record in device_profiles_repository.list_device_profiles()
+        if record.owner_account_id == current_actor_id
+    ]
+
+
+def _build_campaign_qualification_summary(
+    qualifying_profile_count: int,
+    *,
+    no_active_rules: bool,
+) -> str:
+    if no_active_rules:
+        return "目前沒有啟用中的資格限制；你擁有的裝置設定檔可直接參與。"
+
+    if qualifying_profile_count == 1:
+        return "目前有 1 個裝置設定檔符合這個活動資格。"
+
+    return f"目前有 {qualifying_profile_count} 個裝置設定檔符合這個活動資格。"
+
+
 def list_campaigns(
     project_id: Optional[str] = None,
     *,
     mine: bool = False,
+    qualified_for_me: bool = False,
     current_actor_id: str | None = None,
 ) -> CampaignListResponse:
     records = repository.list_campaigns(project_id=project_id)
@@ -197,6 +245,68 @@ def list_campaigns(
         records = [
             record for record in records if record.project_id in owned_project_ids
         ]
+
+    if qualified_for_me:
+        if current_actor_id is None:
+            raise AppError(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                code="missing_actor_context",
+                message="Current actor is required.",
+                details={
+                    "header": "X-Actor-Id",
+                },
+            )
+
+        from app.modules.eligibility import repository as eligibility_repository
+        from app.modules.eligibility.service import (
+            evaluate_campaign_device_profile_qualification,
+        )
+
+        owned_device_profiles = _resolve_owned_device_profiles_for_tester(current_actor_id)
+        if not owned_device_profiles:
+            return CampaignListResponse.model_validate(build_list_response([]))
+
+        qualified_items: list[CampaignListItem] = []
+        for record in records:
+            active_rules = [
+                eligibility_rule
+                for eligibility_rule in eligibility_repository.list_eligibility_rules(
+                    campaign_id=record.id
+                )
+                if eligibility_rule.is_active
+            ]
+            qualifying_device_profiles: list[dict[str, str]] = []
+
+            for device_profile in owned_device_profiles:
+                qualification_result = evaluate_campaign_device_profile_qualification(
+                    record.id,
+                    device_profile,
+                )
+                if qualification_result.qualification_status != "qualified":
+                    continue
+
+                qualifying_device_profiles.append(
+                    {
+                        "id": qualification_result.device_profile_id,
+                        "name": qualification_result.device_profile_name,
+                    }
+                )
+
+            if not qualifying_device_profiles:
+                continue
+
+            qualified_items.append(
+                _to_campaign_list_item(
+                    record,
+                    qualifying_device_profiles=qualifying_device_profiles,
+                    qualification_summary=_build_campaign_qualification_summary(
+                        len(qualifying_device_profiles),
+                        no_active_rules=not active_rules,
+                    ),
+                )
+            )
+
+        return CampaignListResponse.model_validate(build_list_response(qualified_items))
 
     items = [
         _to_campaign_list_item(record)

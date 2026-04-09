@@ -23,7 +23,11 @@ from app.modules.tasks.service import (
 router = APIRouter(tags=["tasks"])
 
 
-@router.get("/tasks", response_model=TaskListResponse)
+@router.get(
+    "/tasks",
+    response_model=TaskListResponse,
+    response_model_exclude_unset=True,
+)
 def list_tasks_route(
     campaign_id: Optional[str] = Query(default=None),
     device_profile_id: Optional[str] = Query(default=None),
@@ -44,6 +48,7 @@ def list_tasks_route(
     "/campaigns/{campaign_id}/tasks",
     response_model=TaskDetail,
     status_code=status.HTTP_201_CREATED,
+    response_model_exclude_unset=True,
 )
 def create_task_route(
     campaign_id: str,
@@ -57,12 +62,20 @@ def create_task_route(
     )
 
 
-@router.get("/tasks/{task_id}", response_model=TaskDetail)
+@router.get(
+    "/tasks/{task_id}",
+    response_model=TaskDetail,
+    response_model_exclude_unset=True,
+)
 def get_task_route(task_id: str) -> TaskDetail:
     return get_task(task_id)
 
 
-@router.patch("/tasks/{task_id}", response_model=TaskDetail)
+@router.patch(
+    "/tasks/{task_id}",
+    response_model=TaskDetail,
+    response_model_exclude_unset=True,
+)
 def update_task_route(
     task_id: str,
     payload: TaskUpdate,

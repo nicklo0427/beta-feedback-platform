@@ -1,9 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { fetchAccounts } from '~/features/accounts/api'
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
+import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { fetchCampaignDetail } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
-import { fetchCampaignEligibilityRules } from '~/features/eligibility/api'
+import {
+  fetchCampaignEligibilityRules,
+  fetchCampaignQualificationResults
+} from '~/features/eligibility/api'
+import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 import { fetchCampaignReputation } from '~/features/reputation/api'
 import { fetchCampaignSafety } from '~/features/safety/api'
@@ -14,9 +25,14 @@ import {
 } from '~/features/safety/types'
 import { fetchTasks } from '~/features/tasks/api'
 import { formatTaskStatusLabel } from '~/features/tasks/types'
+import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const campaignId = computed(() => String(route.params.campaignId))
+
+useCurrentActorPersistence()
+
+const currentActorId = useCurrentActorId()
 
 const {
   data: campaign,
@@ -52,6 +68,70 @@ const {
 )
 
 const eligibilityRules = computed(() => eligibilityRuleResponse.value.items)
+
+const {
+  data: accountResponse,
+  pending: accountsPending,
+  error: accountsError,
+  refresh: refreshAccounts
+} = useAsyncData('campaign-detail-accounts', () => fetchAccounts(), {
+  server: false,
+  default: () => ({
+    items: [],
+    total: 0
+  })
+})
+
+const accounts = computed(() => accountResponse.value.items)
+const currentActor = computed(
+  () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
+)
+const isTesterActor = computed(() => currentActor.value?.role === 'tester')
+
+const {
+  data: qualificationResponse,
+  pending: qualificationPending,
+  error: qualificationError,
+  refresh: refreshQualification
+} = useAsyncData(
+  () =>
+    `campaign-qualification-${campaignId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+  async () => {
+    if (!currentActorId.value || !isTesterActor.value) {
+      return {
+        items: [],
+        total: 0
+      }
+    }
+
+    return fetchCampaignQualificationResults(campaignId.value, currentActorId.value)
+  },
+  {
+    server: false,
+    watch: [campaignId, currentActorId, currentActor],
+    default: () => ({
+      items: [],
+      total: 0
+    })
+  }
+)
+
+const qualificationResults = computed(() => qualificationResponse.value.items)
+const qualificationErrorMessage = computed(() => {
+  if (!(qualificationError.value instanceof ApiClientError)) {
+    return qualificationError.value?.message || '目前無法載入目前測試者資格結果。'
+  }
+
+  if (qualificationError.value.code === 'missing_actor_context') {
+    return '請先選擇目前操作帳號，再查看資格結果。'
+  }
+
+  if (qualificationError.value.code === 'forbidden_actor_role') {
+    return '目前操作帳號角色不符合查看資格結果的條件。'
+  }
+
+  return qualificationError.value.message
+})
 
 const {
   data: safety,
@@ -537,6 +617,166 @@ const hasReputationSignals = computed(() => {
             </div>
           </NuxtLink>
         </div>
+      </section>
+
+      <section
+        v-if="!pending && !error && campaign"
+        class="resource-section"
+        data-testid="campaign-qualification-section"
+      >
+        <h2 class="resource-section__title">目前測試者資格檢查</h2>
+
+        <CurrentActorSelector
+          title="目前測試者"
+          description="切換目前正在查看的測試者帳號，系統會依據這位測試者擁有的裝置設定檔，判斷是否符合這個活動的資格條件。"
+        />
+
+        <section
+          v-if="accountsError"
+          class="resource-state"
+          data-testid="campaign-qualification-actor-error"
+        >
+          <h3 class="resource-state__title">無法取得測試者情境</h3>
+          <p class="resource-state__description">
+            {{ accountsError.message }}
+          </p>
+          <div class="resource-state__actions">
+            <button class="resource-action" type="button" @click="refreshAccounts()">
+              重試
+            </button>
+          </div>
+        </section>
+
+        <section
+          v-else-if="accountsPending"
+          class="resource-state"
+          data-testid="campaign-qualification-actor-loading"
+        >
+          <h3 class="resource-state__title">載入測試者情境中</h3>
+          <p class="resource-state__description">
+            正在確認目前操作帳號與可用的測試裝置設定檔。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!currentActorId"
+          class="resource-state"
+          data-testid="campaign-qualification-select-actor"
+        >
+          <h3 class="resource-state__title">請先選擇測試者帳號</h3>
+          <p class="resource-state__description">
+            先選擇目前操作帳號，系統才知道要用哪位測試者擁有的裝置設定檔來判斷資格。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!currentActor"
+          class="resource-state"
+          data-testid="campaign-qualification-actor-missing"
+        >
+          <h3 class="resource-state__title">找不到已選擇的帳號</h3>
+          <p class="resource-state__description">
+            目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!isTesterActor"
+          class="resource-state"
+          data-testid="campaign-qualification-role-mismatch"
+        >
+          <h3 class="resource-state__title">資格檢查需要測試者帳號</h3>
+          <p class="resource-state__description">
+            目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到測試者帳號，再查看是否符合這個活動的資格條件。
+          </p>
+        </section>
+
+        <template v-else>
+          <div class="resource-shell__meta">
+            <span class="resource-shell__meta-chip">
+              目前帳號 {{ currentActor.display_name }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              裝置資格結果 {{ qualificationResponse.total }}
+            </span>
+          </div>
+
+          <section
+            v-if="qualificationPending"
+            class="resource-state"
+            data-testid="campaign-qualification-loading"
+          >
+            <h3 class="resource-state__title">載入資格檢查結果中</h3>
+            <p class="resource-state__description">
+              正在根據這位測試者擁有的裝置設定檔與活動資格條件，推導最小 qualification 結果。
+            </p>
+          </section>
+
+          <section
+            v-else-if="qualificationError"
+            class="resource-state"
+            data-testid="campaign-qualification-error"
+          >
+            <h3 class="resource-state__title">無法載入資格檢查結果</h3>
+            <p class="resource-state__description">
+              {{ qualificationErrorMessage }}
+            </p>
+            <div class="resource-state__actions">
+              <button class="resource-action" type="button" @click="refreshQualification()">
+                重試
+              </button>
+            </div>
+          </section>
+
+          <section
+            v-else-if="qualificationResults.length === 0"
+            class="resource-state"
+            data-testid="campaign-qualification-empty"
+          >
+            <h3 class="resource-state__title">目前沒有可檢查的裝置設定檔</h3>
+            <p class="resource-state__description">
+              目前這位測試者還沒有任何擁有的裝置設定檔，系統暫時無法判斷是否符合這個活動的資格條件。
+            </p>
+            <div class="resource-state__actions">
+              <NuxtLink class="resource-action" to="/device-profiles/new">
+                建立裝置設定檔
+              </NuxtLink>
+            </div>
+          </section>
+
+          <section
+            v-else
+            class="resource-section__body"
+            data-testid="campaign-qualification-list"
+          >
+            <article
+              v-for="result in qualificationResults"
+              :key="result.device_profile_id"
+              class="resource-card"
+              :data-testid="`campaign-qualification-result-${result.device_profile_id}`"
+            >
+              <span class="resource-shell__breadcrumb">裝置資格結果</span>
+              <h3 class="resource-card__title">{{ result.device_profile_name }}</h3>
+              <p class="resource-card__description">
+                {{ result.reason_summary || '目前沒有額外資格說明。' }}
+              </p>
+              <div class="resource-card__meta">
+                <span class="resource-card__chip">
+                  狀態 {{ formatQualificationStatusLabel(result.qualification_status) }}
+                </span>
+                <span class="resource-card__chip">
+                  裝置 {{ result.device_profile_id }}
+                </span>
+                <span
+                  v-if="result.matched_rule_id"
+                  class="resource-card__chip"
+                >
+                  命中規則 {{ result.matched_rule_id }}
+                </span>
+              </div>
+            </article>
+          </section>
+        </template>
       </section>
 
       <section

@@ -8,6 +8,8 @@ from app.modules.accounts.schemas import AccountCreate
 from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate, CampaignStatus, CampaignUpdate
 from app.modules.campaigns.service import create_campaign, list_campaigns, update_campaign
+from app.modules.device_profiles.schemas import DeviceProfileCreate
+from app.modules.device_profiles.service import create_device_profile
 from app.modules.eligibility.schemas import EligibilityRuleCreate, EligibilityRulePlatform
 from app.modules.eligibility.service import create_eligibility_rule
 from app.modules.projects.schemas import ProjectCreate
@@ -122,6 +124,121 @@ def test_campaign_service_list_mine_rejects_non_developer_actor() -> None:
         "actor_id": tester.id,
         "actor_role": "tester",
         "required_role": "developer",
+    }
+
+
+def test_campaign_service_list_supports_qualified_for_me_for_tester() -> None:
+    developer = _create_developer_account("Owner Dev")
+    tester = _create_tester_account("Qualified Tester")
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    qualified_campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="iOS Closed Beta",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    ineligible_campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Android Closed Beta",
+            target_platforms=["android"],
+        ),
+        current_actor_id=developer.id,
+    )
+    create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform="ios",
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            os_version="17.4.1",
+        ),
+        current_actor_id=tester.id,
+    )
+    create_eligibility_rule(
+        qualified_campaign.id,
+        EligibilityRuleCreate(
+            platform=EligibilityRulePlatform.IOS,
+            os_name="iOS",
+        ),
+        current_actor_id=developer.id,
+    )
+    create_eligibility_rule(
+        ineligible_campaign.id,
+        EligibilityRuleCreate(
+            platform=EligibilityRulePlatform.ANDROID,
+            os_name="Android",
+        ),
+        current_actor_id=developer.id,
+    )
+
+    filtered_campaigns = list_campaigns(
+        qualified_for_me=True,
+        current_actor_id=tester.id,
+    )
+
+    assert filtered_campaigns.total == 1
+    assert filtered_campaigns.items[0].id == qualified_campaign.id
+    assert filtered_campaigns.items[0].qualifying_device_profiles is not None
+    assert len(filtered_campaigns.items[0].qualifying_device_profiles) == 1
+    assert filtered_campaigns.items[0].qualifying_device_profiles[0].name == "QA iPhone 15"
+    assert filtered_campaigns.items[0].qualification_summary == "目前有 1 個裝置設定檔符合這個活動資格。"
+
+
+def test_campaign_service_list_qualified_for_me_returns_empty_when_tester_has_no_owned_device_profiles() -> None:
+    developer = _create_developer_account("Owner Dev")
+    tester = _create_tester_account("Empty Tester")
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="iOS Closed Beta",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    create_eligibility_rule(
+        campaign.id,
+        EligibilityRuleCreate(
+            platform=EligibilityRulePlatform.IOS,
+            os_name="iOS",
+        ),
+        current_actor_id=developer.id,
+    )
+
+    filtered_campaigns = list_campaigns(
+        qualified_for_me=True,
+        current_actor_id=tester.id,
+    )
+
+    assert filtered_campaigns.total == 0
+    assert filtered_campaigns.items == []
+
+
+def test_campaign_service_list_qualified_for_me_rejects_non_tester_actor() -> None:
+    developer = _create_developer_account("Owner Dev")
+
+    with pytest.raises(AppError) as exc_info:
+        list_campaigns(
+            qualified_for_me=True,
+            current_actor_id=developer.id,
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "forbidden_actor_role"
+    assert error.details == {
+        "actor_id": developer.id,
+        "actor_role": "developer",
+        "required_role": "tester",
     }
 
 

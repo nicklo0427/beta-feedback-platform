@@ -4,6 +4,7 @@ import { useApiClient } from '~/services/api/client'
 import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 
 import type {
+  CampaignQualificationResultItem,
   EligibilityRuleCreatePayload,
   EligibilityRuleDetail,
   EligibilityRuleListItem,
@@ -16,6 +17,19 @@ export async function fetchCampaignEligibilityRules(
   const { request } = useApiClient()
   return request<ListResponse<EligibilityRuleListItem>>(
     `/campaigns/${campaignId}/eligibility-rules`
+  )
+}
+
+export async function fetchCampaignQualificationResults(
+  campaignId: string,
+  actorId?: string | null
+): Promise<ListResponse<CampaignQualificationResultItem>> {
+  const { request } = useApiClient()
+  return request<ListResponse<CampaignQualificationResultItem>>(
+    `/campaigns/${campaignId}/qualification-results?mine=true`,
+    {
+      headers: buildCurrentActorHeaders(actorId)
+    }
   )
 }
 

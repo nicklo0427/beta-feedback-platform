@@ -4,7 +4,7 @@
 
 這份文件對應 `T028-local-demo-data-seeding-workflow`。
 
-目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware 驗收的 fixture graph。
+目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures` 與 `T049-qualification-aware-demo-seed-and-manual-qa-refresh`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware 與 qualification / assignment 驗收的 fixture graph。
 
 用途是用一個命令，透過既有 HTTP API 建立一組本地 demo graph，方便手動驗收與錄影 demo。
 
@@ -13,11 +13,11 @@
 - 1 筆 `developer` account
 - 1 筆 `tester` account
 - 1 筆 `Project`
-- 1 筆 `Campaign`
+- 2 筆 `Campaign`
 - 1 筆 `Campaign Safety`
-- 1 筆 `Eligibility Rule`
-- 1 筆 `Device Profile`
-- 1 筆 `Task`
+- 2 筆 `Eligibility Rule`
+- 2 筆 `Device Profile`
+- 2 筆 `Task`
 - 1 筆 `Feedback`
 
 ## 2. 前置條件
@@ -74,21 +74,39 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
   - `Owned Project Sandbox <label>`
   - owner 會是上面的 developer
 - `Campaign`
-  - `Closed Beta Round 1 <label>`
-  - `target_platforms = ["h5", "ios"]`
+  - `Qualified Campaign Round <label>`
+  - 用來驗證 qualification pass / fail 與 assignment preview / guard
   - owner 由 project 推導
+  - `target_platforms = ["ios", "android"]`
+- `Campaign`
+  - `Qualification Drift Round <label>`
+  - 用來驗證 task detail / inbox 的 drift warning
+  - owner 由 project 推導
+  - `target_platforms = ["ios", "android"]`
 - `Campaign Safety`
   - `distribution_channel = "testflight"`
   - `review_status = "approved"`
 - `Eligibility Rule`
+  - qualified campaign 底下有一筆 iOS 規則
   - `platform = "ios"`
-  - `install_channel = "testflight"`
+  - `os_version_min = "17.0"`
+- `Eligibility Rule`
+  - drift campaign 底下先建立一筆 iOS 規則，再立即更新成 Android 規則
+  - 用來讓既有 task 產生 qualification drift
 - `Device Profile`
   - 一筆 iOS 測試裝置
   - owner 會是上面的 tester
+  - 這筆會通過 qualified campaign 的資格檢查
+- `Device Profile`
+  - 一筆 Android 測試裝置
+  - owner 會是上面的 tester
+  - 這筆會在 qualified campaign 上顯示 qualification fail，也可用來驗證 assignment guard
 - `Task`
-  - 指派到上面的 device profile
-  - create 時狀態為 `assigned`
+  - qualified task 會成功指派到 iOS device profile
+  - 建立 feedback 後可直接拿來驗證 review queue / submitted flow
+- `Task`
+  - drift task 也會先成功指派到 iOS device profile
+  - 之後因 drift campaign 的 eligibility rule 被更新，這筆 task 會顯示 qualification drift
 - `Feedback`
   - 建立後由既有 backend flow 推進 task 狀態
   - feedback 會保留 `review_status = submitted`，方便手動驗證 `T027`
@@ -99,9 +117,13 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - 可以直接拿來驗證：
   - `/my/projects`
   - `/my/campaigns`
+  - `/my/eligible-campaigns`
   - `/my/tasks`
   - `/review/feedback`
   - 首頁 current actor 切換與 role-aware summary
+  - campaign detail qualification panel
+  - task assignment qualification preview
+  - task qualification drift panel
 
 ## 5. Script 輸出內容
 
@@ -111,6 +133,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - developer / tester actor IDs
 - 建立出的每筆 record ID
 - 可直接打開的 frontend detail URL
+- qualification / assignment 驗證用頁面 URL
 - role-aware workspace URLs
 - 對應的 backend API detail URL
 
@@ -124,12 +147,12 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 script 成功後，至少確認以下頁面：
 
-1. `Project detail`
-2. `Campaign detail`
-3. `Campaign safety section`
-4. `Device profile detail`
-5. `Task detail`
-6. `Feedback detail`
+1. `Qualified campaign detail`
+2. `Qualified campaign qualification panel`
+3. `Qualified campaign task create form`
+4. `Drift task detail`
+5. `Tester eligible campaigns workspace`
+6. `Tester inbox`
 
 若要驗收 role-aware flow，建議再補：
 
@@ -137,8 +160,8 @@ script 成功後，至少確認以下頁面：
 8. 首頁 current actor 切換
 9. `/my/projects`
 10. `/my/campaigns`
-11. `/my/tasks`
-12. `/review/feedback`
+11. `/review/feedback`
+12. `Feedback detail`
 
 推薦直接打開 script 輸出的 frontend URLs。
 
@@ -150,6 +173,7 @@ script 成功後，至少確認以下頁面：
 - 這支 script 只調用現有 product API，不會直接碰 repository internals
 - 這支 script 會傳 `X-Actor-Id`，用既有 current actor baseline 建立 ownership fixture
 - current actor 仍不是正式 auth / session；它只是本地驗收用 baseline
+- 目前 `install_channel` 仍沒有 device profile 對應欄位，所以 seed 的 qualification 規則不會使用 `install_channel`
 
 ## 8. 實作備註
 
@@ -157,3 +181,5 @@ script 成功後，至少確認以下頁面：
 - internal / API enum value 仍維持 `h5`
 - 每次重跑 script 都會建立一組新的 demo graph
 - 若你要驗收 role-aware flow，請在首頁 `Current Actor` selector 中選擇 script 輸出的 developer / tester account
+- 若你要驗證 ineligible assignment fail，請用 developer actor 打開 qualified campaign 的 task create form，並選擇那筆 Android device profile
+- 若你要驗證 drift warning，請直接打開 script 輸出的 drift task detail 與 `/my/tasks`

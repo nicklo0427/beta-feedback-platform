@@ -172,6 +172,8 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
       >
         <h2 class="resource-section__title">編輯 {{ task.title }}</h2>
         <TaskForm
+          :campaign-id="task.campaign_id"
+          :actor-id="currentActorId"
           :initial-values="initialValues"
           :device-profiles="deviceProfileResponse.items"
           :pending="submitting"

@@ -22,7 +22,15 @@ const assignedTask = {
   device_profile_id: 'dp_123',
   title: 'Validate onboarding flow',
   status: 'assigned',
-  updated_at: '2026-04-03T10:00:00Z'
+  updated_at: '2026-04-03T10:00:00Z',
+  qualification_context: {
+    device_profile_id: 'dp_123',
+    device_profile_name: 'QA iPhone 15',
+    qualification_status: 'qualified',
+    matched_rule_id: 'er_123',
+    reason_summary: '符合目前活動的資格條件。',
+    qualification_drift: false
+  }
 }
 
 const inProgressTaskDetail = {
@@ -34,7 +42,15 @@ const inProgressTaskDetail = {
   status: 'in_progress',
   submitted_at: null,
   created_at: '2026-04-03T09:00:00Z',
-  updated_at: '2026-04-03T10:20:00Z'
+  updated_at: '2026-04-03T10:20:00Z',
+  qualification_context: {
+    device_profile_id: 'dp_123',
+    device_profile_name: 'QA iPhone 15',
+    qualification_status: 'qualified',
+    matched_rule_id: 'er_123',
+    reason_summary: '符合目前活動的資格條件。',
+    qualification_drift: false
+  }
 }
 
 test.describe('my tasks inbox flows', () => {
@@ -95,6 +111,9 @@ test.describe('my tasks inbox flows', () => {
     const taskCard = page.getByTestId('my-task-card-task_123')
     await expect(taskCard).toContainText(assignedTask.title)
     await expect(taskCard).toContainText(formatTaskStatusLabel(assignedTask.status as TaskStatus))
+    await expect(page.getByTestId('my-task-qualification-summary-task_123')).toContainText(
+      assignedTask.qualification_context.reason_summary
+    )
 
     await page.getByTestId('my-task-detail-link-task_123').click()
 
@@ -218,6 +237,49 @@ test.describe('my tasks inbox flows', () => {
     await expect(page.getByTestId('my-tasks-list')).toBeVisible()
     await expect(page.getByTestId('my-task-card-task_123')).toContainText(
       formatTaskStatusLabel('in_progress')
+    )
+  })
+
+  test('shows qualification drift warning in the tester inbox', async ({ page }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [testerAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/tasks\?status=assigned&mine=true$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              ...assignedTask,
+              qualification_context: {
+                ...assignedTask.qualification_context,
+                qualification_status: 'not_qualified',
+                matched_rule_id: null,
+                reason_summary:
+                  '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。',
+                qualification_drift: true
+              }
+            }
+          ],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/my/tasks')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    await expect(page.getByTestId('my-task-drift-chip-task_123')).toBeVisible()
+    await expect(page.getByTestId('my-task-drift-warning-task_123')).toContainText(
+      '已不再符合活動條件'
     )
   })
 })

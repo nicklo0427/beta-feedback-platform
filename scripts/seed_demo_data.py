@@ -123,6 +123,22 @@ def post_resource(
     )
 
 
+def patch_resource(
+    *,
+    config: SeedConfig,
+    path: str,
+    payload: dict[str, Any],
+    actor_id: str | None = None,
+) -> dict[str, Any]:
+    return request_json(
+        method="PATCH",
+        url=f"{config.api_base_url}{path}",
+        timeout_seconds=config.timeout_seconds,
+        payload=payload,
+        headers=build_actor_headers(actor_id),
+    )
+
+
 def get_resource(
     *,
     config: SeedConfig,
@@ -166,13 +182,21 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
                 "Seeded owned project for role-aware browser verification and manual QA."
             ),
         },
-        "campaign": {
-            "name": f"Closed Beta Round 1 {label}",
+        "qualified_campaign": {
+            "name": f"Qualified Campaign Round {label}",
             "description": (
-                "Seeded campaign covering Mobile Web and iOS verification paths."
+                "Seeded campaign used for qualification pass/fail verification."
             ),
-            "target_platforms": ["h5", "ios"],
-            "version_label": "0.9.1-demo",
+            "target_platforms": ["ios", "android"],
+            "version_label": "0.9.2-qualified",
+        },
+        "drift_campaign": {
+            "name": f"Qualification Drift Round {label}",
+            "description": (
+                "Seeded campaign used to demonstrate qualification drift after eligibility updates."
+            ),
+            "target_platforms": ["ios", "android"],
+            "version_label": "0.9.2-drift",
         },
         "safety": {
             "distribution_channel": "testflight",
@@ -188,23 +212,41 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "os_name": "iOS",
             "os_version_min": "17.0",
             "os_version_max": "18.0",
-            "install_channel": "testflight",
+            "install_channel": None,
             "is_active": True,
         },
-        "device_profile": {
-            "name": f"Owned QA iPhone 15 Pro {label}",
+        "qualified_device_profile": {
+            "name": f"Qualified QA iPhone 15 Pro {label}",
             "platform": "ios",
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
             "os_version": "17.4",
             "locale": "zh-TW",
-            "notes": "Seeded by the role-aware local demo data workflow.",
+            "notes": "Seeded qualified device profile for qualification pass and assignment success.",
         },
-        "task": {
+        "ineligible_device_profile": {
+            "name": f"Ineligible QA Pixel 9 {label}",
+            "platform": "android",
+            "device_model": "Pixel 9",
+            "os_name": "Android",
+            "os_version": "14.0",
+            "locale": "zh-TW",
+            "notes": "Seeded failing device profile for qualification and assignment guard verification.",
+        },
+        "qualified_task": {
             "title": "Validate onboarding and pricing flow",
             "instruction_summary": (
                 "Install from TestFlight, complete onboarding, review the pricing copy, "
                 "and submit structured feedback."
+            ),
+            "status": "assigned",
+        },
+        "drift_task": {
+            "title": "Validate qualification drift handling",
+            "instruction_summary": (
+                "This task is intentionally seeded to become ineligible after the campaign "
+                "eligibility rule changes, so task detail and tester inbox drift warnings "
+                "can be verified."
             ),
             "status": "assigned",
         },
@@ -233,11 +275,15 @@ def print_summary(
     developer_account: dict[str, Any],
     tester_account: dict[str, Any],
     project: dict[str, Any],
-    campaign: dict[str, Any],
+    qualified_campaign: dict[str, Any],
+    drift_campaign: dict[str, Any],
     safety: dict[str, Any],
-    eligibility_rule: dict[str, Any],
-    device_profile: dict[str, Any],
-    task: dict[str, Any],
+    qualified_eligibility_rule: dict[str, Any],
+    drift_eligibility_rule: dict[str, Any],
+    qualified_device_profile: dict[str, Any],
+    ineligible_device_profile: dict[str, Any],
+    qualified_task: dict[str, Any],
+    drift_task: dict[str, Any],
     feedback: dict[str, Any],
 ) -> None:
     frontend = config.frontend_base_url
@@ -258,27 +304,63 @@ def print_summary(
     print("")
     print("Created owned records")
     print(f"- project: {project['id']} ({project['name']})")
-    print(f"- campaign: {campaign['id']} ({campaign['name']})")
+    print(
+        f"- qualified campaign: {qualified_campaign['id']} ({qualified_campaign['name']})"
+    )
+    print(f"- drift campaign: {drift_campaign['id']} ({drift_campaign['name']})")
     print(f"- safety: {safety['id']} ({safety['source_label']})")
     print(
-        f"- eligibility rule: {eligibility_rule['id']} ({eligibility_rule['platform']})"
+        "- qualified eligibility rule: "
+        f"{qualified_eligibility_rule['id']} ({qualified_eligibility_rule['platform']})"
     )
-    print(f"- device profile: {device_profile['id']} ({device_profile['name']})")
-    print(f"- task: {task['id']} ({task['title']})")
+    print(
+        "- drift eligibility rule: "
+        f"{drift_eligibility_rule['id']} ({drift_eligibility_rule['platform']})"
+    )
+    print(
+        "- qualified device profile: "
+        f"{qualified_device_profile['id']} ({qualified_device_profile['name']})"
+    )
+    print(
+        "- ineligible device profile: "
+        f"{ineligible_device_profile['id']} ({ineligible_device_profile['name']})"
+    )
+    print(f"- qualified task: {qualified_task['id']} ({qualified_task['title']})")
+    print(f"- drift task: {drift_task['id']} ({drift_task['title']})")
     print(f"- feedback: {feedback['id']} ({feedback['summary']})")
     print("")
     print("Frontend detail URLs")
     print(f"- developer account detail: {frontend}/accounts/{developer_account['id']}")
     print(f"- tester account detail: {frontend}/accounts/{tester_account['id']}")
     print(f"- project detail: {frontend}/projects/{project['id']}")
-    print(f"- campaign detail: {frontend}/campaigns/{campaign['id']}")
+    print(f"- qualified campaign detail: {frontend}/campaigns/{qualified_campaign['id']}")
+    print(f"- drift campaign detail: {frontend}/campaigns/{drift_campaign['id']}")
     print(
-        "- eligibility rule detail: "
-        f"{frontend}/campaigns/{campaign['id']}/eligibility-rules/{eligibility_rule['id']}"
+        "- qualified eligibility rule detail: "
+        f"{frontend}/campaigns/{qualified_campaign['id']}/eligibility-rules/{qualified_eligibility_rule['id']}"
     )
-    print(f"- device profile detail: {frontend}/device-profiles/{device_profile['id']}")
-    print(f"- task detail: {frontend}/tasks/{task['id']}")
-    print(f"- feedback detail: {frontend}/tasks/{task['id']}/feedback/{feedback['id']}")
+    print(
+        "- drift eligibility rule detail: "
+        f"{frontend}/campaigns/{drift_campaign['id']}/eligibility-rules/{drift_eligibility_rule['id']}"
+    )
+    print(
+        "- qualified device profile detail: "
+        f"{frontend}/device-profiles/{qualified_device_profile['id']}"
+    )
+    print(
+        "- ineligible device profile detail: "
+        f"{frontend}/device-profiles/{ineligible_device_profile['id']}"
+    )
+    print(f"- qualified task detail: {frontend}/tasks/{qualified_task['id']}")
+    print(f"- drift task detail: {frontend}/tasks/{drift_task['id']}")
+    print(
+        "- feedback detail: "
+        f"{frontend}/tasks/{qualified_task['id']}/feedback/{feedback['id']}"
+    )
+    print("")
+    print("Qualification verification URLs")
+    print(f"- tester eligible campaigns workspace: {frontend}/my/eligible-campaigns")
+    print(f"- developer task create form: {frontend}/campaigns/{qualified_campaign['id']}/tasks/new")
     print("")
     print("Role-aware workspace URLs")
     print(f"- developer workspace projects: {frontend}/my/projects")
@@ -290,17 +372,32 @@ def print_summary(
     print(f"- developer account detail: {api_base}/accounts/{developer_account['id']}")
     print(f"- tester account detail: {api_base}/accounts/{tester_account['id']}")
     print(f"- project detail: {api_base}/projects/{project['id']}")
-    print(f"- campaign detail: {api_base}/campaigns/{campaign['id']}")
-    print(f"- safety detail: {api_base}/campaigns/{campaign['id']}/safety")
-    print(f"- eligibility rule detail: {api_base}/eligibility-rules/{eligibility_rule['id']}")
-    print(f"- device profile detail: {api_base}/device-profiles/{device_profile['id']}")
-    print(f"- task detail: {api_base}/tasks/{task['id']}")
+    print(f"- qualified campaign detail: {api_base}/campaigns/{qualified_campaign['id']}")
+    print(f"- drift campaign detail: {api_base}/campaigns/{drift_campaign['id']}")
+    print(f"- safety detail: {api_base}/campaigns/{qualified_campaign['id']}/safety")
+    print(
+        f"- qualified eligibility rule detail: {api_base}/eligibility-rules/{qualified_eligibility_rule['id']}"
+    )
+    print(
+        f"- drift eligibility rule detail: {api_base}/eligibility-rules/{drift_eligibility_rule['id']}"
+    )
+    print(
+        f"- qualified device profile detail: {api_base}/device-profiles/{qualified_device_profile['id']}"
+    )
+    print(
+        f"- ineligible device profile detail: {api_base}/device-profiles/{ineligible_device_profile['id']}"
+    )
+    print(f"- qualified task detail: {api_base}/tasks/{qualified_task['id']}")
+    print(f"- drift task detail: {api_base}/tasks/{drift_task['id']}")
     print(f"- feedback detail: {api_base}/feedback/{feedback['id']}")
     print("")
     print("Notes")
     print("- Use the homepage Current Actor selector to switch between the seeded developer and tester.")
-    print("- The seeded project and campaign are owned by the developer actor.")
-    print("- The seeded device profile and inbox task belong to the tester actor.")
+    print("- The seeded qualified campaign gives you one passing and one failing device profile for qualification checks.")
+    print("- Use the qualified campaign task form to verify assignment preview and ineligible assignment blocking.")
+    print("- The drift campaign already contains an assigned task whose qualification now drifts after rule changes.")
+    print("- The seeded project and both campaigns are owned by the developer actor.")
+    print("- Both seeded device profiles belong to the tester actor.")
     print("- Backend data is in-memory. Restarting the backend clears everything.")
     print("- The seeded feedback remains in review_status=submitted for manual T027 checks.")
     print("- Re-running this script creates a fresh demo graph with a new label.")
@@ -335,47 +432,86 @@ def main() -> int:
             payload=payloads["project"],
             actor_id=developer_account["id"],
         )
-        campaign = post_resource(
+        qualified_campaign = post_resource(
             config=config,
             path="/campaigns",
             payload={
                 "project_id": project["id"],
-                **payloads["campaign"],
+                **payloads["qualified_campaign"],
+            },
+            actor_id=developer_account["id"],
+        )
+        drift_campaign = post_resource(
+            config=config,
+            path="/campaigns",
+            payload={
+                "project_id": project["id"],
+                **payloads["drift_campaign"],
             },
             actor_id=developer_account["id"],
         )
         safety = post_resource(
             config=config,
-            path=f"/campaigns/{campaign['id']}/safety",
+            path=f"/campaigns/{qualified_campaign['id']}/safety",
             payload=payloads["safety"],
             actor_id=developer_account["id"],
         )
-        eligibility_rule = post_resource(
+        qualified_eligibility_rule = post_resource(
             config=config,
-            path=f"/campaigns/{campaign['id']}/eligibility-rules",
+            path=f"/campaigns/{qualified_campaign['id']}/eligibility-rules",
             payload=payloads["eligibility_rule"],
             actor_id=developer_account["id"],
         )
-        device_profile = post_resource(
+        drift_eligibility_rule = post_resource(
+            config=config,
+            path=f"/campaigns/{drift_campaign['id']}/eligibility-rules",
+            payload=payloads["eligibility_rule"],
+            actor_id=developer_account["id"],
+        )
+        qualified_device_profile = post_resource(
             config=config,
             path="/device-profiles",
-            payload=payloads["device_profile"],
+            payload=payloads["qualified_device_profile"],
             actor_id=tester_account["id"],
         )
-        task = post_resource(
+        ineligible_device_profile = post_resource(
             config=config,
-            path=f"/campaigns/{campaign['id']}/tasks",
+            path="/device-profiles",
+            payload=payloads["ineligible_device_profile"],
+            actor_id=tester_account["id"],
+        )
+        qualified_task = post_resource(
+            config=config,
+            path=f"/campaigns/{qualified_campaign['id']}/tasks",
             payload={
-                **payloads["task"],
-                "device_profile_id": device_profile["id"],
+                **payloads["qualified_task"],
+                "device_profile_id": qualified_device_profile["id"],
+            },
+            actor_id=developer_account["id"],
+        )
+        drift_task = post_resource(
+            config=config,
+            path=f"/campaigns/{drift_campaign['id']}/tasks",
+            payload={
+                **payloads["drift_task"],
+                "device_profile_id": qualified_device_profile["id"],
             },
             actor_id=developer_account["id"],
         )
         feedback = post_resource(
             config=config,
-            path=f"/tasks/{task['id']}/feedback",
+            path=f"/tasks/{qualified_task['id']}/feedback",
             payload=payloads["feedback"],
             actor_id=tester_account["id"],
+        )
+        patch_resource(
+            config=config,
+            path=f"/eligibility-rules/{drift_eligibility_rule['id']}",
+            payload={
+                "platform": "android",
+                "os_name": "Android",
+            },
+            actor_id=developer_account["id"],
         )
 
         print_summary(
@@ -384,11 +520,15 @@ def main() -> int:
             developer_account=developer_account,
             tester_account=tester_account,
             project=project,
-            campaign=campaign,
+            qualified_campaign=qualified_campaign,
+            drift_campaign=drift_campaign,
             safety=safety,
-            eligibility_rule=eligibility_rule,
-            device_profile=device_profile,
-            task=task,
+            qualified_eligibility_rule=qualified_eligibility_rule,
+            drift_eligibility_rule=drift_eligibility_rule,
+            qualified_device_profile=qualified_device_profile,
+            ineligible_device_profile=ineligible_device_profile,
+            qualified_task=qualified_task,
+            drift_task=drift_task,
             feedback=feedback,
         )
         return 0

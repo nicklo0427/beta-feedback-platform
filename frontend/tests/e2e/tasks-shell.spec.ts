@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
@@ -17,7 +18,15 @@ const taskListItem = {
   device_profile_id: 'dp_123',
   title: 'Validate onboarding flow',
   status: 'assigned',
-  updated_at: '2026-04-03T10:00:00Z'
+  updated_at: '2026-04-03T10:00:00Z',
+  qualification_context: {
+    device_profile_id: 'dp_123',
+    device_profile_name: 'QA iPhone 15',
+    qualification_status: 'qualified',
+    matched_rule_id: 'er_123',
+    reason_summary: '符合目前活動的資格條件。',
+    qualification_drift: false
+  }
 }
 
 const taskDetail = {
@@ -29,8 +38,34 @@ const taskDetail = {
   status: 'submitted',
   submitted_at: '2026-04-03T11:30:00Z',
   created_at: '2026-04-03T09:00:00Z',
-  updated_at: '2026-04-03T11:30:00Z'
+  updated_at: '2026-04-03T11:30:00Z',
+  qualification_context: {
+    device_profile_id: 'dp_123',
+    device_profile_name: 'QA iPhone 15',
+    qualification_status: 'qualified',
+    matched_rule_id: 'er_123',
+    reason_summary: '符合目前活動的資格條件。',
+    qualification_drift: false
+  }
 }
+
+const eligibleQualificationPreview = {
+  device_profile_id: 'dp_123',
+  device_profile_name: 'QA iPhone 15',
+  qualification_status: 'qualified',
+  matched_rule_id: 'er_123',
+  reason_codes: [],
+  reason_summary: '符合目前活動的資格條件。'
+} as const
+
+const ineligibleQualificationPreview = {
+  device_profile_id: 'dp_456',
+  device_profile_name: 'QA Pixel 9',
+  qualification_status: 'not_qualified',
+  matched_rule_id: null,
+  reason_codes: ['platform_mismatch', 'os_name_mismatch'],
+  reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+} as const
 
 async function mockAccounts(page: Page): Promise<void> {
   await mockApiJson(page, '/accounts', {
@@ -77,7 +112,44 @@ test.describe('tasks shell flows', () => {
     await expect(detailPanel).toContainText(taskDetail.title)
     await expect(detailPanel).toContainText(formatTaskStatusLabel(taskDetail.status as TaskStatus))
     await expect(detailPanel).toContainText(taskDetail.submitted_at)
+    await expect(page.getByTestId('task-qualification-context')).toContainText(
+      taskDetail.qualification_context.reason_summary
+    )
+    await expect(page.getByTestId('task-qualification-context')).toContainText(
+      formatQualificationStatusLabel(
+        taskDetail.qualification_context.qualification_status as 'qualified' | 'not_qualified'
+      )
+    )
     await expect(page.getByTestId('task-feedback-empty')).toBeVisible()
+  })
+
+  test('shows qualification drift warning on task detail when eligibility changed', async ({
+    page
+  }) => {
+    await mockApiJson(page, '/tasks/task_123', {
+      ...taskDetail,
+      qualification_context: {
+        device_profile_id: 'dp_123',
+        device_profile_name: 'QA iPhone 15',
+        qualification_status: 'not_qualified',
+        matched_rule_id: null,
+        reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。',
+        qualification_drift: true
+      }
+    })
+    await mockApiJson(page, '/tasks/task_123/feedback', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/tasks/task_123')
+
+    await expect(page.getByTestId('task-qualification-context')).toBeVisible()
+    await expect(page.getByTestId('task-qualification-drift-warning')).toBeVisible()
+    await expect(page.getByTestId('task-qualification-context')).toContainText('資格已漂移')
+    await expect(page.getByTestId('task-qualification-context')).toContainText(
+      '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+    )
   })
 
   test('supports creating a task from the campaign context', async ({ page }) => {
@@ -142,6 +214,13 @@ test.describe('tasks shell flows', () => {
       total: 0
     })
     await mockApiJson(page, '/device-profiles', deviceProfiles)
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/qualification-check/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(eligibleQualificationPreview)
+      })
+    })
     await mockApiJson(page, '/tasks/task_456/feedback', {
       items: [],
       total: 0
@@ -203,6 +282,12 @@ test.describe('tasks shell flows', () => {
       .getByTestId('task-instruction-summary-input')
       .fill('Check the paywall CTA and pricing copy.')
     await page.getByTestId('task-device-profile-field').selectOption('dp_123')
+    await expect(page.getByTestId('task-assignment-preview-panel')).toContainText(
+      formatQualificationStatusLabel(eligibleQualificationPreview.qualification_status)
+    )
+    await expect(page.getByTestId('task-assignment-preview-panel')).toContainText(
+      eligibleQualificationPreview.reason_summary
+    )
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 
@@ -280,6 +365,63 @@ test.describe('tasks shell flows', () => {
     )
   })
 
+  test('blocks task create when the selected device profile is not eligible', async ({
+    page
+  }) => {
+    const campaignDetail = {
+      id: 'camp_123',
+      project_id: 'proj_123',
+      name: 'Closed Beta Round 1',
+      description: 'Collect early usability feedback for the onboarding flow.',
+      target_platforms: ['ios', 'android'],
+      version_label: '0.9.0-beta.1',
+      status: 'active',
+      created_at: '2026-04-02T09:00:00Z',
+      updated_at: '2026-04-03T10:00:00Z'
+    }
+    let createRequestReceived = false
+
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/device-profiles', {
+      items: [
+        {
+          id: 'dp_456',
+          name: 'QA Pixel 9',
+          platform: 'android',
+          device_model: 'Pixel 9',
+          os_name: 'Android',
+          updated_at: '2026-04-03T10:00:00Z'
+        }
+      ],
+      total: 1
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/qualification-check/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(ineligibleQualificationPreview)
+      })
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/tasks$/, async (route) => {
+      createRequestReceived = true
+      await route.fallback()
+    })
+
+    await page.goto('/campaigns/camp_123/tasks/new')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('task-title-input').fill('Validate Android onboarding flow')
+    await page.getByTestId('task-device-profile-field').selectOption('dp_456')
+
+    const previewPanel = page.getByTestId('task-assignment-preview-panel')
+    await expect(previewPanel).toContainText(
+      formatQualificationStatusLabel(ineligibleQualificationPreview.qualification_status)
+    )
+    await expect(previewPanel).toContainText(ineligibleQualificationPreview.reason_summary)
+    await expect(page.getByTestId('task-submit')).toBeDisabled()
+    expect(createRequestReceived).toBe(false)
+  })
+
   test('supports editing a task from the detail page', async ({ page }) => {
     const editableTask = {
       ...taskDetail,
@@ -336,6 +478,13 @@ test.describe('tasks shell flows', () => {
       ],
       total: 1
     })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/qualification-check/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(eligibleQualificationPreview)
+      })
+    })
     await mockApiJson(page, '/tasks/task_123/feedback', {
       items: [],
       total: 0
@@ -347,6 +496,9 @@ test.describe('tasks shell flows', () => {
     await expect(page).toHaveURL(/\/tasks\/task_123\/edit$/)
     await expect(page.getByTestId('task-edit-panel')).toBeVisible()
     await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await expect(page.getByTestId('task-assignment-preview-panel')).toContainText(
+      eligibleQualificationPreview.reason_summary
+    )
 
     await page.getByTestId('task-title-input').fill('Validate onboarding flow v2')
     await page
@@ -366,6 +518,82 @@ test.describe('tasks shell flows', () => {
     await expect(page.getByTestId('task-detail-panel')).toContainText(
       formatTaskStatusLabel(updatedTask.status as TaskStatus)
     )
+  })
+
+  test('blocks task edit when reassigned device profile is not eligible', async ({ page }) => {
+    const editableTask = {
+      ...taskDetail,
+      status: 'assigned',
+      submitted_at: null
+    }
+
+    let updateRequestReceived = false
+
+    await mockAccounts(page)
+    await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(editableTask)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        updateRequestReceived = true
+      }
+
+      await route.fallback()
+    })
+    await mockApiJson(page, '/device-profiles', {
+      items: [
+        {
+          id: 'dp_123',
+          name: 'QA iPhone 15',
+          platform: 'ios',
+          device_model: 'iPhone 15 Pro',
+          os_name: 'iOS',
+          updated_at: '2026-04-03T10:00:00Z'
+        },
+        {
+          id: 'dp_456',
+          name: 'QA Pixel 9',
+          platform: 'android',
+          device_model: 'Pixel 9',
+          os_name: 'Android',
+          updated_at: '2026-04-03T10:00:00Z'
+        }
+      ],
+      total: 2
+    })
+    await page.route(/\/api\/v1\/campaigns\/camp_123\/qualification-check\?device_profile_id=.*/, async (route) => {
+      const requestUrl = route.request().url()
+      const payload =
+        requestUrl.includes('device_profile_id=dp_456')
+          ? ineligibleQualificationPreview
+          : eligibleQualificationPreview
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload)
+      })
+    })
+
+    await page.goto('/tasks/task_123/edit')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('task-device-profile-field').selectOption('dp_456')
+
+    const previewPanel = page.getByTestId('task-assignment-preview-panel')
+    await expect(previewPanel).toContainText(
+      formatQualificationStatusLabel(ineligibleQualificationPreview.qualification_status)
+    )
+    await expect(previewPanel).toContainText(ineligibleQualificationPreview.reason_summary)
+    await expect(page.getByTestId('task-submit')).toBeDisabled()
+    expect(updateRequestReceived).toBe(false)
   })
 
   test('shows backend conflict when a task status transition is invalid', async ({ page }) => {
@@ -414,6 +642,11 @@ test.describe('tasks shell flows', () => {
       ],
       total: 1
     })
+    await mockApiJson(
+      page,
+      '/campaigns/camp_123/qualification-check?device_profile_id=dp_123',
+      eligibleQualificationPreview
+    )
 
     await page.goto('/tasks/task_123/edit')
     await page.getByTestId('current-actor-select').selectOption(developerAccount.id)

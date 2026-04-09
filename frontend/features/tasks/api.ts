@@ -4,6 +4,7 @@ import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 import { useApiClient } from '~/services/api/client'
 
 import type {
+  TaskAssignmentQualificationPreview,
   TaskCreatePayload,
   TaskDetail,
   TaskListItem,
@@ -86,4 +87,22 @@ export async function startAssignedTask(
   return updateTask(taskId, {
     status: 'in_progress'
   }, actorId)
+}
+
+export async function fetchTaskAssignmentQualificationPreview(
+  campaignId: string,
+  deviceProfileId: string,
+  actorId?: string | null
+): Promise<TaskAssignmentQualificationPreview> {
+  const { request } = useApiClient()
+  const params = new URLSearchParams({
+    device_profile_id: deviceProfileId
+  })
+
+  return request<TaskAssignmentQualificationPreview>(
+    `/campaigns/${campaignId}/qualification-check?${params.toString()}`,
+    {
+      headers: buildCurrentActorHeaders(actorId)
+    }
+  )
 }

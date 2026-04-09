@@ -13,6 +13,7 @@ import type {
 export interface CampaignListOptions {
   projectId?: string
   mine?: boolean
+  qualifiedForMe?: boolean
   actorId?: string | null
 }
 
@@ -28,6 +29,10 @@ export async function fetchCampaigns(
 
   if (options.mine) {
     searchParams.set('mine', 'true')
+  }
+
+  if (options.qualifiedForMe) {
+    searchParams.set('qualified_for_me', 'true')
   }
 
   const query = searchParams.toString()

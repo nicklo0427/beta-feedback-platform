@@ -26,6 +26,11 @@ export function formatCampaignStatusLabel(value: CampaignStatus): string {
   return CAMPAIGN_STATUS_LABELS[value]
 }
 
+export interface CampaignQualifyingDeviceProfileRef {
+  id: string
+  name: string
+}
+
 export interface CampaignListItem {
   id: string
   project_id: string
@@ -34,6 +39,8 @@ export interface CampaignListItem {
   version_label: string | null
   status: CampaignStatus
   updated_at: string
+  qualifying_device_profiles?: CampaignQualifyingDeviceProfileRef[]
+  qualification_summary?: string | null
 }
 
 export interface CampaignDetail {

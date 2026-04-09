@@ -22,16 +22,22 @@ from app.modules.campaigns.service import (
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 
 
-@router.get("", response_model=CampaignListResponse)
+@router.get("", response_model=CampaignListResponse, response_model_exclude_unset=True)
 def list_campaigns_route(
     project_id: Optional[str] = Query(default=None),
     mine: bool = False,
+    qualified_for_me: bool = False,
     current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> CampaignListResponse:
-    actor_id = require_current_actor_id(current_actor_id) if mine else current_actor_id
+    actor_id = (
+        require_current_actor_id(current_actor_id)
+        if mine or qualified_for_me
+        else current_actor_id
+    )
     return list_campaigns(
         project_id=project_id,
         mine=mine,
+        qualified_for_me=qualified_for_me,
         current_actor_id=actor_id,
     )
 

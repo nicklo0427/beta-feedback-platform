@@ -70,6 +70,14 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
     assert created_task["title"] == "Validate onboarding flow"
     assert created_task["status"] == "assigned"
     assert created_task["submitted_at"] is None
+    assert created_task["qualification_context"] == {
+        "device_profile_id": device_profile_id,
+        "device_profile_name": "QA iPhone 15",
+        "qualification_status": "qualified",
+        "matched_rule_id": None,
+        "reason_summary": "目前沒有啟用中的資格限制。",
+        "qualification_drift": False,
+    }
 
     list_response = client.get(
         f"/api/v1/tasks?campaign_id={campaign_id}&device_profile_id={device_profile_id}&status=assigned"
@@ -85,6 +93,14 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
                 "title": "Validate onboarding flow",
                 "status": "assigned",
                 "updated_at": created_task["updated_at"],
+                "qualification_context": {
+                    "device_profile_id": device_profile_id,
+                    "device_profile_name": "QA iPhone 15",
+                    "qualification_status": "qualified",
+                    "matched_rule_id": None,
+                    "reason_summary": "目前沒有啟用中的資格限制。",
+                    "qualification_drift": False,
+                },
             }
         ],
         "total": 1,
@@ -241,6 +257,243 @@ def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> Non
     }
 
 
+def test_task_create_rejects_ineligible_assignment(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    client.post(
+        f"/api/v1/campaigns/{campaign_id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA Pixel 9",
+            "platform": "android",
+            "device_model": "Pixel 9",
+            "os_name": "Android",
+            "os_version": "14.0",
+        },
+    )
+    device_profile_id = device_profile_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_id,
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "assignment_not_eligible",
+        "message": "Selected device profile does not meet campaign eligibility requirements.",
+        "details": {
+            "campaign_id": campaign_id,
+            "device_profile_id": device_profile_id,
+            "qualification_status": "not_qualified",
+            "matched_rule_id": None,
+            "reason_codes": [
+                "platform_mismatch",
+                "os_name_mismatch",
+                "os_version_below_min",
+            ],
+            "reason_summary": (
+                "主要未符合條件：平台不符合目前活動條件；"
+                "作業系統不符合目前活動條件；"
+                "作業系統版本低於最低要求。"
+            ),
+        },
+    }
+
+
+def test_task_patch_rejects_ineligible_assignment(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    client.post(
+        f"/api/v1/campaigns/{campaign_id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    eligible_device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4",
+        },
+    )
+    ineligible_device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA Pixel 9",
+            "platform": "android",
+            "device_model": "Pixel 9",
+            "os_name": "Android",
+            "os_version": "14.0",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": eligible_device_profile_response.json()["id"],
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = task_response.json()["id"]
+    ineligible_device_profile_id = ineligible_device_profile_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        json={
+            "device_profile_id": ineligible_device_profile_id,
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "assignment_not_eligible",
+        "message": "Selected device profile does not meet campaign eligibility requirements.",
+        "details": {
+            "campaign_id": campaign_id,
+            "device_profile_id": ineligible_device_profile_id,
+            "qualification_status": "not_qualified",
+            "matched_rule_id": None,
+            "reason_codes": [
+                "platform_mismatch",
+                "os_name_mismatch",
+                "os_version_below_min",
+            ],
+            "reason_summary": (
+                "主要未符合條件：平台不符合目前活動條件；"
+                "作業系統不符合目前活動條件；"
+                "作業系統版本低於最低要求。"
+            ),
+        },
+    }
+
+
+def test_task_detail_surfaces_qualification_drift_context(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    rule_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/eligibility-rules",
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "os_version_min": "17.0",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4",
+        },
+    )
+    device_profile_id = device_profile_response.json()["id"]
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_id,
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = task_response.json()["id"]
+
+    patch_rule_response = client.patch(
+        f"/api/v1/eligibility-rules/{rule_response.json()['id']}",
+        json={
+            "platform": "android",
+            "os_name": "Android",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    assert patch_rule_response.status_code == 200
+
+    detail_response = client.get(f"/api/v1/tasks/{task_id}")
+    assert detail_response.status_code == 200
+    assert detail_response.json()["qualification_context"] == {
+        "device_profile_id": device_profile_id,
+        "device_profile_name": "QA iPhone 15",
+        "qualification_status": "not_qualified",
+        "matched_rule_id": None,
+        "reason_summary": (
+            "主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。"
+        ),
+        "qualification_drift": True,
+    }
+
+
 def test_task_delete_conflicts_when_feedback_exists(client: TestClient) -> None:
     developer = _create_developer_account()
     tester = _create_tester_account()
@@ -389,6 +642,14 @@ def test_tasks_list_supports_mine_filter_for_tester_inbox(client: TestClient) ->
                 "title": "Validate onboarding flow",
                 "status": "assigned",
                 "updated_at": owned_task_response.json()["updated_at"],
+                "qualification_context": {
+                    "device_profile_id": owned_device_profile_id,
+                    "device_profile_name": "QA iPhone 15",
+                    "qualification_status": "qualified",
+                    "matched_rule_id": None,
+                    "reason_summary": "目前沒有啟用中的資格限制。",
+                    "qualification_drift": False,
+                },
             }
         ],
         "total": 1,

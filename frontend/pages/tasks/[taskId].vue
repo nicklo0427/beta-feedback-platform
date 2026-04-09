@@ -6,6 +6,7 @@ import {
   formatFeedbackCategoryLabel,
   formatFeedbackSeverityLabel
 } from '~/features/feedback/types'
+import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { fetchTaskDetail } from '~/features/tasks/api'
 import { formatTaskStatusLabel } from '~/features/tasks/types'
 
@@ -169,6 +170,59 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             <span class="resource-key-value__label">建立時間</span>
             <span class="resource-key-value__value">{{ task.created_at }}</span>
           </div>
+        </div>
+      </section>
+
+      <section
+        v-if="!pending && !error && task?.qualification_context"
+        class="resource-section"
+        data-testid="task-qualification-context"
+      >
+        <h2 class="resource-section__title">資格上下文</h2>
+
+        <div class="resource-shell__meta">
+          <span class="resource-shell__meta-chip">
+            狀態 {{ formatQualificationStatusLabel(task.qualification_context.qualification_status) }}
+          </span>
+          <span
+            v-if="task.qualification_context.qualification_drift"
+            class="resource-shell__meta-chip"
+            data-testid="task-qualification-drift-chip"
+          >
+            資格已漂移
+          </span>
+        </div>
+
+        <div class="resource-key-value">
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">指派裝置設定檔</span>
+            <span class="resource-key-value__value">
+              {{ task.qualification_context.device_profile_name }}（{{ task.qualification_context.device_profile_id }}）
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">命中資格規則</span>
+            <span class="resource-key-value__value">
+              {{ task.qualification_context.matched_rule_id || '目前沒有命中的資格規則。' }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">資格摘要</span>
+            <span class="resource-key-value__value">
+              {{ task.qualification_context.reason_summary || '目前沒有額外的資格摘要。' }}
+            </span>
+          </div>
+        </div>
+
+        <div
+          v-if="task.qualification_context.qualification_drift"
+          class="resource-state"
+          data-testid="task-qualification-drift-warning"
+        >
+          <h3 class="resource-state__title">目前指派已不再符合資格</h3>
+          <p class="resource-state__description">
+            這筆任務原本已完成指派，但目前依照最新的資格規則重新評估後，這個裝置設定檔已不再符合活動條件。
+          </p>
         </div>
       </section>
 

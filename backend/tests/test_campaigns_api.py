@@ -199,6 +199,107 @@ def test_campaigns_mine_filter_rejects_tester_actor(client: TestClient) -> None:
     }
 
 
+def test_campaigns_list_supports_qualified_for_me_for_tester(client: TestClient) -> None:
+    developer_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "Dev Owner", "role": "developer"},
+    )
+    tester_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA Tester", "role": "tester"},
+    )
+    developer_id = developer_response.json()["id"]
+    tester_id = tester_response.json()["id"]
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers={"X-Actor-Id": developer_id},
+        json={"name": "HabitQuest"},
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        headers={"X-Actor-Id": developer_id},
+        json={
+            "project_id": project_response.json()["id"],
+            "name": "iOS Closed Beta",
+            "target_platforms": ["ios"],
+        },
+    )
+    client.post(
+        "/api/v1/device-profiles",
+        headers={"X-Actor-Id": tester_id},
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4.1",
+        },
+    )
+    client.post(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/eligibility-rules",
+        headers={"X-Actor-Id": developer_id},
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+        },
+    )
+
+    response = client.get(
+        "/api/v1/campaigns?qualified_for_me=true",
+        headers={"X-Actor-Id": tester_id},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    assert payload["items"][0]["id"] == campaign_response.json()["id"]
+    assert payload["items"][0]["qualifying_device_profiles"] == [
+        {
+            "id": payload["items"][0]["qualifying_device_profiles"][0]["id"],
+            "name": "QA iPhone 15",
+        }
+    ]
+    assert payload["items"][0]["qualification_summary"] == "目前有 1 個裝置設定檔符合這個活動資格。"
+
+
+def test_campaigns_qualified_for_me_requires_current_actor_header(client: TestClient) -> None:
+    response = client.get("/api/v1/campaigns?qualified_for_me=true")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_campaigns_qualified_for_me_rejects_non_tester_actor(client: TestClient) -> None:
+    developer_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "Dev Owner", "role": "developer"},
+    )
+    developer_id = developer_response.json()["id"]
+
+    response = client.get(
+        "/api/v1/campaigns?qualified_for_me=true",
+        headers={"X-Actor-Id": developer_id},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "forbidden_actor_role",
+        "message": "Tester role is required to access qualified campaigns.",
+        "details": {
+            "actor_id": developer_id,
+            "actor_role": "developer",
+            "required_role": "tester",
+        },
+    }
+
+
 def test_campaign_create_requires_existing_project(client: TestClient) -> None:
     developer = _create_developer_account()
     response = client.post(

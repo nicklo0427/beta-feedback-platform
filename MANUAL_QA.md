@@ -41,31 +41,22 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - developer account ID
 - tester account ID
 - project ID
-- campaign ID
-- device profile ID
-- task ID
+- qualified campaign ID
+- drift campaign ID
+- qualified device profile ID
+- ineligible device profile ID
+- qualified task ID
+- drift task ID
 - feedback ID
 
-```
-API detail URLs
-- developer account detail: http://127.0.0.1:8000/api/v1/accounts/acct_d926ff98d7cc
-- tester account detail: http://127.0.0.1:8000/api/v1/accounts/acct_3f4b1daa593c
-- project detail: http://127.0.0.1:8000/api/v1/projects/proj_3e656e384223
-- campaign detail: http://127.0.0.1:8000/api/v1/campaigns/camp_c2daf471f947
-- safety detail: http://127.0.0.1:8000/api/v1/campaigns/camp_c2daf471f947/safety
-- eligibility rule detail: http://127.0.0.1:8000/api/v1/eligibility-rules/er_ec32684e0fd6
-- device profile detail: http://127.0.0.1:8000/api/v1/device-profiles/dp_7a9a133d8281
-- task detail: http://127.0.0.1:8000/api/v1/tasks/task_fd5ccdfb0974
-- feedback detail: http://127.0.0.1:8000/api/v1/feedback/fb_c93b0c044d88
+script 現在會同時提供兩條 qualification 驗證線：
 
-Notes
-- Use the homepage Current Actor selector to switch between the seeded developer and tester.
-- The seeded project and campaign are owned by the developer actor.
-- The seeded device profile and inbox task belong to the tester actor.
-- Backend data is in-memory. Restarting the backend clears everything.
-- The seeded feedback remains in review_status=submitted for manual T027 checks.
-- Re-running this script creates a fresh demo graph with a new label.
-```
+- `Qualified campaign`
+  - 會搭配一筆 iOS device profile pass
+  - 也會搭配一筆 Android device profile fail
+- `Drift campaign`
+  - 會先建立一筆可成功指派的 task
+  - 再更新 eligibility rule，讓 task detail 與 `/my/tasks` 可直接看到 drift warning
 
 詳細說明請看：
 
@@ -247,7 +238,36 @@ Notes
 - 可從 campaign detail 進入 rule detail
 - 編輯成功後 rule detail 內容更新
 
-### TC-11 Device Profile 建立、mine filter、詳情、編輯
+### TC-11 Campaign 資格檢查 panel（pass / fail）
+
+測試步驟
+1. 把 current actor 切到 seeded tester
+2. 打開 seeded qualified campaign detail
+3. 找到「目前測試者資格檢查」區塊
+
+預期結果
+- 同一個 campaign detail 內至少會看到 2 筆 qualification result
+- iOS device profile 應顯示 `符合資格`
+- Android device profile 應顯示 `不符合資格`
+- fail 的結果應顯示原因摘要
+- 若切回 developer actor，這個區塊應顯示 role mismatch 或對應提示
+
+### TC-12 Tester 符合資格活動工作區
+
+測試步驟
+1. 把 current actor 切到 seeded tester
+2. 開啟 `http://127.0.0.1:3000/my/eligible-campaigns`
+3. 觀察 campaign cards
+4. 點進 qualified campaign detail
+
+預期結果
+- tester 可看到符合資格的 campaigns
+- 至少會看到 seeded qualified campaign
+- card 會顯示命中的 device profile chips
+- card 會顯示 qualification summary
+- 若切回 developer actor，頁面應顯示 role mismatch
+
+### TC-13 Device Profile 建立、mine filter、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 seeded tester
@@ -265,7 +285,7 @@ Notes
 - detail 頁會顯示 reputation summary
 - 編輯成功後 detail 內容更新
 
-### TC-12 Task 建立、詳情、編輯
+### TC-14 Task 建立、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 developer
@@ -280,7 +300,24 @@ Notes
 - detail 可看到 campaign / device profile 關聯
 - 編輯成功後 detail 更新
 
-### TC-13 Tester Inbox
+### TC-15 Task assignment preview 與 ineligible assignment guard
+
+測試步驟
+1. 把 current actor 切到 seeded developer
+2. 打開 seeded qualified campaign 的 task create form
+3. 先選擇 seeded qualified iOS device profile
+4. 觀察 assignment qualification preview
+5. 再改選 seeded ineligible Android device profile
+6. 再觀察 assignment qualification preview 與送出按鈕
+
+預期結果
+- 選 iOS device profile 時，preview 顯示 `符合資格`
+- preview 會顯示命中規則或 qualification summary
+- 選 Android device profile 時，preview 顯示 `不符合資格`
+- 預覽會顯示 fail reason summary
+- 表單送出按鈕應被阻擋，不能建立不符合資格的 task
+
+### TC-16 Tester Inbox
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/my/tasks`
@@ -297,7 +334,25 @@ Notes
 - 可切 `assigned / in_progress / submitted / closed`
 - assigned task 的 quick action 可推進到 `in_progress`
 
-### TC-14 Feedback 提交與編輯
+### TC-17 Task 資格上下文與 drift warning
+
+測試步驟
+1. 打開 seeded qualified task detail
+2. 觀察 qualification context 區塊
+3. 再打開 seeded drift task detail
+4. 回到 `/my/tasks`，切到 tester actor 並觀察 drift task card
+
+預期結果
+- qualified task detail 會顯示 qualification context
+- context 至少包含：
+  - 指派裝置設定檔
+  - qualification status
+  - matched rule 或對應 fallback
+  - reason summary
+- drift task detail 會顯示 drift warning
+- `/my/tasks` 的 drift task card 也會顯示 `資格已漂移` 與對應提示
+
+### TC-18 Feedback 提交與編輯
 
 測試步驟
 1. 開啟某個 task detail
@@ -313,7 +368,7 @@ Notes
 - detail 可看到結構化欄位
 - 編輯成功後 detail 內容更新
 
-### TC-15 Developer Review Queue
+### TC-19 Developer Review Queue
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/review/feedback`
@@ -330,7 +385,7 @@ Notes
 - review status filter 可正常工作
 - 可從 queue 進入 feedback detail
 
-### TC-16 Feedback Review
+### TC-20 Feedback Review
 
 測試步驟
 1. 打開 `/tasks/:taskId/feedback/:feedbackId`
@@ -347,7 +402,7 @@ Notes
 - 可儲存 `developer_note`
 - 儲存成功後 detail 會顯示更新後的狀態與 note
 
-### TC-17 Feedback 補件與重新提交
+### TC-21 Feedback 補件與重新提交
 
 測試步驟
 1. 先把某筆 feedback 標成 `needs_more_info`
@@ -363,7 +418,7 @@ Notes
   - `resubmitted_at` 會出現
   - `developer_note` 仍保留
 
-### TC-18 Reputation Summary
+### TC-22 Reputation Summary
 
 測試步驟
 1. 打開 `/device-profiles/:deviceProfileId`
@@ -375,7 +430,7 @@ Notes
 - 若有 seed data，應看到非零 summary
 - 若資料不足，應看到 zero-state，而不是白頁或 crash
 
-### TC-19 Error State 抽查
+### TC-23 Error State 抽查
 
 測試步驟
 1. 停掉 backend
@@ -407,13 +462,17 @@ Notes
 8. Campaign Safety
 9. Device Profiles
 10. Eligibility Rules
-11. Tasks
-12. Tester Inbox
-13. Feedback submit / edit
-14. Developer Review Queue
-15. Feedback resubmission
-16. Reputation summary
-17. Error state 抽查
+11. Campaign qualification panel
+12. Tester eligible campaigns workspace
+13. Task assignment preview / guard
+14. Tasks
+15. Tester Inbox
+16. Task qualification drift
+17. Feedback submit / edit
+18. Developer Review Queue
+19. Feedback resubmission
+20. Reputation summary
+21. Error state 抽查
 
 ## 5. 重要限制
 
@@ -421,6 +480,7 @@ Notes
 - backend restart 後，資料會全部消失
 - current actor 目前只是最小 baseline，不是正式 auth
 - role-aware seed 會建立 owned fixtures，但不會取代正式 fixture framework
+- qualification-aware seed 會額外建立 pass / fail / drift fixtures，但不會自動幫你送出 ineligible assignment；那一段需要在 UI 上手動驗證
 - 若資料消失，請重新執行：
   - [scripts/seed_demo_data.py](/Users/lowhaijer/projects/beta-feedback-platform/scripts/seed_demo_data.py)
 

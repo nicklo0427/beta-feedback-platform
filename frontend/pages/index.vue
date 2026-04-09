@@ -361,6 +361,13 @@ const {
           <div class="home-role-actions" data-testid="home-role-tester-actions">
             <NuxtLink
               class="resource-action"
+              data-testid="home-role-action-eligible-campaigns"
+              to="/my/eligible-campaigns"
+            >
+              查看符合資格的活動
+            </NuxtLink>
+            <NuxtLink
+              class="resource-action"
               data-testid="home-role-action-my-tasks"
               to="/my/tasks"
             >

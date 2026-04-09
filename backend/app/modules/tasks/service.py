@@ -18,6 +18,7 @@ from app.modules.tasks.schemas import (
     TaskDetail,
     TaskListItem,
     TaskListResponse,
+    TaskQualificationContext,
     TaskStatus,
     TaskUpdate,
 )
@@ -62,12 +63,53 @@ def _generate_task_id() -> str:
     return f"task_{uuid4().hex[:12]}"
 
 
+def _build_task_qualification_context(
+    record: TaskRecord,
+) -> TaskQualificationContext | None:
+    if record.device_profile_id is None:
+        return None
+
+    from app.modules.device_profiles.service import ensure_device_profile_exists
+    from app.modules.eligibility.service import (
+        evaluate_campaign_device_profile_qualification,
+    )
+    from app.modules.eligibility.schemas import QualificationStatus
+
+    device_profile = ensure_device_profile_exists(record.device_profile_id)
+    qualification_result = evaluate_campaign_device_profile_qualification(
+        record.campaign_id,
+        device_profile,
+    )
+
+    return TaskQualificationContext.model_validate(
+        {
+            "device_profile_id": qualification_result.device_profile_id,
+            "device_profile_name": qualification_result.device_profile_name,
+            "qualification_status": qualification_result.qualification_status,
+            "matched_rule_id": qualification_result.matched_rule_id,
+            "reason_summary": qualification_result.reason_summary,
+            "qualification_drift": (
+                qualification_result.qualification_status
+                != QualificationStatus.QUALIFIED.value
+            ),
+        }
+    )
+
+
 def _to_task_detail(record: TaskRecord) -> TaskDetail:
-    return TaskDetail.model_validate(asdict(record))
+    payload = asdict(record)
+    qualification_context = _build_task_qualification_context(record)
+    if qualification_context is not None:
+        payload["qualification_context"] = qualification_context.model_dump()
+    return TaskDetail.model_validate(payload)
 
 
 def _to_task_list_item(record: TaskRecord) -> TaskListItem:
-    return TaskListItem.model_validate(asdict(record))
+    payload = asdict(record)
+    qualification_context = _build_task_qualification_context(record)
+    if qualification_context is not None:
+        payload["qualification_context"] = qualification_context.model_dump()
+    return TaskListItem.model_validate(payload)
 
 
 def _status_value(status_value: Optional[TaskStatus], *, default: str) -> str:
@@ -351,6 +393,7 @@ def create_task(
 ) -> TaskDetail:
     from app.modules.campaigns.service import ensure_campaign_owned_by_actor
     from app.modules.device_profiles.service import ensure_device_profile_exists
+    from app.modules.eligibility.service import ensure_device_profile_assignment_is_eligible
 
     ensure_campaign_owned_by_actor(
         campaign_id,
@@ -360,6 +403,10 @@ def create_task(
 
     if payload.device_profile_id is not None:
         ensure_device_profile_exists(payload.device_profile_id)
+        ensure_device_profile_assignment_is_eligible(
+            campaign_id,
+            payload.device_profile_id,
+        )
 
     next_status = _status_value(payload.status, default=TaskStatus.DRAFT.value)
     _ensure_assignment_requirements(
@@ -389,6 +436,7 @@ def update_task(
     current_actor_id: str | None = None,
 ) -> TaskDetail:
     from app.modules.device_profiles.service import ensure_device_profile_exists
+    from app.modules.eligibility.service import ensure_device_profile_assignment_is_eligible
 
     current = ensure_task_exists(task_id)
     current = _guard_task_update_for_actor(current, payload, current_actor_id)
@@ -413,6 +461,22 @@ def update_task(
 
     if next_device_profile_id is not None:
         ensure_device_profile_exists(next_device_profile_id)
+
+    actor = ensure_account_exists(current_actor_id) if current_actor_id is not None else None
+    assignment_changed = "device_profile_id" in payload.model_fields_set
+    status_entered_assignment = (
+        current.status not in _TASKS_REQUIRING_ASSIGNMENT
+        and next_status in _TASKS_REQUIRING_ASSIGNMENT
+    )
+    if (
+        actor is None or actor.role == AccountRole.DEVELOPER.value
+    ) and next_device_profile_id is not None and (
+        assignment_changed or status_entered_assignment
+    ):
+        ensure_device_profile_assignment_is_eligible(
+            current.campaign_id,
+            next_device_profile_id,
+        )
 
     _ensure_assignment_requirements(
         next_status=next_status,

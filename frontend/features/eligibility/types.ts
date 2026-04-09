@@ -1,4 +1,5 @@
 export type EligibilityRulePlatform = 'web' | 'h5' | 'pwa' | 'ios' | 'android'
+export type QualificationStatus = 'qualified' | 'not_qualified'
 
 export const ELIGIBILITY_RULE_PLATFORM_OPTIONS: EligibilityRulePlatform[] = [
   'web',
@@ -56,4 +57,22 @@ export interface EligibilityRuleUpdatePayload {
   os_version_max?: string | null
   install_channel?: string | null
   is_active?: boolean
+}
+
+export interface CampaignQualificationResultItem {
+  device_profile_id: string
+  device_profile_name: string
+  qualification_status: QualificationStatus
+  matched_rule_id: string | null
+  reason_codes: string[]
+  reason_summary: string | null
+}
+
+export const QUALIFICATION_STATUS_LABELS: Record<QualificationStatus, string> = {
+  qualified: '符合資格',
+  not_qualified: '不符合資格'
+}
+
+export function formatQualificationStatusLabel(status: QualificationStatus): string {
+  return QUALIFICATION_STATUS_LABELS[status]
 }
