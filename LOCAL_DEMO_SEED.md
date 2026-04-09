@@ -4,7 +4,7 @@
 
 這份文件對應 `T028-local-demo-data-seeding-workflow`。
 
-目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures` 與 `T049-qualification-aware-demo-seed-and-manual-qa-refresh`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware 與 qualification / assignment 驗收的 fixture graph。
+目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures`、`T049-qualification-aware-demo-seed-and-manual-qa-refresh` 與 `T057-participation-aware-demo-seed-and-docs-refresh`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware、qualification / assignment、以及 participation flow 驗收的 fixture graph。
 
 用途是用一個命令，透過既有 HTTP API 建立一組本地 demo graph，方便手動驗收與錄影 demo。
 
@@ -16,9 +16,10 @@
 - 2 筆 `Campaign`
 - 1 筆 `Campaign Safety`
 - 2 筆 `Eligibility Rule`
-- 2 筆 `Device Profile`
+- 3 筆 `Device Profile`
 - 2 筆 `Task`
 - 1 筆 `Feedback`
+- 2 筆 `Participation Request`
 
 ## 2. 前置條件
 
@@ -90,6 +91,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
   - qualified campaign 底下有一筆 iOS 規則
   - `platform = "ios"`
   - `os_version_min = "17.0"`
+  - `install_channel = "testflight"`
 - `Eligibility Rule`
   - drift campaign 底下先建立一筆 iOS 規則，再立即更新成 Android 規則
   - 用來讓既有 task 產生 qualification drift
@@ -97,6 +99,10 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
   - 一筆 iOS 測試裝置
   - owner 會是上面的 tester
   - 這筆會通過 qualified campaign 的資格檢查
+- `Device Profile`
+  - 第二筆 iOS 測試裝置
+  - owner 會是上面的 tester
+  - 這筆會通過 qualified campaign 的資格檢查，並用來建立已接受的 participation request
 - `Device Profile`
   - 一筆 Android 測試裝置
   - owner 會是上面的 tester
@@ -110,6 +116,13 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - `Feedback`
   - 建立後由既有 backend flow 推進 task 狀態
   - feedback 會保留 `review_status = submitted`，方便手動驗證 `T027`
+- `Participation Request`
+  - 一筆 `pending` request
+  - 會出現在 tester 的 `/my/participation-requests` 與 developer 的 `/review/participation-requests`
+- `Participation Request`
+  - 一筆 `accepted` request
+  - 會出現在 tester 的 `/my/participation-requests`
+  - 可直接用來驗證已處理狀態與 request detail 快照
 
 這代表：
 
@@ -117,13 +130,17 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - 可以直接拿來驗證：
   - `/my/projects`
   - `/my/campaigns`
-  - `/my/eligible-campaigns`
-  - `/my/tasks`
-  - `/review/feedback`
-  - 首頁 current actor 切換與 role-aware summary
-  - campaign detail qualification panel
-  - task assignment qualification preview
-  - task qualification drift panel
+- `/my/eligible-campaigns`
+- `/my/participation-requests`
+- `/my/tasks`
+- `/review/feedback`
+- `/review/participation-requests`
+- `/review/participation-requests/:requestId`
+- 首頁 current actor 切換與 role-aware summary
+- campaign detail qualification panel
+- task assignment qualification preview
+- task qualification drift panel
+- participation request create / review / detail
 
 ## 5. Script 輸出內容
 
@@ -153,15 +170,18 @@ script 成功後，至少確認以下頁面：
 4. `Drift task detail`
 5. `Tester eligible campaigns workspace`
 6. `Tester inbox`
+7. `Tester participation requests workspace`
+8. `Developer participation review queue`
+9. `Participation request detail`
 
 若要驗收 role-aware flow，建議再補：
 
-7. `Accounts detail`
-8. 首頁 current actor 切換
-9. `/my/projects`
-10. `/my/campaigns`
-11. `/review/feedback`
-12. `Feedback detail`
+10. `Accounts detail`
+11. 首頁 current actor 切換
+12. `/my/projects`
+13. `/my/campaigns`
+14. `/review/feedback`
+15. `Feedback detail`
 
 推薦直接打開 script 輸出的 frontend URLs。
 
@@ -173,7 +193,7 @@ script 成功後，至少確認以下頁面：
 - 這支 script 只調用現有 product API，不會直接碰 repository internals
 - 這支 script 會傳 `X-Actor-Id`，用既有 current actor baseline 建立 ownership fixture
 - current actor 仍不是正式 auth / session；它只是本地驗收用 baseline
-- 目前 `install_channel` 仍沒有 device profile 對應欄位，所以 seed 的 qualification 規則不會使用 `install_channel`
+- 目前 seed 已使用 `install_channel` 驗證 qualification fidelity，因此 iOS fixture 會使用 `testflight`，Android fixture 會使用 `play-store`
 
 ## 8. 實作備註
 
@@ -183,3 +203,5 @@ script 成功後，至少確認以下頁面：
 - 若你要驗收 role-aware flow，請在首頁 `Current Actor` selector 中選擇 script 輸出的 developer / tester account
 - 若你要驗證 ineligible assignment fail，請用 developer actor 打開 qualified campaign 的 task create form，並選擇那筆 Android device profile
 - 若你要驗證 drift warning，請直接打開 script 輸出的 drift task detail 與 `/my/tasks`
+- 若你要驗證 participation review queue，請切到 developer actor 打開 `/review/participation-requests`
+- 若你要驗證已接受的 participation request 狀態，請切到 tester actor 打開 `/my/participation-requests`

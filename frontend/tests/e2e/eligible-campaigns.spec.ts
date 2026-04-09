@@ -226,4 +226,81 @@ test.describe('eligible campaigns workspace flows', () => {
 
     await expect(page.getByTestId('my-eligible-campaigns-role-mismatch')).toBeVisible()
   })
+
+  test('supports creating a participation request from the eligible campaigns workspace', async ({
+    page
+  }) => {
+    let createRequestActorId: string | undefined
+    let createRequestBody: unknown = null
+
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [testerAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/campaigns\?qualified_for_me=true$/, async (route) => {
+      expect(route.request().headers()['x-actor-id']).toBe(testerAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [eligibleCampaign],
+          total: 1
+        })
+      })
+    })
+    await page.route(
+      /\/api\/v1\/campaigns\/camp_123\/participation-requests$/,
+      async (route) => {
+        if (route.request().method() !== 'POST') {
+          await route.fallback()
+          return
+        }
+
+        createRequestActorId = route.request().headers()['x-actor-id']
+        createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'pr_123',
+            campaign_id: eligibleCampaign.id,
+            campaign_name: eligibleCampaign.name,
+            tester_account_id: testerAccount.id,
+            device_profile_id: 'dp_123',
+            device_profile_name: 'QA iPhone 15',
+            status: 'pending',
+            note: 'Please include me in this beta round.',
+            decision_note: null,
+            created_at: '2026-04-09T09:35:00Z',
+            updated_at: '2026-04-09T09:35:00Z',
+            decided_at: null
+          })
+        })
+      }
+    )
+
+    await page.goto('/my/eligible-campaigns')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    await page
+      .getByTestId('eligible-campaign-participation-camp_123-note-input')
+      .fill('Please include me in this beta round.')
+    await page.getByTestId('eligible-campaign-participation-camp_123-submit').click()
+
+    expect(createRequestActorId).toBe(testerAccount.id)
+    expect(createRequestBody).toEqual({
+      device_profile_id: 'dp_123',
+      note: 'Please include me in this beta round.'
+    })
+
+    await expect(
+      page.getByTestId('eligible-campaign-participation-camp_123-success')
+    ).toContainText('已送出參與意圖')
+  })
 })

@@ -157,6 +157,7 @@ def test_campaign_service_list_supports_qualified_for_me_for_tester() -> None:
             device_model="iPhone 15 Pro",
             os_name="iOS",
             os_version="17.4.1",
+            install_channel="testflight",
         ),
         current_actor_id=tester.id,
     )
@@ -165,6 +166,7 @@ def test_campaign_service_list_supports_qualified_for_me_for_tester() -> None:
         EligibilityRuleCreate(
             platform=EligibilityRulePlatform.IOS,
             os_name="iOS",
+            install_channel="testflight",
         ),
         current_actor_id=developer.id,
     )

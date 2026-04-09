@@ -212,7 +212,7 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "os_name": "iOS",
             "os_version_min": "17.0",
             "os_version_max": "18.0",
-            "install_channel": None,
+            "install_channel": "testflight",
             "is_active": True,
         },
         "qualified_device_profile": {
@@ -221,8 +221,19 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
             "os_version": "17.4",
+            "install_channel": "testflight",
             "locale": "zh-TW",
             "notes": "Seeded qualified device profile for qualification pass and assignment success.",
+        },
+        "accepted_request_device_profile": {
+            "name": f"Accepted Request QA iPhone 14 {label}",
+            "platform": "ios",
+            "device_model": "iPhone 14",
+            "os_name": "iOS",
+            "os_version": "17.3",
+            "install_channel": "testflight",
+            "locale": "zh-TW",
+            "notes": "Seeded qualified device profile for accepted participation request verification.",
         },
         "ineligible_device_profile": {
             "name": f"Ineligible QA Pixel 9 {label}",
@@ -230,6 +241,7 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "device_model": "Pixel 9",
             "os_name": "Android",
             "os_version": "14.0",
+            "install_channel": "play-store",
             "locale": "zh-TW",
             "notes": "Seeded failing device profile for qualification and assignment guard verification.",
         },
@@ -265,6 +277,16 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
                 "manually exercised from the UI."
             ),
         },
+        "pending_participation_request": {
+            "note": "I can cover onboarding, pricing copy, and retention prompts."
+        },
+        "accepted_participation_request": {
+            "note": "I can validate upgrade flows on a second iOS device."
+        },
+        "accepted_participation_decision": {
+            "status": "accepted",
+            "decision_note": "Accepted for the next beta batch. Please watch the onboarding funnel."
+        },
     }
 
 
@@ -281,10 +303,13 @@ def print_summary(
     qualified_eligibility_rule: dict[str, Any],
     drift_eligibility_rule: dict[str, Any],
     qualified_device_profile: dict[str, Any],
+    accepted_request_device_profile: dict[str, Any],
     ineligible_device_profile: dict[str, Any],
     qualified_task: dict[str, Any],
     drift_task: dict[str, Any],
     feedback: dict[str, Any],
+    pending_participation_request: dict[str, Any],
+    accepted_participation_request: dict[str, Any],
 ) -> None:
     frontend = config.frontend_base_url
     api_base = config.api_base_url
@@ -322,12 +347,24 @@ def print_summary(
         f"{qualified_device_profile['id']} ({qualified_device_profile['name']})"
     )
     print(
+        "- accepted-request device profile: "
+        f"{accepted_request_device_profile['id']} ({accepted_request_device_profile['name']})"
+    )
+    print(
         "- ineligible device profile: "
         f"{ineligible_device_profile['id']} ({ineligible_device_profile['name']})"
     )
     print(f"- qualified task: {qualified_task['id']} ({qualified_task['title']})")
     print(f"- drift task: {drift_task['id']} ({drift_task['title']})")
     print(f"- feedback: {feedback['id']} ({feedback['summary']})")
+    print(
+        "- pending participation request: "
+        f"{pending_participation_request['id']} ({pending_participation_request['campaign_name']})"
+    )
+    print(
+        "- accepted participation request: "
+        f"{accepted_participation_request['id']} ({accepted_participation_request['campaign_name']})"
+    )
     print("")
     print("Frontend detail URLs")
     print(f"- developer account detail: {frontend}/accounts/{developer_account['id']}")
@@ -351,11 +388,23 @@ def print_summary(
         "- ineligible device profile detail: "
         f"{frontend}/device-profiles/{ineligible_device_profile['id']}"
     )
+    print(
+        "- accepted-request device profile detail: "
+        f"{frontend}/device-profiles/{accepted_request_device_profile['id']}"
+    )
     print(f"- qualified task detail: {frontend}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {frontend}/tasks/{drift_task['id']}")
     print(
         "- feedback detail: "
         f"{frontend}/tasks/{qualified_task['id']}/feedback/{feedback['id']}"
+    )
+    print(
+        "- pending participation request detail: "
+        f"{frontend}/review/participation-requests/{pending_participation_request['id']}"
+    )
+    print(
+        "- accepted participation request detail: "
+        f"{frontend}/review/participation-requests/{accepted_participation_request['id']}"
     )
     print("")
     print("Qualification verification URLs")
@@ -366,7 +415,9 @@ def print_summary(
     print(f"- developer workspace projects: {frontend}/my/projects")
     print(f"- developer workspace campaigns: {frontend}/my/campaigns")
     print(f"- developer review queue: {frontend}/review/feedback")
+    print(f"- developer participation review queue: {frontend}/review/participation-requests")
     print(f"- tester inbox: {frontend}/my/tasks")
+    print(f"- tester participation requests workspace: {frontend}/my/participation-requests")
     print("")
     print("API detail URLs")
     print(f"- developer account detail: {api_base}/accounts/{developer_account['id']}")
@@ -387,17 +438,29 @@ def print_summary(
     print(
         f"- ineligible device profile detail: {api_base}/device-profiles/{ineligible_device_profile['id']}"
     )
+    print(
+        "- accepted-request device profile detail: "
+        f"{api_base}/device-profiles/{accepted_request_device_profile['id']}"
+    )
     print(f"- qualified task detail: {api_base}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {api_base}/tasks/{drift_task['id']}")
     print(f"- feedback detail: {api_base}/feedback/{feedback['id']}")
+    print(
+        f"- pending participation request detail: {api_base}/participation-requests/{pending_participation_request['id']}"
+    )
+    print(
+        f"- accepted participation request detail: {api_base}/participation-requests/{accepted_participation_request['id']}"
+    )
     print("")
     print("Notes")
     print("- Use the homepage Current Actor selector to switch between the seeded developer and tester.")
-    print("- The seeded qualified campaign gives you one passing and one failing device profile for qualification checks.")
+    print("- The seeded qualified campaign gives you two passing iOS device profiles and one failing Android device profile for qualification checks.")
     print("- Use the qualified campaign task form to verify assignment preview and ineligible assignment blocking.")
     print("- The drift campaign already contains an assigned task whose qualification now drifts after rule changes.")
+    print("- The seeded pending participation request appears in the developer participation review queue and tester participation workspace.")
+    print("- The seeded accepted participation request lets you verify reviewed status and request detail snapshots without first clicking accept.")
     print("- The seeded project and both campaigns are owned by the developer actor.")
-    print("- Both seeded device profiles belong to the tester actor.")
+    print("- All seeded device profiles belong to the tester actor.")
     print("- Backend data is in-memory. Restarting the backend clears everything.")
     print("- The seeded feedback remains in review_status=submitted for manual T027 checks.")
     print("- Re-running this script creates a fresh demo graph with a new label.")
@@ -474,6 +537,12 @@ def main() -> int:
             payload=payloads["qualified_device_profile"],
             actor_id=tester_account["id"],
         )
+        accepted_request_device_profile = post_resource(
+            config=config,
+            path="/device-profiles",
+            payload=payloads["accepted_request_device_profile"],
+            actor_id=tester_account["id"],
+        )
         ineligible_device_profile = post_resource(
             config=config,
             path="/device-profiles",
@@ -504,12 +573,37 @@ def main() -> int:
             payload=payloads["feedback"],
             actor_id=tester_account["id"],
         )
-        patch_resource(
+        pending_participation_request = post_resource(
+            config=config,
+            path=f"/campaigns/{qualified_campaign['id']}/participation-requests",
+            payload={
+                **payloads["pending_participation_request"],
+                "device_profile_id": qualified_device_profile["id"],
+            },
+            actor_id=tester_account["id"],
+        )
+        accepted_participation_request = post_resource(
+            config=config,
+            path=f"/campaigns/{qualified_campaign['id']}/participation-requests",
+            payload={
+                **payloads["accepted_participation_request"],
+                "device_profile_id": accepted_request_device_profile["id"],
+            },
+            actor_id=tester_account["id"],
+        )
+        accepted_participation_request = patch_resource(
+            config=config,
+            path=f"/participation-requests/{accepted_participation_request['id']}",
+            payload=payloads["accepted_participation_decision"],
+            actor_id=developer_account["id"],
+        )
+        drift_eligibility_rule = patch_resource(
             config=config,
             path=f"/eligibility-rules/{drift_eligibility_rule['id']}",
             payload={
                 "platform": "android",
                 "os_name": "Android",
+                "install_channel": "play-store",
             },
             actor_id=developer_account["id"],
         )
@@ -526,10 +620,13 @@ def main() -> int:
             qualified_eligibility_rule=qualified_eligibility_rule,
             drift_eligibility_rule=drift_eligibility_rule,
             qualified_device_profile=qualified_device_profile,
+            accepted_request_device_profile=accepted_request_device_profile,
             ineligible_device_profile=ineligible_device_profile,
             qualified_task=qualified_task,
             drift_task=drift_task,
             feedback=feedback,
+            pending_participation_request=pending_participation_request,
+            accepted_participation_request=accepted_participation_request,
         )
         return 0
     except SeedWorkflowError as exc:

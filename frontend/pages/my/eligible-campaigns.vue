@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
 import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { fetchCampaigns } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
+import ParticipationRequestForm from '~/features/participation-requests/ParticipationRequestForm.vue'
+import {
+  createParticipationRequest
+} from '~/features/participation-requests/api'
+import { buildParticipationRequestCreatePayload, createEmptyParticipationRequestFormValues } from '~/features/participation-requests/form'
+import type { ParticipationRequestFormValues } from '~/features/participation-requests/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 
 useCurrentActorPersistence()
@@ -67,6 +74,73 @@ const {
 )
 
 const campaigns = computed(() => campaignResponse.value.items)
+const submittingCampaignId = ref<string | null>(null)
+const participationErrors = reactive<Record<string, string | null>>({})
+const participationSuccesses = reactive<Record<string, string | null>>({})
+const participationInitialValuesByCampaign = reactive<
+  Record<string, ParticipationRequestFormValues>
+>({})
+
+function getParticipationInitialValues(
+  campaignId: string
+): ParticipationRequestFormValues {
+  if (!participationInitialValuesByCampaign[campaignId]) {
+    const campaign = campaigns.value.find((item) => item.id === campaignId)
+    participationInitialValuesByCampaign[campaignId] =
+      createEmptyParticipationRequestFormValues(
+        campaign?.qualifying_device_profiles?.[0]?.id ?? ''
+      )
+  }
+
+  return participationInitialValuesByCampaign[campaignId]
+}
+
+async function handleCreateParticipationRequest(
+  campaignId: string,
+  values: ParticipationRequestFormValues
+): Promise<void> {
+  participationErrors[campaignId] = null
+  participationSuccesses[campaignId] = null
+  submittingCampaignId.value = campaignId
+
+  try {
+    if (!currentActorId.value) {
+      participationErrors[campaignId] = '送出參與意圖前，請先選擇目前操作帳號。'
+      return
+    }
+
+    await createParticipationRequest(
+      campaignId,
+      buildParticipationRequestCreatePayload(values),
+      currentActorId.value
+    )
+    participationSuccesses[campaignId] =
+      '已送出參與意圖。你可以到我的參與意圖查看目前狀態。'
+  } catch (submitFailure) {
+    participationErrors[campaignId] = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法送出這筆參與意圖。'
+    )
+  } finally {
+    submittingCampaignId.value = null
+  }
+}
+
+watch([currentActorId, currentActor], () => {
+  submittingCampaignId.value = null
+
+  for (const key of Object.keys(participationErrors)) {
+    delete participationErrors[key]
+  }
+
+  for (const key of Object.keys(participationSuccesses)) {
+    delete participationSuccesses[key]
+  }
+
+  for (const key of Object.keys(participationInitialValuesByCampaign)) {
+    delete participationInitialValuesByCampaign[key]
+  }
+})
 </script>
 
 <template>
@@ -84,6 +158,9 @@ const campaigns = computed(() => campaignResponse.value.items)
           </NuxtLink>
           <NuxtLink class="resource-action" to="/my/tasks">
             查看我的任務
+          </NuxtLink>
+          <NuxtLink class="resource-action" to="/my/participation-requests">
+            查看我的參與意圖
           </NuxtLink>
           <NuxtLink class="resource-action" to="/device-profiles">
             查看裝置設定檔
@@ -269,6 +346,17 @@ const campaigns = computed(() => campaignResponse.value.items)
                 開啟活動詳情
               </NuxtLink>
             </div>
+            <ParticipationRequestForm
+              v-if="campaign.qualifying_device_profiles?.length"
+              :initial-values="getParticipationInitialValues(campaign.id)"
+              :qualified-device-profiles="campaign.qualifying_device_profiles"
+              :pending="submittingCampaignId === campaign.id"
+              :error-message="participationErrors[campaign.id] || null"
+              :success-message="participationSuccesses[campaign.id] || null"
+              submit-label="送出參與意圖"
+              :test-id-prefix="`eligible-campaign-participation-${campaign.id}`"
+              @submit="handleCreateParticipationRequest(campaign.id, $event)"
+            />
           </article>
         </section>
       </template>

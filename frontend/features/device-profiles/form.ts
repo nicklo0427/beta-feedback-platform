@@ -21,6 +21,7 @@ export function createEmptyDeviceProfileFormValues(): DeviceProfileFormValues {
     platform: '',
     device_model: '',
     os_name: '',
+    install_channel: '',
     os_version: '',
     browser_name: '',
     browser_version: '',
@@ -37,6 +38,7 @@ export function toDeviceProfileFormValues(
     platform: deviceProfile.platform,
     device_model: deviceProfile.device_model,
     os_name: deviceProfile.os_name,
+    install_channel: deviceProfile.install_channel ?? '',
     os_version: deviceProfile.os_version ?? '',
     browser_name: deviceProfile.browser_name ?? '',
     browser_version: deviceProfile.browser_version ?? '',
@@ -53,6 +55,7 @@ export function buildDeviceProfileCreatePayload(
     platform: values.platform as DeviceProfilePlatform,
     device_model: normalizeRequiredValue(values.device_model),
     os_name: normalizeRequiredValue(values.os_name),
+    install_channel: normalizeOptionalValue(values.install_channel),
     os_version: normalizeOptionalValue(values.os_version),
     browser_name: normalizeOptionalValue(values.browser_name),
     browser_version: normalizeOptionalValue(values.browser_version),
@@ -87,6 +90,12 @@ export function buildDeviceProfileUpdatePayload(
   const initialOsName = normalizeRequiredValue(initialValues.os_name)
   if (currentOsName !== initialOsName) {
     payload.os_name = currentOsName
+  }
+
+  const currentInstallChannel = normalizeOptionalValue(values.install_channel)
+  const initialInstallChannel = normalizeOptionalValue(initialValues.install_channel)
+  if (currentInstallChannel !== initialInstallChannel) {
+    payload.install_channel = currentInstallChannel
   }
 
   const currentOsVersion = normalizeOptionalValue(values.os_version)

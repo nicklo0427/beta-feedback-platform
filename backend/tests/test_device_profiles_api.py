@@ -24,6 +24,7 @@ def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -
             "platform": "ios",
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
+            "install_channel": "TestFlight",
             "os_version": "18.1",
             "browser_name": "Safari",
             "browser_version": "18.0",
@@ -40,6 +41,7 @@ def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -
     assert created_device_profile["platform"] == "ios"
     assert created_device_profile["device_model"] == "iPhone 15 Pro"
     assert created_device_profile["os_name"] == "iOS"
+    assert created_device_profile["install_channel"] == "TestFlight"
     assert created_device_profile["created_at"]
     assert created_device_profile["updated_at"]
 
@@ -54,6 +56,7 @@ def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -
                 "platform": "ios",
                 "device_model": "iPhone 15 Pro",
                 "os_name": "iOS",
+                "install_channel": "TestFlight",
                 "updated_at": created_device_profile["updated_at"],
             }
         ],
@@ -68,6 +71,7 @@ def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -
     patch_response = client.patch(
         f"/api/v1/device-profiles/{device_profile_id}",
         json={
+            "install_channel": "App Store Connect",
             "browser_name": "Safari Technology Preview",
             "notes": "Updated note",
         },
@@ -76,6 +80,7 @@ def test_device_profiles_crud_flow_returns_expected_shapes(client: TestClient) -
     assert patch_response.status_code == 200
     patched_device_profile = patch_response.json()
     assert patched_device_profile["id"] == device_profile_id
+    assert patched_device_profile["install_channel"] == "App Store Connect"
     assert patched_device_profile["browser_name"] == "Safari Technology Preview"
     assert patched_device_profile["notes"] == "Updated note"
 

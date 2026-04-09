@@ -115,6 +115,12 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
               平台 {{ formatPlatformLabel(deviceProfile.platform) }}
             </span>
             <span
+              v-if="deviceProfile.install_channel"
+              class="resource-card__chip"
+            >
+              安裝渠道 {{ deviceProfile.install_channel }}
+            </span>
+            <span
               v-if="deviceProfile.owner_account_id"
               class="resource-card__chip"
             >

@@ -6,6 +6,7 @@ from app.modules.device_profiles.router import router as device_profiles_router
 from app.modules.eligibility.router import router as eligibility_router
 from app.modules.feedback.router import router as feedback_router
 from app.modules.health.router import router as health_router
+from app.modules.participation_requests.router import router as participation_requests_router
 from app.modules.projects.router import router as projects_router
 from app.modules.reputation.router import router as reputation_router
 from app.modules.safety.router import router as safety_router
@@ -19,6 +20,7 @@ api_router.include_router(campaigns_router)
 api_router.include_router(device_profiles_router)
 api_router.include_router(eligibility_router)
 api_router.include_router(feedback_router)
+api_router.include_router(participation_requests_router)
 api_router.include_router(safety_router)
 api_router.include_router(tasks_router)
 api_router.include_router(reputation_router)

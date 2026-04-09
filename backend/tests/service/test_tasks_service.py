@@ -173,6 +173,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
             platform=EligibilityRulePlatform.IOS,
             os_name="iOS",
             os_version_min="17.0",
+            install_channel="testflight",
         ),
         developer.id,
     )
@@ -183,6 +184,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
             device_model="iPhone 15 Pro",
             os_name="iOS",
             os_version="17.4",
+            install_channel="testflight",
         ),
         tester.id,
     )
@@ -207,8 +209,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
     update_eligibility_rule(
         rule.id,
         EligibilityRuleUpdate(
-            platform=EligibilityRulePlatform.ANDROID,
-            os_name="Android",
+            install_channel="app-store-connect",
         ),
         developer.id,
     )
@@ -218,7 +219,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
     assert detail_after_drift.qualification_context.qualification_status == "not_qualified"
     assert detail_after_drift.qualification_context.matched_rule_id is None
     assert detail_after_drift.qualification_context.reason_summary == (
-        "主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。"
+        "主要未符合條件：安裝渠道不符合目前活動條件。"
     )
     assert detail_after_drift.qualification_context.qualification_drift is True
 

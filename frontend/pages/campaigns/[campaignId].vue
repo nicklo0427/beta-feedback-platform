@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
@@ -17,6 +18,12 @@ import {
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { formatPlatformLabel } from '~/features/platform-display'
 import { fetchCampaignReputation } from '~/features/reputation/api'
+import ParticipationRequestForm from '~/features/participation-requests/ParticipationRequestForm.vue'
+import {
+  createParticipationRequest
+} from '~/features/participation-requests/api'
+import { buildParticipationRequestCreatePayload, createEmptyParticipationRequestFormValues } from '~/features/participation-requests/form'
+import type { ParticipationRequestFormValues } from '~/features/participation-requests/types'
 import { fetchCampaignSafety } from '~/features/safety/api'
 import {
   formatDistributionChannelLabel,
@@ -117,6 +124,19 @@ const {
 )
 
 const qualificationResults = computed(() => qualificationResponse.value.items)
+const qualifiedParticipationDeviceProfiles = computed(() =>
+  qualificationResults.value
+    .filter((result) => result.qualification_status === 'qualified')
+    .map((result) => ({
+      id: result.device_profile_id,
+      name: result.device_profile_name
+    }))
+)
+const participationInitialValues = computed(() =>
+  createEmptyParticipationRequestFormValues(
+    qualifiedParticipationDeviceProfiles.value[0]?.id ?? ''
+  )
+)
 const qualificationErrorMessage = computed(() => {
   if (!(qualificationError.value instanceof ApiClientError)) {
     return qualificationError.value?.message || '目前無法載入目前測試者資格結果。'
@@ -132,6 +152,9 @@ const qualificationErrorMessage = computed(() => {
 
   return qualificationError.value.message
 })
+const participationPending = ref(false)
+const participationErrorMessage = ref<string | null>(null)
+const participationSuccessMessage = ref<string | null>(null)
 
 const {
   data: safety,
@@ -197,6 +220,41 @@ const hasReputationSignals = computed(() => {
     || reputation.value.feedback_received_count > 0
     || reputation.value.last_feedback_at !== null
   )
+})
+
+async function handleCreateParticipationRequest(
+  values: ParticipationRequestFormValues
+): Promise<void> {
+  participationErrorMessage.value = null
+  participationSuccessMessage.value = null
+  participationPending.value = true
+
+  try {
+    if (!currentActorId.value) {
+      participationErrorMessage.value = '送出參與意圖前，請先選擇目前操作帳號。'
+      return
+    }
+
+    await createParticipationRequest(
+      campaignId.value,
+      buildParticipationRequestCreatePayload(values),
+      currentActorId.value
+    )
+    participationSuccessMessage.value =
+      '已送出參與意圖。你可以到我的參與意圖查看目前狀態。'
+  } catch (submitFailure) {
+    participationErrorMessage.value = getActorAwareMutationErrorMessage(
+      submitFailure,
+      '目前無法送出這筆參與意圖。'
+    )
+  } finally {
+    participationPending.value = false
+  }
+}
+
+watch([campaignId, currentActorId], () => {
+  participationErrorMessage.value = null
+  participationSuccessMessage.value = null
 })
 </script>
 
@@ -777,6 +835,149 @@ const hasReputationSignals = computed(() => {
             </article>
           </section>
         </template>
+      </section>
+
+      <section
+        v-if="!pending && !error && campaign"
+        class="resource-section"
+        data-testid="campaign-participation-section"
+      >
+        <h2 class="resource-section__title">參與意圖</h2>
+
+        <div class="resource-state__actions">
+          <NuxtLink class="resource-action" to="/my/participation-requests">
+            查看我的參與意圖
+          </NuxtLink>
+        </div>
+
+        <section
+          v-if="accountsError"
+          class="resource-state"
+          data-testid="campaign-participation-actor-error"
+        >
+          <h3 class="resource-state__title">無法取得測試者情境</h3>
+          <p class="resource-state__description">
+            {{ accountsError.message }}
+          </p>
+          <div class="resource-state__actions">
+            <button class="resource-action" type="button" @click="refreshAccounts()">
+              重試
+            </button>
+          </div>
+        </section>
+
+        <section
+          v-else-if="accountsPending"
+          class="resource-state"
+          data-testid="campaign-participation-actor-loading"
+        >
+          <h3 class="resource-state__title">載入測試者情境中</h3>
+          <p class="resource-state__description">
+            正在確認目前操作帳號與可用的參與意圖送出條件。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!currentActorId"
+          class="resource-state"
+          data-testid="campaign-participation-select-actor"
+        >
+          <h3 class="resource-state__title">請先選擇測試者帳號</h3>
+          <p class="resource-state__description">
+            先在上方選擇目前操作帳號，系統才知道要用哪位測試者擁有的裝置設定檔送出參與意圖。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!currentActor"
+          class="resource-state"
+          data-testid="campaign-participation-actor-missing"
+        >
+          <h3 class="resource-state__title">找不到已選擇的帳號</h3>
+          <p class="resource-state__description">
+            目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。
+          </p>
+        </section>
+
+        <section
+          v-else-if="!isTesterActor"
+          class="resource-state"
+          data-testid="campaign-participation-role-mismatch"
+        >
+          <h3 class="resource-state__title">參與意圖需要測試者帳號</h3>
+          <p class="resource-state__description">
+            目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到測試者帳號，再送出這個活動的參與意圖。
+          </p>
+        </section>
+
+        <section
+          v-else-if="qualificationPending"
+          class="resource-state"
+          data-testid="campaign-participation-loading"
+        >
+          <h3 class="resource-state__title">載入可送出的裝置設定檔中</h3>
+          <p class="resource-state__description">
+            正在整理目前符合資格、可以對這個活動送出參與意圖的裝置設定檔。
+          </p>
+        </section>
+
+        <section
+          v-else-if="qualificationError"
+          class="resource-state"
+          data-testid="campaign-participation-error"
+        >
+          <h3 class="resource-state__title">無法準備參與意圖表單</h3>
+          <p class="resource-state__description">
+            {{ qualificationErrorMessage }}
+          </p>
+          <div class="resource-state__actions">
+            <button class="resource-action" type="button" @click="refreshQualification()">
+              重試
+            </button>
+          </div>
+        </section>
+
+        <section
+          v-else-if="qualifiedParticipationDeviceProfiles.length === 0"
+          class="resource-state"
+          data-testid="campaign-participation-empty"
+        >
+          <h3 class="resource-state__title">目前沒有可送出的裝置設定檔</h3>
+          <p class="resource-state__description">
+            目前這位測試者還沒有任何符合資格的裝置設定檔，所以暫時不能對這個活動送出參與意圖。
+          </p>
+          <div class="resource-state__actions">
+            <NuxtLink class="resource-action" to="/device-profiles">
+              查看裝置設定檔
+            </NuxtLink>
+          </div>
+        </section>
+
+        <section
+          v-else
+          class="resource-section"
+          data-testid="campaign-participation-panel"
+        >
+          <div class="resource-shell__meta">
+            <span class="resource-shell__meta-chip">
+              可送出裝置 {{ qualifiedParticipationDeviceProfiles.length }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              目前帳號 {{ currentActor.display_name }}
+            </span>
+          </div>
+
+          <ParticipationRequestForm
+            :initial-values="participationInitialValues"
+            :qualified-device-profiles="qualifiedParticipationDeviceProfiles"
+            :pending="participationPending"
+            :error-message="participationErrorMessage"
+            :success-message="participationSuccessMessage"
+            submit-label="送出參與意圖"
+            test-id-prefix="campaign-participation"
+            @submit="handleCreateParticipationRequest"
+          />
+        </section>
       </section>
 
       <section

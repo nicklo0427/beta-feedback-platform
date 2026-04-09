@@ -11,6 +11,7 @@ class DeviceProfileRecord:
     platform: str
     device_model: str
     os_name: str
+    install_channel: Optional[str]
     os_version: Optional[str]
     browser_name: Optional[str]
     browser_version: Optional[str]

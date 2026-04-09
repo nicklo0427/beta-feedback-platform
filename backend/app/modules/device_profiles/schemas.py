@@ -21,6 +21,7 @@ class DeviceProfileCreate(BaseModel):
     platform: DeviceProfilePlatform
     device_model: str = Field(..., min_length=1)
     os_name: str = Field(..., min_length=1)
+    install_channel: Optional[str] = None
     os_version: Optional[str] = None
     browser_name: Optional[str] = None
     browser_version: Optional[str] = None
@@ -35,7 +36,14 @@ class DeviceProfileCreate(BaseModel):
             raise ValueError("This field cannot be blank.")
         return normalized
 
-    @field_validator("os_version", "browser_name", "browser_version", "locale", "notes")
+    @field_validator(
+        "install_channel",
+        "os_version",
+        "browser_name",
+        "browser_version",
+        "locale",
+        "notes",
+    )
     @classmethod
     def normalize_optional_strings(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -52,6 +60,7 @@ class DeviceProfileUpdate(BaseModel):
     platform: Optional[DeviceProfilePlatform] = None
     device_model: Optional[str] = None
     os_name: Optional[str] = None
+    install_channel: Optional[str] = None
     os_version: Optional[str] = None
     browser_name: Optional[str] = None
     browser_version: Optional[str] = None
@@ -69,7 +78,14 @@ class DeviceProfileUpdate(BaseModel):
             raise ValueError("This field cannot be blank.")
         return normalized
 
-    @field_validator("os_version", "browser_name", "browser_version", "locale", "notes")
+    @field_validator(
+        "install_channel",
+        "os_version",
+        "browser_name",
+        "browser_version",
+        "locale",
+        "notes",
+    )
     @classmethod
     def normalize_optional_strings(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
@@ -85,6 +101,7 @@ class DeviceProfileUpdate(BaseModel):
             and self.platform is None
             and self.device_model is None
             and self.os_name is None
+            and self.install_channel is None
             and self.os_version is None
             and self.browser_name is None
             and self.browser_version is None
@@ -101,6 +118,7 @@ class DeviceProfileListItem(BaseModel):
     platform: DeviceProfilePlatform
     device_model: str
     os_name: str
+    install_channel: Optional[str] = None
     owner_account_id: Optional[str] = None
     updated_at: str
 
@@ -111,6 +129,7 @@ class DeviceProfileDetail(BaseModel):
     platform: DeviceProfilePlatform
     device_model: str
     os_name: str
+    install_channel: Optional[str] = None
     os_version: Optional[str] = None
     browser_name: Optional[str] = None
     browser_version: Optional[str] = None

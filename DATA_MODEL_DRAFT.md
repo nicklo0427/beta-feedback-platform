@@ -11,6 +11,7 @@
 - `T030-account-and-ownership-mvp-schema-draft`
 - `T038-actor-aware-workflow-guardrails-draft`
 - `T044-qualification-and-assignment-semantics-draft`
+- `T053-participation-intent-semantics-draft`
 
 的直接依據。
 
@@ -1157,21 +1158,231 @@ qualification semantics 在 task assignment 中應轉成最小 assignment baseli
 - 這些能力都會快速把目前 MVP baseline 推向複雜 matching platform
 - 下一階段的目標只是先讓 qualification 可見、可解釋、可用來 guard assignment
 
-## 15. Usage Notes for T031 / T032 / T033 / T034 / T039 / T040 / T045 / T046 / T047 / T048
+## 15. Participation Intent Semantics Draft
 
-### 15.1 For T031 Account CRUD
+### 15.1 Purpose
+
+qualification / assignment clarity phase 完成後，系統已能表達：
+
+- tester 擁有哪些 device profiles
+- tester 目前符合哪些 campaigns
+- developer 在 task assignment 時如何被 eligibility guard 擋下不合格指派
+
+但系統仍未正式定義：
+
+- tester 如何對某個符合資格的 campaign 表達參與意圖
+- developer 如何接受或拒絕這個意圖
+- participation request 的最小資料模型、狀態與 guardrails
+
+如果沒有先把這一層文件化，後續 runtime flow 很容易長出：
+
+- 不一致的 request status
+- 不一致的角色限制
+- qualification 已通過但 request 仍可用不合格裝置送出的矛盾情況
+
+因此這一節的目的，是為 `T054` 到 `T056` 提供 participation intent 的 MVP 文件基線，而不是直接設計完整 marketplace 或 matching platform。
+
+### 15.2 Participation Request Scope
+
+本階段新增的概念是：
+
+- `ParticipationRequest`
+
+它的責任應收斂為：
+
+- tester 用某個 owned `device_profile` 對某個 `campaign` 表達「我想參與這輪測試」
+- developer 對這個 request 做最小 review decision
+
+它不應承擔：
+
+- task assignment 本身
+- feedback thread
+- chat / inbox message
+- campaign subscription
+- auto matching
+
+換句話說：
+
+- `ParticipationRequest` 是 participation intent，不是任務、不是申請表單引擎、也不是配對系統
+
+### 15.3 Participation Request Schema Baseline
+
+建議最小欄位如下：
+
+| Field | Type | Required | Notes |
+| --- | --- | --- | --- |
+| `id` | `string` | Yes | request 對外識別碼 |
+| `campaign_id` | `string` | Yes | 被申請參與的 campaign |
+| `tester_account_id` | `string` | Yes | 提出 request 的 tester |
+| `device_profile_id` | `string` | Yes | 本次參與意圖綁定的 device profile |
+| `status` | `"pending" \| "accepted" \| "declined" \| "withdrawn"` | Yes | request 狀態 |
+| `note` | `string \| null` | Yes | tester 補充說明 |
+| `decision_note` | `string \| null` | Yes | developer decision 補充說明 |
+| `created_at` | `string (ISO 8601)` | Yes | 建立時間 |
+| `updated_at` | `string (ISO 8601)` | Yes | 最後更新時間 |
+| `decided_at` | `string (ISO 8601) \| null` | Yes | accept / decline 時間；pending / withdrawn 可為 `null` |
+
+MVP 補充說明：
+
+- `device_profile_id` 在 request 建立後視為不可變
+- `tester_account_id` 與 `campaign_id` 也視為不可變
+- `note` 是 tester-side context
+- `decision_note` 是 developer-side context
+
+### 15.4 Status and Transition Baseline
+
+`ParticipationRequest.status` 的最小集合：
+
+- `pending`
+- `accepted`
+- `declined`
+- `withdrawn`
+
+MVP transition baseline：
+
+- create 時固定為 `pending`
+- tester 可將自己的 `pending` request 轉成 `withdrawn`
+- developer 可將自己擁有 campaign 底下的 `pending` request 轉成：
+  - `accepted`
+  - `declined`
+
+MVP 不支援：
+
+- `withdrawn -> pending`
+- `declined -> pending`
+- `accepted -> declined`
+- `accepted -> withdrawn`
+
+也就是說，除了 `pending` 之外，其餘狀態都視為 terminal state。
+
+### 15.5 Actor / Ownership / Qualification Guards
+
+participation request 應遵守以下 baseline：
+
+- 只有 `tester` 可建立 request
+- tester 只能用自己擁有的 `device_profile_id` 建立 request
+- request 建立時，該 `device_profile` 必須對該 `campaign` 為 `qualified`
+- 只有 request 的 `tester_account_id` 可將自己的 `pending` request withdraw
+- 只有擁有該 `campaign` 的 `developer` 可 accept / decline request
+
+ownership anchor 建議：
+
+- tester-side：`device_profile.owner_account_id`
+- developer-side：`campaign -> project.owner_account_id`
+
+### 15.6 Duplicate and Active Pending Baseline
+
+為避免同一個 tester 用同一台裝置對同一活動重複送出 request，MVP 建議：
+
+- 同一組：
+  - `campaign_id`
+  - `tester_account_id`
+  - `device_profile_id`
+  在同一時間只允許一筆 `pending` request
+
+補充：
+
+- 若舊 request 狀態已是 `withdrawn`、`declined` 或 `accepted`，後續是否允許再送新 request，MVP 可先允許，但不應自動覆寫舊 request
+- 本階段不要引入「重新開啟同一筆 request」的流程
+
+### 15.7 Error Code Baseline
+
+participation flow 建議沿用既有 actor-aware error baseline，並新增最小 participation-specific code：
+
+既有可重用：
+
+- `missing_actor_context`
+- `forbidden_actor_role`
+- `ownership_mismatch`
+
+建議新增：
+
+- `participation_not_qualified`
+- `duplicate_pending_participation_request`
+- `invalid_participation_transition`
+
+建議語意：
+
+- `participation_not_qualified`
+  - request 使用的 device profile 對 campaign 不符合資格
+- `duplicate_pending_participation_request`
+  - 相同 `campaign / tester / device_profile` 已存在 active pending request
+- `invalid_participation_transition`
+  - 非法狀態轉換，例如從 `accepted` 改成 `withdrawn`
+
+### 15.8 API Baseline for Next Tickets
+
+本節不新增 runtime API，但後續實作可依此基線收斂：
+
+- `GET /api/v1/participation-requests?mine=true`
+  - current tester 看自己的 requests
+- `POST /api/v1/campaigns/{campaign_id}/participation-requests`
+  - tester 以某個 owned device profile 建立 request
+- `GET /api/v1/participation-requests?review_mine=true`
+  - current developer 看自己需要 review 的 requests
+- `GET /api/v1/participation-requests/{request_id}`
+  - request detail
+- `PATCH /api/v1/participation-requests/{request_id}`
+  - tester withdraw
+  - developer accept / decline
+
+create payload MVP baseline：
+
+- `device_profile_id`
+- `note`
+
+patch payload MVP baseline：
+
+- `status`
+- `decision_note`
+
+### 15.9 Frontend Route Baseline
+
+後續 participation flow 預計會涉及：
+
+- `frontend/pages/campaigns/[campaignId].vue`
+- `frontend/pages/my/eligible-campaigns.vue`
+- `frontend/pages/my/participation-requests.vue`
+- `frontend/pages/review/participation-requests.vue`
+- `frontend/pages/review/participation-requests/[requestId].vue`
+
+UI baseline：
+
+- tester 入口應優先從 `qualified campaign` 與 `campaign detail` 出發
+- developer 入口應優先從 `review queue` 出發
+
+### 15.10 Deferred Scope
+
+以下項目目前先不納入 participation intent semantics：
+
+- chat / threaded messaging
+- notifications
+- auto task creation
+- request ranking
+- marketplace listing logic
+- candidate recommendation
+- bulk accept / decline
+
+判斷理由：
+
+- 這一階段的目標只是把 tester intent 與 developer review 做成最小可操作流程
+- 不應讓 participation request 直接膨脹成 marketplace 或 communication hub
+
+## 16. Usage Notes for T031 / T032 / T033 / T034 / T039 / T040 / T045 / T046 / T047 / T048 / T054 / T055 / T056
+
+### 16.1 For T031 Account CRUD
 
 - `Account` 應作為獨立模組建立
 - API-facing 欄位名稱維持 `snake_case`
 - `role` 只允許 `developer`、`tester`
 
-### 15.2 For T032 Current Actor and Ownership
+### 16.2 For T032 Current Actor and Ownership
 
 - `Project.owner_account_id` 與 `DeviceProfile.owner_account_id` 應是下一階段第一批落地欄位
 - create flow 應由 current actor 自動帶入 owner
 - 不應要求使用者在 form 中手動選 owner
 
-### 15.3 For T033 Tester Inbox
+### 16.3 For T033 Tester Inbox
 
 - tester-side task inbox 應透過：
   - current actor
@@ -1179,7 +1390,7 @@ qualification semantics 在 task assignment 中應轉成最小 assignment baseli
   - assigned tasks
   推導
 
-### 15.4 For T034 Developer Review Queue
+### 16.4 For T034 Developer Review Queue
 
 - developer-side feedback queue 應透過：
   - current actor
@@ -1187,38 +1398,68 @@ qualification semantics 在 task assignment 中應轉成最小 assignment baseli
   - derived campaigns / tasks / feedback
   推導
 
-### 15.5 For T039 Campaign / Safety / Eligibility Guards
+### 16.5 For T039 Campaign / Safety / Eligibility Guards
 
 - `Campaign / Safety / Eligibility` 的 mutation 應統一視為 developer-side action
 - `project_id` 或 `campaign_id` 不應只驗證資源存在，還必須驗證其 developer ownership
 - frontend create / edit form 應一律帶 `X-Actor-Id`
 
-### 15.6 For T040 Task / Feedback Guards
+### 16.6 For T040 Task / Feedback Guards
 
 - `Task` 與 `Feedback` 的 mutation 應區分 developer-side action 與 tester-side action
 - tester-side action 的 ownership anchor 應優先以 `device_profile_id -> owner_account_id` 推導
 - developer-side review action 的 ownership anchor 應優先以 `project.owner_account_id` 推導
 
-### 15.7 For T045 Campaign Qualification Shell
+### 16.7 For T045 Campaign Qualification Shell
 
 - `qualification-results?mine=true` 應只評估 current tester 的 owned device profiles
 - 若 campaign 沒有 active rules，應視為所有 owned device profiles 都 `qualified`
 - frontend 應優先顯示 `reason_summary`，不要求自行翻譯 `reason_codes`
 
-### 15.8 For T046 Task Assignment Preview and Guardrails
+### 16.8 For T046 Task Assignment Preview and Guardrails
 
 - qualification preview 與 task assignment guard 必須共用同一套 evaluator semantics
 - developer 不應被允許指派 `assignment_readiness = ineligible` 的 device profile
 - `assignment_not_eligible` 的 details 應足以讓 frontend 直接顯示原因摘要
 
-### 15.9 For T047 Tester Eligible Campaigns Workspace
+### 16.9 For T047 Tester Eligible Campaigns Workspace
 
 - `qualified_for_me=true` 的語意應以「至少一個 owned device profile qualified」為主
 - workspace card 上應至少顯示一個命中的 `device_profile_id` 或其摘要
 - 不要在這張票偷做 application / accept / subscribe flow
 
-### 15.10 For T048 Task Qualification Context
+### 16.10 For T048 Task Qualification Context
 
 - task detail 與 `/my/tasks` 的 qualification context 應以 derived read-only data 為主
 - 若後續 eligibility rules 變動導致 assignment drift，先以最小 warning 呈現即可
 - 不需要在這一階段引入 assignment timeline 或 audit history
+
+### 16.11 For T054 Tester Participation Request Flow
+
+- tester 建立 request 時必須選擇：
+  - 自己擁有的 device profile
+  - 且該 device profile 對 campaign 為 `qualified`
+- 不要在這張票偷做 auto task creation
+- `campaign detail` 與 `/my/eligible-campaigns` 應都是合理入口
+
+### 16.12 For T055 Developer Participation Review Queue
+
+- developer review queue 應透過 current actor 的 owned campaigns 推導
+- review action 只做：
+  - `accepted`
+  - `declined`
+- queue card 應至少帶：
+  - campaign
+  - tester
+  - device profile
+  - request status
+
+### 16.13 For T056 Participation Request Detail and Candidate Snapshot
+
+- request detail 應優先顯示 candidate snapshot，而不是聊天紀錄
+- candidate snapshot 應以現有資料為主：
+  - tester account
+  - device profile
+  - qualification summary
+  - recent collaboration summary（若已存在）
+- 不要在這張票偷做完整 marketplace profile

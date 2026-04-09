@@ -103,6 +103,7 @@ def create_device_profile(
         platform=payload.platform.value,
         device_model=payload.device_model,
         os_name=payload.os_name,
+        install_channel=payload.install_channel,
         os_version=payload.os_version,
         browser_name=payload.browser_name,
         browser_version=payload.browser_version,
@@ -131,6 +132,11 @@ def update_device_profile(
             else current.device_model
         ),
         os_name=payload.os_name if payload.os_name is not None else current.os_name,
+        install_channel=(
+            payload.install_channel
+            if payload.install_channel is not None
+            else current.install_channel
+        ),
         os_version=payload.os_version if payload.os_version is not None else current.os_version,
         browser_name=(
             payload.browser_name

@@ -14,6 +14,7 @@ export interface DeviceProfileListItem {
   platform: DeviceProfilePlatform
   device_model: string
   os_name: string
+  install_channel: string | null
   owner_account_id?: string | null
   updated_at: string
 }
@@ -24,6 +25,7 @@ export interface DeviceProfileDetail {
   platform: DeviceProfilePlatform
   device_model: string
   os_name: string
+  install_channel: string | null
   os_version: string | null
   browser_name: string | null
   browser_version: string | null
@@ -39,6 +41,7 @@ export interface DeviceProfileFormValues {
   platform: DeviceProfilePlatform | ''
   device_model: string
   os_name: string
+  install_channel: string
   os_version: string
   browser_name: string
   browser_version: string
@@ -51,6 +54,7 @@ export interface DeviceProfileCreatePayload {
   platform: DeviceProfilePlatform
   device_model: string
   os_name: string
+  install_channel: string | null
   os_version: string | null
   browser_name: string | null
   browser_version: string | null
@@ -63,6 +67,7 @@ export interface DeviceProfileUpdatePayload {
   platform?: DeviceProfilePlatform
   device_model?: string
   os_name?: string
+  install_channel?: string | null
   os_version?: string | null
   browser_name?: string | null
   browser_version?: string | null

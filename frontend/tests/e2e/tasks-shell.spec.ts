@@ -60,11 +60,11 @@ const eligibleQualificationPreview = {
 
 const ineligibleQualificationPreview = {
   device_profile_id: 'dp_456',
-  device_profile_name: 'QA Pixel 9',
+  device_profile_name: 'QA iPhone 15 (Alt Channel)',
   qualification_status: 'not_qualified',
   matched_rule_id: null,
-  reason_codes: ['platform_mismatch', 'os_name_mismatch'],
-  reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+  reason_codes: ['install_channel_mismatch'],
+  reason_summary: '主要未符合條件：安裝渠道不符合目前活動條件。'
 } as const
 
 async function mockAccounts(page: Page): Promise<void> {
@@ -133,7 +133,7 @@ test.describe('tasks shell flows', () => {
         device_profile_name: 'QA iPhone 15',
         qualification_status: 'not_qualified',
         matched_rule_id: null,
-        reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。',
+        reason_summary: '主要未符合條件：安裝渠道不符合目前活動條件。',
         qualification_drift: true
       }
     })
@@ -148,7 +148,7 @@ test.describe('tasks shell flows', () => {
     await expect(page.getByTestId('task-qualification-drift-warning')).toBeVisible()
     await expect(page.getByTestId('task-qualification-context')).toContainText('資格已漂移')
     await expect(page.getByTestId('task-qualification-context')).toContainText(
-      '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+      '主要未符合條件：安裝渠道不符合目前活動條件。'
     )
   })
 

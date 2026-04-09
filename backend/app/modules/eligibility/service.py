@@ -150,7 +150,9 @@ def _evaluate_rule_against_device_profile(
                 reason_codes.append(QualificationReasonCode.OS_VERSION_ABOVE_MAX.value)
 
     rule_install_channel = _normalize_comparable_string(rule.install_channel)
-    device_install_channel = None
+    device_install_channel = _normalize_comparable_string(
+        getattr(device_profile, "install_channel", None)
+    )
     if rule_install_channel is not None and rule_install_channel != device_install_channel:
         reason_codes.append(QualificationReasonCode.INSTALL_CHANNEL_MISMATCH.value)
 

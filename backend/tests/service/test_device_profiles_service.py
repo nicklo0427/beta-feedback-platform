@@ -33,6 +33,7 @@ def test_device_profile_service_create_and_list_returns_expected_items() -> None
             platform=DeviceProfilePlatform.IOS,
             device_model="iPhone 15 Pro",
             os_name="iOS",
+            install_channel="TestFlight",
             os_version="18.1",
         )
     )
@@ -44,6 +45,7 @@ def test_device_profile_service_create_and_list_returns_expected_items() -> None
     assert listed_device_profiles.items[0].name == "QA iPhone 15"
     assert listed_device_profiles.items[0].platform == DeviceProfilePlatform.IOS
     assert listed_device_profiles.items[0].device_model == "iPhone 15 Pro"
+    assert listed_device_profiles.items[0].install_channel == "TestFlight"
 
 
 def test_device_profile_service_create_assigns_owner_when_actor_is_tester() -> None:
@@ -152,6 +154,7 @@ def test_device_profile_service_update_changes_only_provided_fields() -> None:
     updated_device_profile = update_device_profile(
         created_device_profile.id,
         DeviceProfileUpdate(
+            install_channel="Play Store Internal",
             browser_name="Chrome Beta",
             notes="Reserved for shell testing.",
         ),
@@ -160,6 +163,7 @@ def test_device_profile_service_update_changes_only_provided_fields() -> None:
     assert updated_device_profile.id == created_device_profile.id
     assert updated_device_profile.platform == DeviceProfilePlatform.ANDROID
     assert updated_device_profile.device_model == "Pixel 9"
+    assert updated_device_profile.install_channel == "Play Store Internal"
     assert updated_device_profile.browser_name == "Chrome Beta"
     assert updated_device_profile.notes == "Reserved for shell testing."
 

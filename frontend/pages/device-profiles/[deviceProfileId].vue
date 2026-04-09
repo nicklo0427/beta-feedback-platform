@@ -142,6 +142,12 @@ const hasReputationSignals = computed(() => {
             <span class="resource-key-value__value">{{ deviceProfile.os_name }}</span>
           </div>
           <div class="resource-key-value__row">
+            <span class="resource-key-value__label">安裝來源 / 發佈渠道</span>
+            <span class="resource-key-value__value">
+              {{ deviceProfile.install_channel || '尚未提供。' }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
             <span class="resource-key-value__label">作業系統版本</span>
             <span class="resource-key-value__value">
               {{ deviceProfile.os_version || '尚未提供。' }}

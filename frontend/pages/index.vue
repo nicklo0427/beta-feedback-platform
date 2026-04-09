@@ -279,6 +279,13 @@ const {
             >
               查看我的活動
             </NuxtLink>
+            <NuxtLink
+              class="resource-action"
+              data-testid="home-role-action-review-participation"
+              to="/review/participation-requests"
+            >
+              審查參與意圖
+            </NuxtLink>
           </div>
 
           <section

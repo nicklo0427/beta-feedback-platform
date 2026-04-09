@@ -17,6 +17,7 @@ const deviceProfileListItem = {
   platform: 'ios',
   device_model: 'iPhone 15 Pro',
   os_name: 'iOS',
+  install_channel: 'TestFlight',
   owner_account_id: testerAccount.id,
   updated_at: '2026-04-03T10:00:00Z'
 }
@@ -27,6 +28,7 @@ const deviceProfileDetail = {
   platform: 'ios',
   device_model: 'iPhone 15 Pro',
   os_name: 'iOS',
+  install_channel: 'TestFlight',
   os_version: '18.1',
   browser_name: 'Safari',
   browser_version: '18.0',
@@ -72,6 +74,7 @@ test.describe('device profiles shell flows', () => {
     await expect(deviceProfileCard).toContainText(
       formatPlatformLabel(deviceProfileListItem.platform)
     )
+    await expect(deviceProfileCard).toContainText(deviceProfileListItem.install_channel)
     await expect(deviceProfileCard).toContainText(deviceProfileListItem.owner_account_id)
 
     await deviceProfileCard.click()
@@ -82,6 +85,7 @@ test.describe('device profiles shell flows', () => {
     await expect(detailPanel).toBeVisible()
     await expect(detailPanel).toContainText(deviceProfileDetail.name)
     await expect(detailPanel).toContainText(deviceProfileDetail.device_model)
+    await expect(detailPanel).toContainText(deviceProfileDetail.install_channel)
     await expect(detailPanel).toContainText(deviceProfileDetail.os_version)
     await expect(detailPanel).toContainText(deviceProfileDetail.owner_account_id)
 
@@ -99,6 +103,7 @@ test.describe('device profiles shell flows', () => {
       platform: 'android',
       device_model: 'Pixel 9',
       os_name: 'Android',
+      install_channel: 'Play Store Internal',
       os_version: '15',
       browser_name: 'Chrome',
       browser_version: '136',
@@ -159,6 +164,7 @@ test.describe('device profiles shell flows', () => {
     await page.getByTestId('device-profile-platform-select').selectOption('android')
     await page.getByTestId('device-profile-device-model-input').fill('Pixel 9')
     await page.getByTestId('device-profile-os-name-input').fill('Android')
+    await page.getByTestId('device-profile-install-channel-input').fill('Play Store Internal')
     await page.getByTestId('device-profile-os-version-input').fill('15')
     await page.getByTestId('device-profile-browser-name-input').fill('Chrome')
     await page.getByTestId('device-profile-browser-version-input').fill('136')
@@ -173,6 +179,7 @@ test.describe('device profiles shell flows', () => {
       platform: 'android',
       device_model: 'Pixel 9',
       os_name: 'Android',
+      install_channel: 'Play Store Internal',
       os_version: '15',
       browser_name: 'Chrome',
       browser_version: '136',
@@ -184,6 +191,9 @@ test.describe('device profiles shell flows', () => {
     await expect(page).toHaveURL(/\/device-profiles\/dp_456$/)
     await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
       createdDeviceProfile.name
+    )
+    await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
+      createdDeviceProfile.install_channel
     )
     await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
       createdDeviceProfile.owner_account_id
@@ -233,6 +243,7 @@ test.describe('device profiles shell flows', () => {
     await page.getByTestId('device-profile-platform-select').selectOption('web')
     await page.getByTestId('device-profile-device-model-input').fill('MacBook Pro')
     await page.getByTestId('device-profile-os-name-input').fill('macOS')
+    await page.getByTestId('device-profile-install-channel-input').fill('BrowserStack')
     await page.getByTestId('device-profile-submit').click()
 
     await expect(page.getByTestId('device-profile-form-error')).toContainText(
@@ -247,6 +258,7 @@ test.describe('device profiles shell flows', () => {
     const updatedDeviceProfile = {
       ...deviceProfileDetail,
       name: 'QA iPhone 15 Updated',
+      install_channel: 'App Store Connect',
       locale: 'en-US',
       notes: 'Updated from the edit flow.'
     }
@@ -289,12 +301,14 @@ test.describe('device profiles shell flows', () => {
     await expect(page.getByTestId('device-profile-edit-panel')).toBeVisible()
 
     await page.getByTestId('device-profile-name-input').fill('QA iPhone 15 Updated')
+    await page.getByTestId('device-profile-install-channel-input').fill('App Store Connect')
     await page.getByTestId('device-profile-locale-input').fill('en-US')
     await page.getByTestId('device-profile-notes-input').fill('Updated from the edit flow.')
     await page.getByTestId('device-profile-submit').click()
 
     expect(updateRequestBody).toEqual({
       name: 'QA iPhone 15 Updated',
+      install_channel: 'App Store Connect',
       locale: 'en-US',
       notes: 'Updated from the edit flow.'
     })
@@ -302,6 +316,9 @@ test.describe('device profiles shell flows', () => {
     await expect(page).toHaveURL(/\/device-profiles\/dp_123$/)
     await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
       updatedDeviceProfile.name
+    )
+    await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
+      updatedDeviceProfile.install_channel
     )
     await expect(page.getByTestId('device-profile-detail-panel')).toContainText(
       updatedDeviceProfile.locale

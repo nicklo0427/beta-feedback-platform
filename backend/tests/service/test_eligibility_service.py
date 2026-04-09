@@ -42,6 +42,7 @@ def _create_device_profile_for_tester(
     platform: DeviceProfilePlatform = DeviceProfilePlatform.IOS,
     os_name: str = "iOS",
     os_version: str | None = "17.4",
+    install_channel: str | None = None,
 ):
     return create_device_profile(
         DeviceProfileCreate(
@@ -50,6 +51,7 @@ def _create_device_profile_for_tester(
             device_model="Device Model",
             os_name=os_name,
             os_version=os_version,
+            install_channel=install_channel,
         ),
         current_actor_id=tester_id,
     )
@@ -282,6 +284,7 @@ def test_campaign_qualification_results_return_match_for_active_rule() -> None:
         platform=DeviceProfilePlatform.IOS,
         os_name="iOS",
         os_version="17.4",
+        install_channel="testflight",
     )
     rule = create_eligibility_rule(
         campaign.id,
@@ -289,6 +292,7 @@ def test_campaign_qualification_results_return_match_for_active_rule() -> None:
             platform=EligibilityRulePlatform.IOS,
             os_name="iOS",
             os_version_min="17.0",
+            install_channel="testflight",
         ),
         current_actor_id=developer.id,
     )
@@ -319,10 +323,11 @@ def test_campaign_qualification_results_return_fail_reasons() -> None:
     )
     _create_device_profile_for_tester(
         tester.id,
-        name="Android Pixel",
-        platform=DeviceProfilePlatform.ANDROID,
-        os_name="Android",
-        os_version="14.0",
+        name="iPhone 15 Pro",
+        platform=DeviceProfilePlatform.IOS,
+        os_name="iOS",
+        os_version="17.4",
+        install_channel="app-store-connect",
     )
     create_eligibility_rule(
         campaign.id,
@@ -340,18 +345,8 @@ def test_campaign_qualification_results_return_fail_reasons() -> None:
     assert results.total == 1
     assert results.items[0].qualification_status == "not_qualified"
     assert results.items[0].matched_rule_id is None
-    assert results.items[0].reason_codes == [
-        "platform_mismatch",
-        "os_name_mismatch",
-        "os_version_below_min",
-        "install_channel_mismatch",
-    ]
-    assert results.items[0].reason_summary == (
-        "主要未符合條件：平台不符合目前活動條件；"
-        "作業系統不符合目前活動條件；"
-        "作業系統版本低於最低要求；"
-        "安裝渠道不符合目前活動條件。"
-    )
+    assert results.items[0].reason_codes == ["install_channel_mismatch"]
+    assert results.items[0].reason_summary == "主要未符合條件：安裝渠道不符合目前活動條件。"
 
 
 def test_campaign_qualification_results_require_tester_actor() -> None:
@@ -403,6 +398,7 @@ def test_campaign_qualification_check_returns_match_for_campaign_owner() -> None
         platform=DeviceProfilePlatform.IOS,
         os_name="iOS",
         os_version="17.4",
+        install_channel="testflight",
     )
     rule = create_eligibility_rule(
         campaign.id,
@@ -410,6 +406,7 @@ def test_campaign_qualification_check_returns_match_for_campaign_owner() -> None
             platform=EligibilityRulePlatform.IOS,
             os_name="iOS",
             os_version_min="17.0",
+            install_channel="testflight",
         ),
         current_actor_id=developer.id,
     )
@@ -445,10 +442,11 @@ def test_campaign_qualification_check_returns_fail_reason_summary() -> None:
     )
     device_profile = _create_device_profile_for_tester(
         tester.id,
-        name="Android Pixel",
-        platform=DeviceProfilePlatform.ANDROID,
-        os_name="Android",
-        os_version="14.0",
+        name="iPhone 15 Pro",
+        platform=DeviceProfilePlatform.IOS,
+        os_name="iOS",
+        os_version="17.4",
+        install_channel="app-store-connect",
     )
     create_eligibility_rule(
         campaign.id,
@@ -456,6 +454,7 @@ def test_campaign_qualification_check_returns_fail_reason_summary() -> None:
             platform=EligibilityRulePlatform.IOS,
             os_name="iOS",
             os_version_min="17.0",
+            install_channel="testflight",
         ),
         current_actor_id=developer.id,
     )
@@ -470,12 +469,8 @@ def test_campaign_qualification_check_returns_fail_reason_summary() -> None:
     assert result.qualification_status == "not_qualified"
     assert result.matched_rule_id is None
     assert result.reason_codes == [
-        "platform_mismatch",
-        "os_name_mismatch",
-        "os_version_below_min",
+        "install_channel_mismatch",
     ]
     assert result.reason_summary == (
-        "主要未符合條件：平台不符合目前活動條件；"
-        "作業系統不符合目前活動條件；"
-        "作業系統版本低於最低要求。"
+        "主要未符合條件：安裝渠道不符合目前活動條件。"
     )

@@ -4,20 +4,20 @@
 
 目前 repo 已完成：
 
-- `T011` 到 `T049`
+- `T011` 到 `T057`
 - 前端繁體中文文案整理
 - MVP 主流程閉環
 - 第一輪產品化補強
 - account / ownership / role-aware collaboration baseline
-- account collaboration summary 與 owned resource panels
 - qualification / assignment clarity baseline
-- qualification-aware demo seed 與 manual QA 文件
+- participation intent baseline
+- participation-aware demo seed 與 manual QA 文件
 
 這份文件現在的用途是：
 
 - 寫明目前做到哪裡
-- 寫明接下來最值得做什麼
-- 作為下一輪 phase 規劃的起點，而不是停留在已完成的舊計畫
+- 寫明下一輪最值得補的是什麼
+- 作為 `T058` 之後的新 phase 規劃基線
 
 ## 1. 目前做到哪裡
 
@@ -31,14 +31,17 @@
 - `Project / Device Profile` ownership baseline
 - tester inbox：`/my/tasks`
 - tester eligible campaigns workspace：`/my/eligible-campaigns`
+- tester participation requests workspace：`/my/participation-requests`
 - developer workspace：`/my/projects`、`/my/campaigns`
 - developer review queue：`/review/feedback`
+- developer participation review queue：`/review/participation-requests`
+- participation request detail：`/review/participation-requests/:requestId`
 - account collaboration summary：`/accounts/:accountId`
 - role-aware homepage
-- role-aware demo seed 與 manual QA 文件
 - campaign detail qualification panel
 - task assignment qualification preview / guardrails
 - task qualification context / drift warning
+- participation-aware demo seed 與 manual QA 文件
 
 換句話說，repo 已經從：
 
@@ -48,22 +51,21 @@
 
 - 可在 UI 中實際走完整主流程
 - 可做最小 role-aware collaboration
-- 可做最小 qualification visibility 與 assignment clarity
+- 可做 qualification visibility 與 assignment clarity
+- 可做最小 tester participation request 與 developer review flow
 
 ## 2. 現在最大的缺口
 
-雖然 `eligibility rules`、campaign qualification panel、assignment preview、tester eligible campaigns workspace 與 task qualification context 都已存在，但這一輪做完之後，新的缺口也更明確了。
+participation phase 完成後，最大的缺口已經不是「看不見資格結果」或「無法送出 participation request」，而是：
 
-最明顯的缺口是：
-
-- `install_channel` 仍沒有 device profile 對應欄位，qualification fidelity 還不完整
-- tester 目前只能看到「自己符合哪些 campaign」，但還沒有最小參與 / 申請流程
-- developer 仍缺少 candidate visibility，但又不適合直接跳進 auto matching
-- qualification phase 已完成，接下來需要把 read-only clarity 逐步推向可操作 participation flow
+- participation request 和實際 task assignment 之間還沒有銜接 baseline
+- developer 雖然能審查 request，但還沒有跨 request 的 candidate visibility / decision support
+- tester request 被接受之後，還沒有清楚的後續行動路徑
+- current actor 已可支撐 MVP，但 access / auth 還沒有更進一步的 hardening
 
 所以接下來不應再擴新的核心 domain，而應該補：
 
-- `Qualification Fidelity and Participation Workflow`
+- `Participation-to-Assignment Bridge and Candidate Visibility`
 
 ## 3. 下一階段總體方向
 
@@ -71,7 +73,7 @@
 
 下一個 phase 建議定義為：
 
-- `Qualification Fidelity and Participation Workflow`
+- `Participation-to-Assignment Bridge and Candidate Visibility`
 
 ### 3.2 為什麼這樣排
 
@@ -81,81 +83,79 @@
 - qualification semantics baseline
 - current tester qualification results
 - qualified campaigns workspace
-- tester owned device profiles
-- developer task create / assignment with eligibility guard
-- tester task inbox / feedback submit
-- developer review queue / supplement request
+- developer assignment preview / guard
 - task qualification context / drift warning
+- tester participation request create / withdraw
+- developer participation review queue / accept / decline
+- participation request candidate snapshot detail
 
 但還缺：
 
-- `install_channel` 等 qualification signal 的完整資料對齊
-- tester 在看見 qualified campaign 之後，如何進一步表達參與意圖
-- developer 如何在不引入 auto matching 的前提下看見更清楚的 candidate baseline
-- qualification result 如何逐步演進成 participation / assignment 前的可操作資訊
+- accepted participation request 如何安全轉成 assignment
+- developer 如何在 queue 之外看見更完整的 candidate / request overview
+- tester 在 request 被 accepted 後，如何理解下一步與對應 task
+- 現有 current actor baseline 如何逐步演進成更可靠的 access control
 
 如果不先補這一層，後續不論是：
 
-- tester 參與流程
-- developer candidate clarity
+- participation approval-to-assignment bridge
+- developer candidate visibility
 - 更可靠的 assignment confidence
-- 後續更接近 production 的 access model
+- 更接近 production 的 access model
 
-都會被卡在「只看得到結果，但還不能順著結果繼續操作」。
+都會被卡在「request 已被接受，但還沒有真正進入 task 執行」。
 
 ## 4. 建議優先順序
 
 ### P1
 
-- device profile `install_channel` baseline
-- qualification evaluator fidelity 補強
-- 讓 campaign qualification / assignment guard 的資料來源更完整
+- participation accepted -> task assignment bridge
+- accepted request 與 task / campaign / device profile 的最小關聯表達
+- request decision 後的下一步可操作入口
 
 判斷理由：
 
-- 如果 `install_channel` 繼續缺席，qualification evaluator 對這類規則永遠只能回 fail，這會讓後續 qualification 與 participation 流程失真
+- 現在 request 已能送出與審查，但沒有橋接到實際 assignment，會讓 flow 停在半路
 
 ### P2
 
-- tester participation baseline
-- developer candidate visibility baseline
+- developer candidate visibility
+- request / candidate aggregate views
+- request detail 與 assignment 結果的上下文補強
 
 判斷理由：
 
-- qualification 結果現在已可見，下一步最合理的是讓 tester 與 developer 都能在這個結果上做出最小可操作行為
-- 但仍應避免直接跳進 application marketplace 或 auto matching
+- 當 request 可以往 assignment 前進後，開發者才需要更清楚的 overview 來做決策
 
 ### P3
 
-- qualification phase 完成後的文件與 roadmap 收斂
-- 下一輪 participation phase 的 tickets 拆分
+- access / auth hardening draft
+- seed / QA / README / roadmap 收斂
 
 判斷理由：
 
-- 這一輪文件已同步完成，下一步應以新的 phase 為基準另開下一批票，而不是再沿用 `T044` 到 `T050` 的規劃描述
+- access hardening 仍應延後於 flow bridge，但比起再開新 domain 更值得做
 
-## 5. 建議 ticket 順序
+## 5. Participation Phase 已完成票
 
-`T044` 到 `T050` 已全部完成。
+目前已完成：
 
-下一輪建議不要沿用這一段 ticket 編號繼續寫在這份文件裡，而是另開新的 phase plan，專門收斂：
+- `T051` Device Profile Install Channel Baseline and Form Support
+- `T052` Qualification Evaluator Install Channel Fidelity
+- `T053` Participation Intent Semantics Draft
+- `T054` Tester Campaign Participation Request Flow
+- `T055` Developer Participation Review Queue and Decision Actions
+- `T056` Participation Request Detail and Candidate Snapshot Panels
+- `T057` Participation-Aware Demo Seed and Docs Refresh
 
-1. qualification fidelity
-2. tester participation workflow
-3. developer candidate visibility
-4. 文件與 QA 再同步
+## 6. 下一輪建議主題
 
-## 6. 依賴關係
+下一輪建議先規劃：
 
-qualification phase 的實際依賴關係已完成如下：
-
-- `T044` 文件先行，定義 qualification semantics
-- `T045` 依賴 `T044`，補 current tester qualification visibility
-- `T046` 依賴 `T044` / `T045`，補 assignment preview 與 guard
-- `T047` 依賴 `T044` / `T045`，補 tester eligible campaigns workspace
-- `T048` 依賴 `T045` / `T046`，補 task detail 與 inbox qualification context
-- `T049` 依賴 `T045` 到 `T048`，補 qualification-aware seed 與 QA
-- `T050` 作為這一輪文件收斂票
+- participation accepted -> task assignment bridge
+- request-to-task traceability
+- developer candidate overview panels
+- access / auth hardening draft
 
 ## 7. 這一階段先不要做的事
 
@@ -169,24 +169,24 @@ qualification phase 的實際依賴關係已完成如下：
 - 搜尋系統
 - 複雜 matching engine
 - auto matching
-- tester 申請制 marketplace
-- developer candidate recommendation
+- developer candidate recommendation ranking
+- tester 申請制 marketplace 大擴張
 - persistence / migration 重構
 - Steam / Desktop / Extension
 - 完整公開 reputation ranking
 
-## 8. Qualification Phase 完成摘要
+## 8. 下一輪最推薦先做哪一張
 
-這一輪最重要的完成點是：
+最推薦先做：
 
-- tester 現在可以在 campaign detail 看見自己 owned device profiles 的 qualification pass / fail
-- developer 指派 task 時現在會被 qualification preview 與 `assignment_not_eligible` guard 擋住
-- tester 現在有 `/my/eligible-campaigns`
-- task detail 與 `/my/tasks` 現在會顯示 qualification context 與 drift warning
-- seed 與 manual QA 已能直接覆蓋 qualification / assignment 驗收
+- `T058 - Participation Accepted to Task Assignment Bridge`
 
-這代表本 repo 的 qualification phase 已從「文件與概念」落到「可操作、可驗證、可手測」。
+原因：
+
+- 這是目前 participation flow 最大、最真實的缺口
+- 做完後 workflow 才不會停在「request 已被接受，但還沒有真正進入 task 執行」
+- 也能讓 developer review queue 與 tester workspaces 形成更完整閉環
 
 ## 9. 一句話結論
 
-qualification / assignment clarity 這一輪已完成，下一輪最值得做的，不是再擴核心 domain，而是把目前已經可見的 qualification 結果，往更完整的 participation workflow 與 qualification fidelity 推進。
+qualification / assignment / participation 這一輪已完成，下一輪最值得做的，是把 accepted participation request 安全地橋接到 task assignment，並補上 developer candidate visibility。

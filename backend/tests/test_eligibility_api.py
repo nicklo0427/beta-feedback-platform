@@ -31,6 +31,7 @@ def _create_device_profile_for_tester(
     platform: str = "ios",
     os_name: str = "iOS",
     os_version: str | None = "17.4",
+    install_channel: str | None = None,
 ):
     return create_device_profile(
         DeviceProfileCreate(
@@ -39,6 +40,7 @@ def _create_device_profile_for_tester(
             device_model="Device Model",
             os_name=os_name,
             os_version=os_version,
+            install_channel=install_channel,
         ),
         current_actor_id=tester_id,
     )
@@ -329,13 +331,15 @@ def test_campaign_qualification_results_returns_current_tester_results(
         platform="ios",
         os_name="iOS",
         os_version="17.4",
+        install_channel="testflight",
     )
     failing_device_profile = _create_device_profile_for_tester(
         tester.id,
-        name="Android Pixel",
-        platform="android",
-        os_name="Android",
-        os_version="14.0",
+        name="iPhone 15",
+        platform="ios",
+        os_name="iOS",
+        os_version="17.4",
+        install_channel="app-store-connect",
     )
 
     rule_response = client.post(
@@ -344,6 +348,7 @@ def test_campaign_qualification_results_returns_current_tester_results(
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -371,15 +376,9 @@ def test_campaign_qualification_results_returns_current_tester_results(
                 "qualification_status": "not_qualified",
                 "matched_rule_id": None,
                 "reason_codes": [
-                    "platform_mismatch",
-                    "os_name_mismatch",
-                    "os_version_below_min",
+                    "install_channel_mismatch",
                 ],
-                "reason_summary": (
-                    "主要未符合條件：平台不符合目前活動條件；"
-                    "作業系統不符合目前活動條件；"
-                    "作業系統版本低於最低要求。"
-                ),
+                "reason_summary": "主要未符合條件：安裝渠道不符合目前活動條件。",
             },
         ],
         "total": 2,
@@ -488,6 +487,7 @@ def test_campaign_qualification_check_returns_preview_for_campaign_owner(
         platform="ios",
         os_name="iOS",
         os_version="17.4",
+        install_channel="testflight",
     )
     rule_response = client.post(
         f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
@@ -495,6 +495,7 @@ def test_campaign_qualification_check_returns_preview_for_campaign_owner(
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -535,10 +536,11 @@ def test_campaign_qualification_check_returns_fail_result_for_ineligible_device_
     )
     device_profile = _create_device_profile_for_tester(
         tester.id,
-        name="Android Pixel",
-        platform="android",
-        os_name="Android",
-        os_version="14.0",
+        name="iPhone 15",
+        platform="ios",
+        os_name="iOS",
+        os_version="17.4",
+        install_channel="app-store-connect",
     )
     client.post(
         f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
@@ -546,6 +548,7 @@ def test_campaign_qualification_check_returns_fail_result_for_ineligible_device_
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -561,14 +564,6 @@ def test_campaign_qualification_check_returns_fail_result_for_ineligible_device_
         "device_profile_name": device_profile.name,
         "qualification_status": "not_qualified",
         "matched_rule_id": None,
-        "reason_codes": [
-            "platform_mismatch",
-            "os_name_mismatch",
-            "os_version_below_min",
-        ],
-        "reason_summary": (
-            "主要未符合條件：平台不符合目前活動條件；"
-            "作業系統不符合目前活動條件；"
-            "作業系統版本低於最低要求。"
-        ),
+        "reason_codes": ["install_channel_mismatch"],
+        "reason_summary": "主要未符合條件：安裝渠道不符合目前活動條件。",
     }

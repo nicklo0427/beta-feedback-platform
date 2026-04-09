@@ -280,6 +280,7 @@ def test_task_create_rejects_ineligible_assignment(client: TestClient) -> None:
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -287,11 +288,12 @@ def test_task_create_rejects_ineligible_assignment(client: TestClient) -> None:
         "/api/v1/device-profiles",
         headers=_actor_headers(tester.id),
         json={
-            "name": "QA Pixel 9",
-            "platform": "android",
-            "device_model": "Pixel 9",
-            "os_name": "Android",
-            "os_version": "14.0",
+            "name": "QA iPhone 15 (Alt Channel)",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4",
+            "install_channel": "app-store-connect",
         },
     )
     device_profile_id = device_profile_response.json()["id"]
@@ -315,16 +317,8 @@ def test_task_create_rejects_ineligible_assignment(client: TestClient) -> None:
             "device_profile_id": device_profile_id,
             "qualification_status": "not_qualified",
             "matched_rule_id": None,
-            "reason_codes": [
-                "platform_mismatch",
-                "os_name_mismatch",
-                "os_version_below_min",
-            ],
-            "reason_summary": (
-                "主要未符合條件：平台不符合目前活動條件；"
-                "作業系統不符合目前活動條件；"
-                "作業系統版本低於最低要求。"
-            ),
+            "reason_codes": ["install_channel_mismatch"],
+            "reason_summary": "主要未符合條件：安裝渠道不符合目前活動條件。",
         },
     }
 
@@ -352,6 +346,7 @@ def test_task_patch_rejects_ineligible_assignment(client: TestClient) -> None:
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -365,17 +360,19 @@ def test_task_patch_rejects_ineligible_assignment(client: TestClient) -> None:
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
             "os_version": "17.4",
+            "install_channel": "testflight",
         },
     )
     ineligible_device_profile_response = client.post(
         "/api/v1/device-profiles",
         headers=_actor_headers(tester.id),
         json={
-            "name": "QA Pixel 9",
-            "platform": "android",
-            "device_model": "Pixel 9",
-            "os_name": "Android",
-            "os_version": "14.0",
+            "name": "QA iPhone 15 (Alt Channel)",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4",
+            "install_channel": "app-store-connect",
         },
     )
     task_response = client.post(
@@ -407,16 +404,8 @@ def test_task_patch_rejects_ineligible_assignment(client: TestClient) -> None:
             "device_profile_id": ineligible_device_profile_id,
             "qualification_status": "not_qualified",
             "matched_rule_id": None,
-            "reason_codes": [
-                "platform_mismatch",
-                "os_name_mismatch",
-                "os_version_below_min",
-            ],
-            "reason_summary": (
-                "主要未符合條件：平台不符合目前活動條件；"
-                "作業系統不符合目前活動條件；"
-                "作業系統版本低於最低要求。"
-            ),
+            "reason_codes": ["install_channel_mismatch"],
+            "reason_summary": "主要未符合條件：安裝渠道不符合目前活動條件。",
         },
     }
 
@@ -444,6 +433,7 @@ def test_task_detail_surfaces_qualification_drift_context(client: TestClient) ->
             "platform": "ios",
             "os_name": "iOS",
             "os_version_min": "17.0",
+            "install_channel": "testflight",
         },
         headers=_actor_headers(developer.id),
     )
@@ -456,6 +446,7 @@ def test_task_detail_surfaces_qualification_drift_context(client: TestClient) ->
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
             "os_version": "17.4",
+            "install_channel": "testflight",
         },
     )
     device_profile_id = device_profile_response.json()["id"]
@@ -473,8 +464,7 @@ def test_task_detail_surfaces_qualification_drift_context(client: TestClient) ->
     patch_rule_response = client.patch(
         f"/api/v1/eligibility-rules/{rule_response.json()['id']}",
         json={
-            "platform": "android",
-            "os_name": "Android",
+            "install_channel": "app-store-connect",
         },
         headers=_actor_headers(developer.id),
     )
@@ -487,9 +477,7 @@ def test_task_detail_surfaces_qualification_drift_context(client: TestClient) ->
         "device_profile_name": "QA iPhone 15",
         "qualification_status": "not_qualified",
         "matched_rule_id": None,
-        "reason_summary": (
-            "主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。"
-        ),
+        "reason_summary": "主要未符合條件：安裝渠道不符合目前活動條件。",
         "qualification_drift": True,
     }
 

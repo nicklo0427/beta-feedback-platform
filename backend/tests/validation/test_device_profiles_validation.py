@@ -16,6 +16,7 @@ def test_device_profile_create_normalizes_required_and_optional_strings() -> Non
         platform=DeviceProfilePlatform.IOS,
         device_model="  iPhone 15 Pro  ",
         os_name="  iOS  ",
+        install_channel="  TestFlight  ",
         os_version="  18.1  ",
         browser_name="  Safari  ",
         browser_version="  18.0  ",
@@ -26,6 +27,7 @@ def test_device_profile_create_normalizes_required_and_optional_strings() -> Non
     assert payload.name == "QA iPhone 15"
     assert payload.device_model == "iPhone 15 Pro"
     assert payload.os_name == "iOS"
+    assert payload.install_channel == "TestFlight"
     assert payload.os_version == "18.1"
     assert payload.browser_name == "Safari"
     assert payload.browser_version == "18.0"
@@ -65,6 +67,7 @@ def test_device_profile_create_normalizes_empty_optional_strings_to_none() -> No
         platform=DeviceProfilePlatform.ANDROID,
         device_model="Pixel 9",
         os_name="Android",
+        install_channel="   ",
         os_version="   ",
         browser_name="   ",
         browser_version="   ",
@@ -72,6 +75,7 @@ def test_device_profile_create_normalizes_empty_optional_strings_to_none() -> No
         notes="   ",
     )
 
+    assert payload.install_channel is None
     assert payload.os_version is None
     assert payload.browser_name is None
     assert payload.browser_version is None
@@ -91,3 +95,9 @@ def test_device_profile_update_forbids_extra_fields() -> None:
         DeviceProfileUpdate(unknown_field="x")
 
     assert "Extra inputs are not permitted" in str(exc_info.value)
+
+
+def test_device_profile_update_normalizes_install_channel() -> None:
+    payload = DeviceProfileUpdate(install_channel="  Internal APK  ")
+
+    assert payload.install_channel == "Internal APK"

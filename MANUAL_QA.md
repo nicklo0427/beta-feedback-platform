@@ -44,10 +44,13 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - qualified campaign ID
 - drift campaign ID
 - qualified device profile ID
+- accepted-request device profile ID
 - ineligible device profile ID
 - qualified task ID
 - drift task ID
 - feedback ID
+- pending participation request ID
+- accepted participation request ID
 
 script 現在會同時提供兩條 qualification 驗證線：
 
@@ -57,6 +60,15 @@ script 現在會同時提供兩條 qualification 驗證線：
 - `Drift campaign`
   - 會先建立一筆可成功指派的 task
   - 再更新 eligibility rule，讓 task detail 與 `/my/tasks` 可直接看到 drift warning
+
+script 也會同時提供兩條 participation 驗證線：
+
+- `Pending participation request`
+  - 會出現在 tester 的 `/my/participation-requests`
+  - 也會出現在 developer 的 `/review/participation-requests`
+- `Accepted participation request`
+  - 會出現在 tester 的 `/my/participation-requests`
+  - 可直接驗證已處理狀態與 request detail 候選人快照
 
 詳細說明請看：
 
@@ -267,7 +279,69 @@ script 現在會同時提供兩條 qualification 驗證線：
 - card 會顯示 qualification summary
 - 若切回 developer actor，頁面應顯示 role mismatch
 
-### TC-13 Device Profile 建立、mine filter、詳情、編輯
+### TC-13 Tester 建立參與意圖
+
+測試步驟
+1. 把 current actor 切到 seeded tester
+2. 打開 seeded qualified campaign detail，或打開 `/my/eligible-campaigns`
+3. 找到 participation request 表單
+4. 選擇一筆符合資格的 iOS device profile
+5. 填寫備註並送出
+
+預期結果
+- tester 可成功建立 participation request
+- 建立成功後會顯示成功訊息或回到對應頁面
+- 若選擇不符合資格的 Android device profile，送出應被擋下
+- 若同一個 `campaign / tester / device_profile` 已有 pending request，應看到 duplicate pending 錯誤
+
+### TC-14 我的參與意圖工作區
+
+測試步驟
+1. 把 current actor 切到 seeded tester
+2. 開啟 `http://127.0.0.1:3000/my/participation-requests`
+3. 觀察 seeded pending 與 accepted requests
+4. 若有 pending request，點撤回
+
+預期結果
+- tester 可看到自己的 participation requests
+- 頁面至少有一筆 `pending` 和一筆 `accepted`
+- accepted request 會顯示 developer decision note / decided_at
+- pending request 可成功撤回，狀態更新為 `withdrawn`
+- 若切到 developer actor，頁面顯示 role mismatch
+
+### TC-15 Developer 參與意圖審查佇列
+
+測試步驟
+1. 把 current actor 切到 seeded developer
+2. 開啟 `http://127.0.0.1:3000/review/participation-requests`
+3. 觀察 pending requests
+4. 對其中一筆送出 `accepted` 或 `declined`
+
+預期結果
+- developer 可看到自己擁有活動底下的 pending requests
+- queue 中不應出現已 accepted 的 request
+- developer 可成功 accept / decline pending request
+- 更新成功後 queue 會刷新
+- 若切到 tester actor，頁面顯示 role mismatch
+
+### TC-16 參與意圖詳情與候選人快照
+
+測試步驟
+1. 把 current actor 切到 seeded developer
+2. 從 `/review/participation-requests` 點進某筆 request detail
+3. 觀察 tester snapshot、device profile snapshot、qualification snapshot、campaign snapshot
+
+預期結果
+- 可正常進入 `/review/participation-requests/:requestId`
+- detail 會顯示：
+  - request 基本資訊
+  - tester account 與 collaboration summary
+  - device profile 與 reputation summary
+  - qualification snapshot
+  - campaign 與 campaign reputation
+- 若 request 不屬於目前 developer 的 owned campaign，應顯示 error state
+
+### TC-17 Device Profile 建立、mine filter、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 seeded tester
@@ -281,11 +355,12 @@ script 現在會同時提供兩條 qualification 驗證線：
 - tester 可成功建立 device profile
 - 建立成功後會進入 detail
 - detail 可看到 `owner_account_id`
+- detail 可看到 `install_channel`
 - `Show mine only` 會只顯示屬於目前 tester 的 device profile
 - detail 頁會顯示 reputation summary
 - 編輯成功後 detail 內容更新
 
-### TC-14 Task 建立、詳情、編輯
+### TC-18 Task 建立、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 developer
@@ -300,7 +375,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - detail 可看到 campaign / device profile 關聯
 - 編輯成功後 detail 更新
 
-### TC-15 Task assignment preview 與 ineligible assignment guard
+### TC-19 Task assignment preview 與 ineligible assignment guard
 
 測試步驟
 1. 把 current actor 切到 seeded developer
@@ -315,9 +390,10 @@ script 現在會同時提供兩條 qualification 驗證線：
 - preview 會顯示命中規則或 qualification summary
 - 選 Android device profile 時，preview 顯示 `不符合資格`
 - 預覽會顯示 fail reason summary
+- 若規則要求 `install_channel = testflight`，使用 Android `play-store` fixture 也應維持不符合
 - 表單送出按鈕應被阻擋，不能建立不符合資格的 task
 
-### TC-16 Tester Inbox
+### TC-20 Tester Inbox
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/my/tasks`
@@ -334,7 +410,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - 可切 `assigned / in_progress / submitted / closed`
 - assigned task 的 quick action 可推進到 `in_progress`
 
-### TC-17 Task 資格上下文與 drift warning
+### TC-21 Task 資格上下文與 drift warning
 
 測試步驟
 1. 打開 seeded qualified task detail
@@ -352,7 +428,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - drift task detail 會顯示 drift warning
 - `/my/tasks` 的 drift task card 也會顯示 `資格已漂移` 與對應提示
 
-### TC-18 Feedback 提交與編輯
+### TC-22 Feedback 提交與編輯
 
 測試步驟
 1. 開啟某個 task detail
@@ -368,7 +444,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - detail 可看到結構化欄位
 - 編輯成功後 detail 內容更新
 
-### TC-19 Developer Review Queue
+### TC-23 Developer Review Queue
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/review/feedback`
@@ -385,7 +461,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - review status filter 可正常工作
 - 可從 queue 進入 feedback detail
 
-### TC-20 Feedback Review
+### TC-24 Feedback Review
 
 測試步驟
 1. 打開 `/tasks/:taskId/feedback/:feedbackId`
@@ -402,7 +478,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - 可儲存 `developer_note`
 - 儲存成功後 detail 會顯示更新後的狀態與 note
 
-### TC-21 Feedback 補件與重新提交
+### TC-25 Feedback 補件與重新提交
 
 測試步驟
 1. 先把某筆 feedback 標成 `needs_more_info`
@@ -418,7 +494,7 @@ script 現在會同時提供兩條 qualification 驗證線：
   - `resubmitted_at` 會出現
   - `developer_note` 仍保留
 
-### TC-22 Reputation Summary
+### TC-26 Reputation Summary
 
 測試步驟
 1. 打開 `/device-profiles/:deviceProfileId`
@@ -430,7 +506,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - 若有 seed data，應看到非零 summary
 - 若資料不足，應看到 zero-state，而不是白頁或 crash
 
-### TC-23 Error State 抽查
+### TC-27 Error State 抽查
 
 測試步驟
 1. 停掉 backend
@@ -464,15 +540,19 @@ script 現在會同時提供兩條 qualification 驗證線：
 10. Eligibility Rules
 11. Campaign qualification panel
 12. Tester eligible campaigns workspace
-13. Task assignment preview / guard
-14. Tasks
-15. Tester Inbox
-16. Task qualification drift
-17. Feedback submit / edit
-18. Developer Review Queue
-19. Feedback resubmission
-20. Reputation summary
-21. Error state 抽查
+13. Tester participation request create
+14. My participation requests
+15. Developer participation review queue
+16. Participation request detail snapshot
+17. Task assignment preview / guard
+18. Tasks
+19. Tester Inbox
+20. Task qualification drift
+21. Feedback submit / edit
+22. Developer Review Queue
+23. Feedback resubmission
+24. Reputation summary
+25. Error state 抽查
 
 ## 5. 重要限制
 
@@ -481,6 +561,7 @@ script 現在會同時提供兩條 qualification 驗證線：
 - current actor 目前只是最小 baseline，不是正式 auth
 - role-aware seed 會建立 owned fixtures，但不會取代正式 fixture framework
 - qualification-aware seed 會額外建立 pass / fail / drift fixtures，但不會自動幫你送出 ineligible assignment；那一段需要在 UI 上手動驗證
+- participation-aware seed 會額外建立 pending / accepted participation requests，方便直接驗收 tester workspace、developer review queue 與 detail snapshot
 - 若資料消失，請重新執行：
   - [scripts/seed_demo_data.py](/Users/lowhaijer/projects/beta-feedback-platform/scripts/seed_demo_data.py)
 

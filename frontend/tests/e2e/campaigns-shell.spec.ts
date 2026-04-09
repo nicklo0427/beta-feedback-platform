@@ -116,11 +116,11 @@ const qualificationMatchResult = {
 
 const qualificationFailResult = {
   device_profile_id: 'dp_456',
-  device_profile_name: 'Android Pixel',
+  device_profile_name: 'iPhone 15 (Alt Channel)',
   qualification_status: 'not_qualified',
   matched_rule_id: null,
-  reason_codes: ['platform_mismatch', 'os_name_mismatch'],
-  reason_summary: '主要未符合條件：平台不符合目前活動條件；作業系統不符合目前活動條件。'
+  reason_codes: ['install_channel_mismatch'],
+  reason_summary: '主要未符合條件：安裝渠道不符合目前活動條件。'
 } satisfies CampaignQualificationResultItem
 
 async function mockAccounts(page: Page): Promise<void> {
@@ -326,6 +326,80 @@ test.describe('campaigns shell flows', () => {
     await expect(roleMismatch).toBeVisible()
     await expect(roleMismatch).toContainText('資格檢查需要測試者帳號')
     await expect(roleMismatch).toContainText('開發者')
+  })
+
+  test('supports creating a participation request from campaign detail', async ({
+    page
+  }) => {
+    let createRequestActorId: string | undefined
+    let createRequestBody: unknown = null
+
+    await mockAccounts(page)
+    await mockApiJson(page, '/campaigns/camp_123', campaignDetail)
+    await mockApiJson(page, '/campaigns/camp_123/safety', campaignSafety)
+    await mockApiJson(page, '/campaigns/camp_123/reputation', campaignReputation)
+    await mockApiJson(page, '/campaigns/camp_123/eligibility-rules', {
+      items: [eligibilityRuleListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/tasks?campaign_id=camp_123', {
+      items: [taskListItem],
+      total: 1
+    })
+    await mockApiJson(page, '/campaigns/camp_123/qualification-results?mine=true', {
+      items: [qualificationMatchResult, qualificationFailResult],
+      total: 2
+    })
+    await page.route(
+      /\/api\/v1\/campaigns\/camp_123\/participation-requests$/,
+      async (route) => {
+        if (route.request().method() !== 'POST') {
+          await route.fallback()
+          return
+        }
+
+        createRequestActorId = route.request().headers()['x-actor-id']
+        createRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        await route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: 'pr_123',
+            campaign_id: 'camp_123',
+            campaign_name: 'Closed Beta Round 1',
+            tester_account_id: testerAccount.id,
+            device_profile_id: qualificationMatchResult.device_profile_id,
+            device_profile_name: qualificationMatchResult.device_profile_name,
+            status: 'pending',
+            note: 'Please consider me for the onboarding beta.',
+            decision_note: null,
+            created_at: '2026-04-09T09:30:00Z',
+            updated_at: '2026-04-09T09:30:00Z',
+            decided_at: null
+          })
+        })
+      }
+    )
+
+    await page.goto('/campaigns/camp_123')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    const participationPanel = page.getByTestId('campaign-participation-panel')
+    await expect(participationPanel).toBeVisible()
+    await page
+      .getByTestId('campaign-participation-note-input')
+      .fill('Please consider me for the onboarding beta.')
+    await page.getByTestId('campaign-participation-submit').click()
+
+    expect(createRequestActorId).toBe(testerAccount.id)
+    expect(createRequestBody).toEqual({
+      device_profile_id: qualificationMatchResult.device_profile_id,
+      note: 'Please consider me for the onboarding beta.'
+    })
+
+    await expect(page.getByTestId('campaign-participation-success')).toContainText(
+      '已送出參與意圖'
+    )
   })
 
   test('supports creating a campaign from the project context', async ({ page }) => {

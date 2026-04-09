@@ -90,5 +90,29 @@ export function getActorAwareMutationErrorMessage(
       : '選擇的裝置設定檔不符合這個活動的資格條件。'
   }
 
+  if (error.code === 'participation_not_qualified') {
+    const errorDetails = (
+      error.details && typeof error.details === 'object'
+        ? error.details
+        : {}
+    ) as { reason_summary?: unknown }
+    const reasonSummary =
+      typeof errorDetails.reason_summary === 'string'
+        ? errorDetails.reason_summary
+        : null
+
+    return reasonSummary
+      ? `選擇的裝置設定檔目前不能送出參與意圖：${reasonSummary}`
+      : '選擇的裝置設定檔目前不能對這個活動送出參與意圖。'
+  }
+
+  if (error.code === 'duplicate_pending_participation_request') {
+    return '這個裝置設定檔已經對此活動送出待處理的參與意圖。'
+  }
+
+  if (error.code === 'invalid_participation_transition') {
+    return '這筆參與意圖目前不能執行這個狀態變更。'
+  }
+
   return error.message
 }

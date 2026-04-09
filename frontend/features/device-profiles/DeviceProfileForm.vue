@@ -151,6 +151,18 @@ function handleSubmit(): void {
       </label>
 
       <label class="resource-field">
+        <span class="resource-field__label">安裝來源 / 發佈渠道</span>
+        <input
+          v-model="values.install_channel"
+          class="resource-input"
+          data-testid="device-profile-install-channel-input"
+          name="install_channel"
+          type="text"
+          :disabled="pending"
+        >
+      </label>
+
+      <label class="resource-field">
         <span class="resource-field__label">作業系統版本</span>
         <input
           v-model="values.os_version"

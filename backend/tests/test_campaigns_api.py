@@ -234,6 +234,7 @@ def test_campaigns_list_supports_qualified_for_me_for_tester(client: TestClient)
             "device_model": "iPhone 15 Pro",
             "os_name": "iOS",
             "os_version": "17.4.1",
+            "install_channel": "testflight",
         },
     )
     client.post(
@@ -242,6 +243,7 @@ def test_campaigns_list_supports_qualified_for_me_for_tester(client: TestClient)
         json={
             "platform": "ios",
             "os_name": "iOS",
+            "install_channel": "testflight",
         },
     )
 
