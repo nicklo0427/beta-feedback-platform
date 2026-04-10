@@ -145,6 +145,7 @@ test.describe('accounts shell flows', () => {
     await accountCard.click()
 
     await expect(page).toHaveURL(/\/accounts\/acct_123$/)
+    await page.getByTestId('current-actor-select').first().selectOption(accountDetail.id)
     const detailPanel = page.getByTestId('account-detail-panel')
     await expect(detailPanel).toBeVisible()
     await expect(detailPanel).toContainText(accountDetail.display_name)
@@ -176,8 +177,15 @@ test.describe('accounts shell flows', () => {
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            items: [],
-            total: 0
+            items: [
+              {
+                id: createdAccount.id,
+                display_name: createdAccount.display_name,
+                role: createdAccount.role,
+                updated_at: createdAccount.updated_at
+              }
+            ],
+            total: 1
           })
         })
         return
@@ -235,6 +243,7 @@ test.describe('accounts shell flows', () => {
     })
 
     await expect(page).toHaveURL(/\/accounts\/acct_456$/)
+    await page.getByTestId('current-actor-select').first().selectOption(createdAccount.id)
     await expect(page.getByTestId('account-detail-panel')).toContainText(
       createdAccount.display_name
     )
@@ -296,6 +305,11 @@ test.describe('accounts shell flows', () => {
     let detailResponse = originalAccount
     let updateRequestBody: unknown = null
 
+    await mockApiJson(page, '/accounts', {
+      items: [accountListItem],
+      total: 1
+    })
+
     await page.route(/\/api\/v1\/accounts\/acct_123$/, async (route) => {
       const method = route.request().method()
 
@@ -324,6 +338,7 @@ test.describe('accounts shell flows', () => {
     await mockApiJson(page, '/accounts/acct_123/summary', testerAccountSummary)
 
     await page.goto('/accounts/acct_123')
+    await page.getByTestId('current-actor-select').first().selectOption(accountDetail.id)
     await page.getByTestId('account-edit-link').click()
 
     await expect(page).toHaveURL(/\/accounts\/acct_123\/edit$/)
@@ -339,6 +354,7 @@ test.describe('accounts shell flows', () => {
     })
 
     await expect(page).toHaveURL(/\/accounts\/acct_123$/)
+    await page.getByTestId('current-actor-select').first().selectOption(accountDetail.id)
     await expect(page.getByTestId('account-detail-panel')).toContainText(
       updatedAccount.display_name
     )
@@ -350,10 +366,25 @@ test.describe('accounts shell flows', () => {
   test('renders developer collaboration summary on account detail', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [
+        {
+          id: developerAccountDetail.id,
+          display_name: developerAccountDetail.display_name,
+          role: developerAccountDetail.role,
+          updated_at: developerAccountDetail.updated_at
+        }
+      ],
+      total: 1
+    })
     await mockApiJson(page, '/accounts/acct_dev_123', developerAccountDetail)
     await mockApiJson(page, '/accounts/acct_dev_123/summary', developerAccountSummary)
 
     await page.goto('/accounts/acct_dev_123')
+    await page
+      .getByTestId('current-actor-select')
+      .first()
+      .selectOption(developerAccountDetail.id)
 
     const developerSummaryPanel = page.getByTestId('account-summary-developer-panel')
     await expect(developerSummaryPanel).toBeVisible()
@@ -366,10 +397,25 @@ test.describe('accounts shell flows', () => {
   test('renders tester collaboration zero state on account detail', async ({
     page
   }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [
+        {
+          id: testerZeroStateDetail.id,
+          display_name: testerZeroStateDetail.display_name,
+          role: testerZeroStateDetail.role,
+          updated_at: testerZeroStateDetail.updated_at
+        }
+      ],
+      total: 1
+    })
     await mockApiJson(page, '/accounts/acct_zero_123', testerZeroStateDetail)
     await mockApiJson(page, '/accounts/acct_zero_123/summary', testerZeroStateSummary)
 
     await page.goto('/accounts/acct_zero_123')
+    await page
+      .getByTestId('current-actor-select')
+      .first()
+      .selectOption(testerZeroStateDetail.id)
 
     await expect(page.getByTestId('account-summary-tester-panel')).toBeVisible()
     await expect(page.getByTestId('account-summary-tester-empty')).toBeVisible()
@@ -414,5 +460,31 @@ test.describe('accounts shell flows', () => {
     await expect(errorState).toBeVisible()
     await expect(errorState).toContainText('Account not found.')
     await expect(page.getByTestId('account-edit-panel')).toHaveCount(0)
+  })
+
+  test('requires selecting the matching actor to view account detail', async ({
+    page
+  }) => {
+    await mockApiJson(page, '/accounts', {
+      items: [accountListItem],
+      total: 1
+    })
+    await mockApiError(
+      page,
+      '/accounts/acct_123',
+      {
+        code: 'missing_actor_context',
+        message: 'Current actor is required.',
+        details: {
+          header: 'X-Actor-Id'
+        }
+      },
+      {
+        status: 400
+      }
+    )
+
+    await page.goto('/accounts/acct_123')
+    await expect(page.getByTestId('account-detail-select-actor')).toBeVisible()
   })
 })

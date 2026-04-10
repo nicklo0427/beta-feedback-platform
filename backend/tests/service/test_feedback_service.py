@@ -21,6 +21,7 @@ from app.modules.feedback.schemas import (
 from app.modules.feedback.service import (
     create_feedback,
     ensure_feedback_exists,
+    get_feedback_for_actor,
     list_feedback,
     list_feedback_queue,
     update_feedback,
@@ -353,13 +354,23 @@ def test_feedback_service_list_queue_supports_mine_filter_for_owned_projects() -
 
 
 def test_feedback_service_list_queue_supports_review_status_filter() -> None:
-    project = create_project(ProjectCreate(name="HabitQuest"))
+    developer = create_account(
+        AccountCreate(
+            display_name="Release Owner",
+            role="developer",
+        )
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
     campaign = create_campaign(
         CampaignCreate(
             project_id=project.id,
             name="Closed Beta Round 1",
             target_platforms=["ios"],
-        )
+        ),
+        current_actor_id=developer.id,
     )
     task = create_task(
         campaign.id,
@@ -380,16 +391,19 @@ def test_feedback_service_list_queue_supports_review_status_filter() -> None:
         ),
     )
 
-    queue = list_feedback_queue(review_status=FeedbackReviewStatus.NEEDS_MORE_INFO)
+    queue = list_feedback_queue(
+        review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+        current_actor_id=developer.id,
+    )
 
     assert queue.total == 1
     assert queue.items[0].id == feedback.id
     assert queue.items[0].review_status == FeedbackReviewStatus.NEEDS_MORE_INFO
 
 
-def test_feedback_service_list_queue_mine_requires_current_actor() -> None:
+def test_feedback_service_list_queue_requires_current_actor() -> None:
     with pytest.raises(AppError) as exc_info:
-        list_feedback_queue(mine=True)
+        list_feedback_queue()
 
     error = exc_info.value
     assert error.status_code == status.HTTP_400_BAD_REQUEST
@@ -399,22 +413,173 @@ def test_feedback_service_list_queue_mine_requires_current_actor() -> None:
     }
 
 
-def test_feedback_service_list_queue_mine_rejects_non_developer_actor() -> None:
+def test_feedback_service_list_queue_supports_owned_feedback_for_tester() -> None:
     tester = create_account(
         AccountCreate(
             display_name="QA Tester",
             role="tester",
         )
     )
+    other_tester = create_account(
+        AccountCreate(
+            display_name="Other Tester",
+            role="tester",
+        )
+    )
+    developer = create_account(
+        AccountCreate(
+            display_name="Release Owner",
+            role="developer",
+        )
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    owned_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="Owned Device",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15",
+            os_name="iOS",
+        ),
+        current_actor_id=tester.id,
+    )
+    other_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="Other Device",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15",
+            os_name="iOS",
+        ),
+        current_actor_id=other_tester.id,
+    )
+    owned_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Owned Feedback Task",
+            device_profile_id=owned_device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+        current_actor_id=developer.id,
+    )
+    other_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Other Feedback Task",
+            device_profile_id=other_device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+        current_actor_id=developer.id,
+    )
+    owned_feedback = create_feedback(
+        owned_task.id,
+        FeedbackCreate(
+            summary="Owned feedback",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+        current_actor_id=tester.id,
+    )
+    create_feedback(
+        other_task.id,
+        FeedbackCreate(
+            summary="Other feedback",
+            severity=FeedbackSeverity.MEDIUM,
+            category=FeedbackCategory.USABILITY,
+        ),
+        current_actor_id=other_tester.id,
+    )
+
+    queue = list_feedback_queue(current_actor_id=tester.id)
+
+    assert queue.total == 1
+    assert queue.items[0].id == owned_feedback.id
+
+
+def test_feedback_service_get_detail_requires_matching_actor_scope() -> None:
+    developer = create_account(
+        AccountCreate(
+            display_name="Release Owner",
+            role="developer",
+        )
+    )
+    tester = create_account(
+        AccountCreate(
+            display_name="QA Tester",
+            role="tester",
+        )
+    )
+    other_tester = create_account(
+        AccountCreate(
+            display_name="Other Tester",
+            role="tester",
+        )
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="Owned Device",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15",
+            os_name="iOS",
+        ),
+        current_actor_id=tester.id,
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Owned Feedback Task",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+        current_actor_id=developer.id,
+    )
+    feedback = create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="Owned feedback",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+        ),
+        current_actor_id=tester.id,
+    )
+
+    detail = get_feedback_for_actor(feedback.id, tester.id)
+
+    assert detail.id == feedback.id
 
     with pytest.raises(AppError) as exc_info:
-        list_feedback_queue(mine=True, current_actor_id=tester.id)
+        get_feedback_for_actor(feedback.id, other_tester.id)
 
     error = exc_info.value
     assert error.status_code == status.HTTP_409_CONFLICT
-    assert error.code == "forbidden_actor_role"
+    assert error.code == "ownership_mismatch"
     assert error.details == {
-        "actor_id": tester.id,
-        "actor_role": "tester",
-        "required_role": "developer",
+        "actor_id": other_tester.id,
+        "resource": "feedback",
+        "ownership_anchor": {
+            "resource": "device_profile",
+            "id": device_profile.id,
+            "owner_account_id": tester.id,
+        },
     }

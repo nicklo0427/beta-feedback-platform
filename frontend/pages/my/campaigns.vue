@@ -11,6 +11,10 @@ import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { fetchCampaigns } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatPlatformLabel } from '~/features/platform-display'
+import {
+  formatParticipationAssignmentStatusLabel,
+  formatParticipationRequestStatusLabel
+} from '~/features/participation-requests/types'
 
 useCurrentActorPersistence()
 
@@ -244,6 +248,43 @@ const campaigns = computed(() => campaignResponse.value.items)
                 {{ formatPlatformLabel(platform) }}
               </span>
             </div>
+            <div
+              v-if="campaign.participation_summary"
+              class="resource-card__meta"
+            >
+              <span class="resource-card__chip">
+                待處理 {{ campaign.participation_summary.pending_requests_count }}
+              </span>
+              <span class="resource-card__chip">
+                已接受待建任務 {{ campaign.participation_summary.accepted_requests_count }}
+              </span>
+              <span class="resource-card__chip">
+                已建立任務 {{ campaign.participation_summary.linked_tasks_count }}
+              </span>
+            </div>
+            <div
+              v-if="campaign.participation_summary && campaign.participation_summary.recent_participation_requests.length > 0"
+              class="resource-key-value"
+            >
+              <div
+                v-for="request in campaign.participation_summary.recent_participation_requests"
+                :key="request.id"
+                class="resource-key-value__row"
+              >
+                <span class="resource-key-value__label">最近候選人</span>
+                <span class="resource-key-value__value">
+                  {{
+                    `${request.tester_account_display_name} / ${request.device_profile_name} / ${formatParticipationRequestStatusLabel(request.status)} / ${formatParticipationAssignmentStatusLabel(request.assignment_status)}`
+                  }}
+                </span>
+              </div>
+            </div>
+            <p
+              v-else-if="campaign.participation_summary"
+              class="resource-card__description"
+            >
+              目前這個活動還沒有 participation requests，候選人漏斗維持零狀態。
+            </p>
             <div class="resource-state__actions">
               <NuxtLink
                 class="resource-action"
@@ -258,6 +299,13 @@ const campaigns = computed(() => campaignResponse.value.items)
                 :to="`/projects/${campaign.project_id}`"
               >
                 查看上游專案
+              </NuxtLink>
+              <NuxtLink
+                class="resource-action"
+                :data-testid="`my-campaign-review-link-${campaign.id}`"
+                to="/review/participation-requests"
+              >
+                查看參與意圖審查
               </NuxtLink>
             </div>
           </article>

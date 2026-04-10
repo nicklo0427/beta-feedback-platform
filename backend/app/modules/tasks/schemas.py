@@ -107,6 +107,14 @@ class TaskQualificationContext(BaseModel):
     qualification_drift: bool
 
 
+class TaskParticipationRequestContext(BaseModel):
+    request_id: str
+    request_status: Literal["pending", "accepted", "declined", "withdrawn"]
+    tester_account_id: str
+    tester_account_display_name: str
+    assignment_created_at: Optional[str] = None
+
+
 class TaskListItem(BaseModel):
     id: str
     campaign_id: str
@@ -128,6 +136,7 @@ class TaskDetail(BaseModel):
     created_at: str
     updated_at: str
     qualification_context: Optional[TaskQualificationContext] = None
+    participation_request_context: Optional[TaskParticipationRequestContext] = None
 
 
 class TaskListResponse(BaseModel):

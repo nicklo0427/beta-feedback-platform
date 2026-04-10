@@ -1,3 +1,4 @@
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 import type { ListResponse } from '~/services/api/client'
 
 import { useApiClient } from '~/services/api/client'
@@ -15,16 +16,24 @@ export async function fetchAccounts(): Promise<ListResponse<AccountListItem>> {
   return request<ListResponse<AccountListItem>>('/accounts')
 }
 
-export async function fetchAccountDetail(accountId: string): Promise<AccountDetail> {
+export async function fetchAccountDetail(
+  accountId: string,
+  actorId?: string | null
+): Promise<AccountDetail> {
   const { request } = useApiClient()
-  return request<AccountDetail>(`/accounts/${accountId}`)
+  return request<AccountDetail>(`/accounts/${accountId}`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function fetchAccountSummary(
-  accountId: string
+  accountId: string,
+  actorId?: string | null
 ): Promise<AccountCollaborationSummary> {
   const { request } = useApiClient()
-  return request<AccountCollaborationSummary>(`/accounts/${accountId}/summary`)
+  return request<AccountCollaborationSummary>(`/accounts/${accountId}/summary`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function createAccount(

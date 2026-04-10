@@ -4,6 +4,14 @@ from fastapi.testclient import TestClient
 
 from app.modules.accounts.schemas import AccountCreate
 from app.modules.accounts.service import create_account
+from app.modules.participation_requests.schemas import (
+    ParticipationRequestCreate,
+    ParticipationRequestUpdate,
+)
+from app.modules.participation_requests.service import (
+    create_participation_request,
+    update_participation_request,
+)
 from app.modules.projects.schemas import ProjectCreate
 from app.modules.projects.service import create_project
 
@@ -106,7 +114,10 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
         "total": 1,
     }
 
-    detail_response = client.get(f"/api/v1/tasks/{task_id}")
+    detail_response = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=_actor_headers(developer.id),
+    )
     assert detail_response.status_code == 200
     assert detail_response.json() == created_task
 
@@ -199,6 +210,196 @@ def test_task_patch_rejects_campaign_id_updates(client: TestClient) -> None:
             ]
         },
     }
+
+
+def test_task_detail_returns_participation_request_context_when_linked(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "install_channel": "testflight",
+            "os_version": "17.4",
+        },
+    )
+    device_profile_id = device_profile_response.json()["id"]
+
+    participation_request = create_participation_request(
+        campaign_id,
+        ParticipationRequestCreate(device_profile_id=device_profile_id),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    bridge_response = client.post(
+        f"/api/v1/participation-requests/{accepted_request.id}/tasks",
+        json={
+            "title": "Validate request bridge",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = bridge_response.json()["id"]
+
+    detail_response = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["participation_request_context"]["request_id"] == accepted_request.id
+    assert detail_payload["participation_request_context"]["request_status"] == "accepted"
+    assert detail_payload["participation_request_context"]["tester_account_id"] == tester.id
+    assert (
+        detail_payload["participation_request_context"]["tester_account_display_name"]
+        == tester.display_name
+    )
+    assert detail_payload["participation_request_context"]["assignment_created_at"] is not None
+
+
+def test_task_detail_requires_actor_header_when_participation_linked(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "install_channel": "testflight",
+            "os_version": "17.4",
+        },
+    )
+
+    participation_request = create_participation_request(
+        campaign_id,
+        ParticipationRequestCreate(device_profile_id=device_profile_response.json()["id"]),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    bridge_response = client.post(
+        f"/api/v1/participation-requests/{accepted_request.id}/tasks",
+        json={
+            "title": "Validate request bridge",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = bridge_response.json()["id"]
+
+    response = client.get(f"/api/v1/tasks/{task_id}")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_task_detail_rejects_wrong_tester_when_participation_linked(
+    client: TestClient,
+) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    other_tester = _create_tester_account("QA Backup")
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "install_channel": "testflight",
+            "os_version": "17.4",
+        },
+    )
+
+    participation_request = create_participation_request(
+        campaign_id,
+        ParticipationRequestCreate(device_profile_id=device_profile_response.json()["id"]),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    bridge_response = client.post(
+        f"/api/v1/participation-requests/{accepted_request.id}/tasks",
+        json={
+            "title": "Validate request bridge",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = bridge_response.json()["id"]
+
+    response = client.get(f"/api/v1/tasks/{task_id}", headers=_actor_headers(other_tester.id))
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "ownership_mismatch"
 
 
 def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> None:

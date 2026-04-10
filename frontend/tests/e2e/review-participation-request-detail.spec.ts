@@ -21,12 +21,15 @@ const enrichedRequestDetail = {
   tester_account_id: testerAccount.id,
   device_profile_id: 'dp_123',
   device_profile_name: 'QA iPhone 15',
-  status: 'pending',
+  status: 'accepted',
   note: 'I can help cover onboarding and retention flows.',
   decision_note: null,
   created_at: '2026-04-09T09:30:00Z',
   updated_at: '2026-04-09T09:30:00Z',
-  decided_at: null,
+  decided_at: '2026-04-09T10:00:00Z',
+  linked_task_id: null,
+  assignment_created_at: null,
+  assignment_status: 'not_assigned',
   tester_account: {
     id: testerAccount.id,
     display_name: testerAccount.display_name,
@@ -140,12 +143,15 @@ test.describe('participation request detail flows', () => {
               tester_account_id: testerAccount.id,
               device_profile_id: 'dp_123',
               device_profile_name: 'QA iPhone 15',
-              status: 'pending',
+  status: 'accepted',
               note: 'I can help cover onboarding and retention flows.',
               decision_note: null,
               created_at: '2026-04-09T09:30:00Z',
               updated_at: '2026-04-09T09:30:00Z',
-              decided_at: null
+              decided_at: '2026-04-09T10:00:00Z',
+              linked_task_id: null,
+              assignment_created_at: null,
+              assignment_status: 'not_assigned'
             }
           ],
           total: 1
@@ -178,6 +184,10 @@ test.describe('participation request detail flows', () => {
     )
     await expect(page.getByTestId('participation-request-qualification-panel')).toContainText(
       '符合資格'
+    )
+    await expect(page.getByTestId('participation-request-create-task-link')).toBeVisible()
+    await expect(page.getByTestId('participation-request-detail-panel')).toContainText(
+      '任務橋接 尚未建立任務'
     )
     await expect(page.getByTestId('participation-request-campaign-panel')).toContainText(
       '0.50'
@@ -217,5 +227,47 @@ test.describe('participation request detail flows', () => {
     await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
 
     await expect(page.getByTestId('participation-request-detail-error')).toBeVisible()
+  })
+
+  test('shows a clear ownership mismatch message when the selected developer cannot access the request', async ({
+    page
+  }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [developerAccount],
+          total: 1
+        })
+      })
+    })
+
+    await page.route(/\/api\/v1\/participation-requests\/pr_123$/, async (route) => {
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'ownership_mismatch',
+          message: 'Current actor does not own the target resource.',
+          details: {
+            actor_id: developerAccount.id,
+            resource: 'participation_request',
+            ownership_anchor: {
+              resource: 'project',
+              id: 'proj_other',
+              owner_account_id: 'acct_other_dev'
+            }
+          }
+        })
+      })
+    })
+
+    await page.goto('/review/participation-requests/pr_123')
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+
+    await expect(page.getByTestId('participation-request-detail-error')).toContainText(
+      '你不能查看不屬於自己工作範圍的資料。'
+    )
   })
 })

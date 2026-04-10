@@ -10,9 +10,18 @@ router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("")
 def get_health(settings: Settings = Depends(get_settings_dep)) -> dict[str, object]:
+    persistence_mode = "database" if settings.database_url else "memory"
+    auth_mode = (
+        "session_with_header_fallback"
+        if settings.auth_dev_actor_header_fallback_enabled
+        else "session_only"
+    )
+
     return {
         "status": "ok",
         "service": settings.app_name,
         "environment": settings.app_env,
         "database_configured": bool(settings.database_url),
+        "persistence_mode": persistence_mode,
+        "auth_mode": auth_mode,
     }

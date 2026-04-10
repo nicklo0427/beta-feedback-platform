@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.router import api_router
 from app.common.exceptions import AppError, app_error_exception_handler, validation_exception_handler
 from app.core.config import get_settings
+from app.db.session import ensure_database_ready
 from app.core.logging import configure_logging
 
 
@@ -33,6 +34,10 @@ def create_application() -> FastAPI:
         validation_exception_handler,
     )
     application.include_router(api_router, prefix=settings.api_v1_prefix)
+
+    @application.on_event("startup")
+    def startup() -> None:
+        ensure_database_ready()
 
     @application.get("/", include_in_schema=False)
     def root() -> dict[str, str]:

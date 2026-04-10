@@ -13,12 +13,14 @@ from app.modules.accounts.service import ensure_account_exists
 from app.modules.participation_requests import repository
 from app.modules.participation_requests.models import ParticipationRequestRecord
 from app.modules.participation_requests.schemas import (
+    ParticipationAssignmentStatus,
     ParticipationRequestCreate,
     ParticipationRequestDetail,
     ParticipationRequestEnrichedDetail,
     ParticipationRequestListItem,
     ParticipationRequestListResponse,
     ParticipationRequestStatus,
+    ParticipationRequestTaskCreate,
     ParticipationRequestUpdate,
 )
 
@@ -48,6 +50,15 @@ def _resolve_device_profile_name(device_profile_id: str) -> str:
     return device_profile.name if device_profile is not None else device_profile_id
 
 
+def _resolve_assignment_status(
+    record: ParticipationRequestRecord,
+) -> ParticipationAssignmentStatus:
+    if record.linked_task_id is not None:
+        return ParticipationAssignmentStatus.TASK_CREATED
+
+    return ParticipationAssignmentStatus.NOT_ASSIGNED
+
+
 def _to_participation_request_detail(
     record: ParticipationRequestRecord,
 ) -> ParticipationRequestDetail:
@@ -65,6 +76,9 @@ def _to_participation_request_detail(
             "created_at": record.created_at,
             "updated_at": record.updated_at,
             "decided_at": record.decided_at,
+            "linked_task_id": record.linked_task_id,
+            "assignment_created_at": record.assignment_created_at,
+            "assignment_status": _resolve_assignment_status(record),
         }
     )
 
@@ -104,6 +118,9 @@ def _to_participation_request_enriched_detail(
             "created_at": record.created_at,
             "updated_at": record.updated_at,
             "decided_at": record.decided_at,
+            "linked_task_id": record.linked_task_id,
+            "assignment_created_at": record.assignment_created_at,
+            "assignment_status": _resolve_assignment_status(record),
             "tester_account": get_account(record.tester_account_id).model_dump(),
             "tester_account_summary": get_account_summary(record.tester_account_id).model_dump(),
             "device_profile": get_device_profile(record.device_profile_id).model_dump(),
@@ -134,6 +151,9 @@ def _to_participation_request_list_item(
             "created_at": record.created_at,
             "updated_at": record.updated_at,
             "decided_at": record.decided_at,
+            "linked_task_id": record.linked_task_id,
+            "assignment_created_at": record.assignment_created_at,
+            "assignment_status": _resolve_assignment_status(record),
         }
     )
 
@@ -204,6 +224,41 @@ def _raise_invalid_participation_transition(
             "id": request_id,
             "current_status": current_status,
             "next_status": next_status,
+        },
+    )
+
+
+def _raise_participation_request_not_accepted(
+    *,
+    request_id: str,
+    current_status: str,
+) -> None:
+    raise AppError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="participation_request_not_accepted",
+        message="Only accepted participation requests can be turned into tasks.",
+        details={
+            "resource": "participation_request",
+            "id": request_id,
+            "current_status": current_status,
+            "required_status": ParticipationRequestStatus.ACCEPTED.value,
+        },
+    )
+
+
+def _raise_participation_request_task_already_created(
+    *,
+    request_id: str,
+    linked_task_id: str,
+) -> None:
+    raise AppError(
+        status_code=status.HTTP_409_CONFLICT,
+        code="participation_request_task_already_created",
+        message="This participation request already has a linked task.",
+        details={
+            "resource": "participation_request",
+            "id": request_id,
+            "linked_task_id": linked_task_id,
         },
     )
 
@@ -320,7 +375,13 @@ def list_participation_requests(
             record
             for record in records
             if record.campaign_id in owned_campaign_ids
-            and record.status == ParticipationRequestStatus.PENDING.value
+            and (
+                record.status == ParticipationRequestStatus.PENDING.value
+                or (
+                    record.status == ParticipationRequestStatus.ACCEPTED.value
+                    and record.linked_task_id is None
+                )
+            )
         ]
 
     items = [_to_participation_request_list_item(record) for record in records]
@@ -403,6 +464,8 @@ def create_participation_request(
         created_at=timestamp,
         updated_at=timestamp,
         decided_at=None,
+        linked_task_id=None,
+        assignment_created_at=None,
     )
     repository.create_participation_request(record)
     return _to_participation_request_detail(record)
@@ -501,3 +564,55 @@ def update_participation_request(
             "actor_role": actor.role,
         },
     )
+
+
+def create_task_from_participation_request(
+    request_id: str,
+    payload: ParticipationRequestTaskCreate,
+    current_actor_id: str,
+):
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
+    from app.modules.tasks.schemas import TaskCreate
+    from app.modules.tasks.service import create_task
+
+    developer_account_id = _ensure_developer_actor(current_actor_id)
+    current = ensure_participation_request_exists(request_id)
+
+    ensure_campaign_owned_by_actor(
+        current.campaign_id,
+        developer_account_id,
+        resource="participation_request",
+    )
+
+    if current.status != ParticipationRequestStatus.ACCEPTED.value:
+        _raise_participation_request_not_accepted(
+            request_id=current.id,
+            current_status=current.status,
+        )
+
+    if current.linked_task_id is not None:
+        _raise_participation_request_task_already_created(
+            request_id=current.id,
+            linked_task_id=current.linked_task_id,
+        )
+
+    created_task = create_task(
+        current.campaign_id,
+        TaskCreate(
+            title=payload.title,
+            instruction_summary=payload.instruction_summary,
+            device_profile_id=current.device_profile_id,
+            status=payload.status,
+        ),
+        developer_account_id,
+    )
+
+    timestamp = _utc_now_iso()
+    updated = replace(
+        current,
+        linked_task_id=created_task.id,
+        assignment_created_at=timestamp,
+        updated_at=timestamp,
+    )
+    repository.update_participation_request(updated)
+    return created_task

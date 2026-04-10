@@ -18,6 +18,7 @@ from app.modules.tasks.schemas import (
     TaskDetail,
     TaskListItem,
     TaskListResponse,
+    TaskParticipationRequestContext,
     TaskQualificationContext,
     TaskStatus,
     TaskUpdate,
@@ -96,11 +97,89 @@ def _build_task_qualification_context(
     )
 
 
+def _build_task_participation_request_context(
+    record: TaskRecord,
+) -> TaskParticipationRequestContext | None:
+    from app.modules.accounts.service import get_account
+    from app.modules.participation_requests import (
+        repository as participation_requests_repository,
+    )
+
+    linked_request = next(
+        (
+            request_record
+            for request_record in participation_requests_repository.list_participation_requests()
+            if request_record.linked_task_id == record.id
+        ),
+        None,
+    )
+
+    if linked_request is None:
+        return None
+
+    tester_account = get_account(linked_request.tester_account_id)
+
+    return TaskParticipationRequestContext.model_validate(
+        {
+            "request_id": linked_request.id,
+            "request_status": linked_request.status,
+            "tester_account_id": linked_request.tester_account_id,
+            "tester_account_display_name": tester_account.display_name,
+            "assignment_created_at": linked_request.assignment_created_at,
+        }
+    )
+
+
+def _ensure_task_read_visibility(
+    task: TaskRecord,
+    current_actor_id: str | None,
+) -> TaskRecord:
+    participation_request_context = _build_task_participation_request_context(task)
+    if participation_request_context is None:
+        return task
+
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role == AccountRole.DEVELOPER.value:
+        return ensure_task_owned_by_developer(
+            task.id,
+            current_actor_id,
+            resource="task",
+        )
+
+    if actor.role == AccountRole.TESTER.value:
+        return ensure_task_owned_by_tester(
+            task.id,
+            current_actor_id,
+            resource="task",
+        )
+
+    _raise_forbidden_actor_role(
+        actor_id=actor.id,
+        actor_role=actor.role,
+        required_role=AccountRole.DEVELOPER.value,
+        message="Developer or tester role is required to view this task.",
+    )
+    return task
+
+
 def _to_task_detail(record: TaskRecord) -> TaskDetail:
     payload = asdict(record)
     qualification_context = _build_task_qualification_context(record)
     if qualification_context is not None:
         payload["qualification_context"] = qualification_context.model_dump()
+    participation_request_context = _build_task_participation_request_context(record)
+    if participation_request_context is not None:
+        payload["participation_request_context"] = participation_request_context.model_dump()
     return TaskDetail.model_validate(payload)
 
 
@@ -382,8 +461,10 @@ def list_tasks(
     return TaskListResponse.model_validate(build_list_response(items))
 
 
-def get_task(task_id: str) -> TaskDetail:
-    return _to_task_detail(ensure_task_exists(task_id))
+def get_task(task_id: str, current_actor_id: str | None = None) -> TaskDetail:
+    task = ensure_task_exists(task_id)
+    task = _ensure_task_read_visibility(task, current_actor_id)
+    return _to_task_detail(task)
 
 
 def create_task(

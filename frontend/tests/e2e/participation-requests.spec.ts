@@ -40,7 +40,10 @@ test.describe('participation requests flows', () => {
           decision_note: null,
           created_at: '2026-04-09T09:30:00Z',
           updated_at: '2026-04-09T09:30:00Z',
-          decided_at: null
+          decided_at: null,
+          linked_task_id: null,
+          assignment_created_at: null,
+          assignment_status: 'not_assigned'
         }
       ],
       total: 1
@@ -103,6 +106,62 @@ test.describe('participation requests flows', () => {
 
     await expect(card).toContainText(formatParticipationRequestStatusLabel('withdrawn'))
     await expect(page.getByTestId('participation-request-withdraw-pr_123')).toHaveCount(0)
+    await expect(card).toContainText('任務橋接 尚未建立任務')
+  })
+
+  test('shows linked task context for an accepted request that already became a task', async ({
+    page
+  }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [testerAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/participation-requests\?mine=true$/, async (route) => {
+      expect(route.request().headers()['x-actor-id']).toBe(testerAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: 'pr_456',
+              campaign_id: 'camp_123',
+              campaign_name: 'Closed Beta Round 1',
+              tester_account_id: testerAccount.id,
+              device_profile_id: 'dp_123',
+              device_profile_name: 'QA iPhone 15',
+              status: 'accepted',
+              note: 'Please consider me for the onboarding beta.',
+              decision_note: 'Looks good for task execution.',
+              created_at: '2026-04-09T09:30:00Z',
+              updated_at: '2026-04-09T10:00:00Z',
+              decided_at: '2026-04-09T10:00:00Z',
+              linked_task_id: 'task_900',
+              assignment_created_at: '2026-04-09T10:30:00Z',
+              assignment_status: 'task_created'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/my/participation-requests')
+    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+
+    const card = page.getByTestId('participation-request-card-pr_456')
+    await expect(card).toContainText('任務橋接 已建立任務')
+    await expect(card).toContainText('建立任務時間 2026-04-09T10:30:00Z')
+    await expect(page.getByTestId('participation-request-task-link-pr_456')).toHaveAttribute(
+      'href',
+      '/tasks/task_900'
+    )
   })
 
   test('shows role mismatch when a developer opens my participation requests', async ({

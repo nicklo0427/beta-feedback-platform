@@ -20,7 +20,23 @@ class Settings(BaseSettings):
     )
     database_url: Optional[str] = Field(
         default=None,
-        description="Reserved PostgreSQL connection URL for future integration.",
+        description="Database connection URL for persistence mode.",
+    )
+    auth_session_cookie_name: str = Field(
+        default="bfp_session",
+        description="Cookie name for the MVP auth session.",
+    )
+    auth_session_duration_hours: int = Field(
+        default=24,
+        description="Session lifetime in hours for the MVP auth flow.",
+    )
+    auth_session_cookie_secure: bool = Field(
+        default=False,
+        description="Whether the auth session cookie should require HTTPS.",
+    )
+    auth_dev_actor_header_fallback_enabled: bool = Field(
+        default=True,
+        description="Allows X-Actor-Id fallback for local dev and seed workflows.",
     )
 
     model_config = SettingsConfigDict(
@@ -32,3 +48,7 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    get_settings.cache_clear()

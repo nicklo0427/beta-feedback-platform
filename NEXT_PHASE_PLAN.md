@@ -4,189 +4,113 @@
 
 目前 repo 已完成：
 
-- `T011` 到 `T057`
-- 前端繁體中文文案整理
+- `T011` 到 `T068`
 - MVP 主流程閉環
-- 第一輪產品化補強
-- account / ownership / role-aware collaboration baseline
+- role-aware collaboration baseline
 - qualification / assignment clarity baseline
-- participation intent baseline
+- participation-to-assignment bridge baseline
 - participation-aware demo seed 與 manual QA 文件
+- public beta ops baseline
+- public beta QA / launch checklist baseline
 
-這份文件現在的用途是：
+這代表：
 
-- 寫明目前做到哪裡
-- 寫明下一輪最值得補的是什麼
-- 作為 `T058` 之後的新 phase 規劃基線
+- **功能型 MVP 已完成**
+- **repo 內的 public beta readiness baseline 已完成**
+- **下一步不再是補同一批基礎能力，而是進入 post-beta hardening 與運營期能力**
 
-## 1. 目前做到哪裡
+## 1. 現在先做哪一件事
 
-目前系統已具備：
+如果你的目標是「這週就要對外開 beta」：
 
-- `Project -> Campaign -> Device Profile -> Eligibility -> Task -> Feedback`
-- `Campaign Safety`
-- `Reputation Summary`
-- `Account CRUD`
-- `Current Actor Selector`
-- `Project / Device Profile` ownership baseline
-- tester inbox：`/my/tasks`
-- tester eligible campaigns workspace：`/my/eligible-campaigns`
-- tester participation requests workspace：`/my/participation-requests`
-- developer workspace：`/my/projects`、`/my/campaigns`
-- developer review queue：`/review/feedback`
-- developer participation review queue：`/review/participation-requests`
-- participation request detail：`/review/participation-requests/:requestId`
-- account collaboration summary：`/accounts/:accountId`
-- role-aware homepage
-- campaign detail qualification panel
-- task assignment qualification preview / guardrails
-- task qualification context / drift warning
-- participation-aware demo seed 與 manual QA 文件
+- 先執行 [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)
+- 不要先開新功能票
 
-換句話說，repo 已經從：
+如果你的目標是「在 beta 前後繼續把產品做穩」：
 
-- 規劃 / shell 建設
+- 下一個 phase 建議直接切到：
+  - `Post-Beta Hardening and Lifecycle`
 
-走到：
+## 2. 下一階段主題
 
-- 可在 UI 中實際走完整主流程
-- 可做最小 role-aware collaboration
-- 可做 qualification visibility 與 assignment clarity
-- 可做最小 tester participation request 與 developer review flow
+下一階段建議聚焦：
 
-## 2. 現在最大的缺口
+- schema lifecycle hardening
+- session-only environment hardening
+- global actor-aware read visibility
+- assignment 後的 task resolution 與 outcome
+- audit trail / timeline
+- 目標 beta 環境的 rollout evidence
 
-participation phase 完成後，最大的缺口已經不是「看不見資格結果」或「無法送出 participation request」，而是：
+## 3. 建議 Tickets
 
-- participation request 和實際 task assignment 之間還沒有銜接 baseline
-- developer 雖然能審查 request，但還沒有跨 request 的 candidate visibility / decision support
-- tester request 被接受之後，還沒有清楚的後續行動路徑
-- current actor 已可支撐 MVP，但 access / auth 還沒有更進一步的 hardening
+### T069 - Alembic Migration and Schema Lifecycle Baseline
 
-所以接下來不應再擴新的核心 domain，而應該補：
+- 把目前 `SQLAlchemy create_all` 的 persistence baseline 升級成 versioned migration baseline
+- 導入 Alembic 與初始 migration
+- 收斂 local / beta 的 schema upgrade 流程
 
-- `Participation-to-Assignment Bridge and Candidate Visibility`
+### T070 - Session-Only Environment Mode and Header Fallback Decommission
 
-## 3. 下一階段總體方向
+- 把 `X-Actor-Id` fallback 正式隔離到 local QA / seed 環境
+- 讓 beta / staging / production 預設走 session-only
+- 收斂 auth / seed / docs 的環境切換策略
 
-### 3.1 Phase Theme
+### T071 - Global Actor-Aware Read Visibility Hardening
 
-下一個 phase 建議定義為：
+- 把目前只做一部分的 read guard 擴到更多 summary / detail / queue
+- 定義哪些資料是 public、哪些是 related-actor-only、哪些是 owner-only
+- 補齊一致的 read-side error semantics
 
-- `Participation-to-Assignment Bridge and Candidate Visibility`
+### T072 - Task Resolution and Outcome Workflow Baseline
 
-### 3.2 為什麼這樣排
+- 在 assignment / feedback review 之後補 developer resolution workflow
+- 讓 task 有明確 outcome、resolution note、resolved timestamp
+- 讓 tester 也能看見任務的最終處理結果
 
-目前 repo 已能表達：
+### T073 - Audit Trail and Activity Timeline Baseline
 
-- campaign eligibility rules
-- qualification semantics baseline
-- current tester qualification results
-- qualified campaigns workspace
-- developer assignment preview / guard
-- task qualification context / drift warning
-- tester participation request create / withdraw
-- developer participation review queue / accept / decline
-- participation request candidate snapshot detail
+- 為 participation request、task bridge、feedback review / resubmission、task resolution 補 activity events
+- 在 detail 頁顯示最小 timeline / history
+- 讓運營期與 beta support 有可追蹤上下文
 
-但還缺：
+### T074 - Beta Environment Rollout Verification and Evidence Pack
 
-- accepted participation request 如何安全轉成 assignment
-- developer 如何在 queue 之外看見更完整的 candidate / request overview
-- tester 在 request 被 accepted 後，如何理解下一步與對應 task
-- 現有 current actor baseline 如何逐步演進成更可靠的 access control
+- 以目標 beta 環境為準，真正執行一次 rollout rehearsal
+- 留下 health、smoke、manual QA、已知限制、go/no-go 結果
+- 產出可交接的驗證證據包
 
-如果不先補這一層，後續不論是：
+## 4. 建議順序
 
-- participation approval-to-assignment bridge
-- developer candidate visibility
-- 更可靠的 assignment confidence
-- 更接近 production 的 access model
+1. `T069`
+2. `T070`
+3. `T071`
+4. `T072`
+5. `T073`
+6. `T074`
 
-都會被卡在「request 已被接受，但還沒有真正進入 task 執行」。
+## 5. 為什麼這樣排
 
-## 4. 建議優先順序
+- `T069` 先做，因為 persistence 已經進產品路徑，但 schema lifecycle 還沒正式版本化
+- `T070` 接著做，因為 session-only 是 public beta / beta 後營運的真實模式
+- `T071` 再把 read visibility 補完整，避免越做越多 feature、越難補讀取邊界
+- `T072` 之後補 task resolution，讓 beta 期間的任務真正有收尾
+- `T073` 再把 history 補上，支撐 support / review / dispute handling
+- `T074` 最後在目標環境留下真正可驗證、可交接的 evidence
 
-### P1
+## 6. 這一輪先不要做的事
 
-- participation accepted -> task assignment bridge
-- accepted request 與 task / campaign / device profile 的最小關聯表達
-- request decision 後的下一步可操作入口
+以下項目暫不建議在這一輪啟動：
 
-判斷理由：
-
-- 現在 request 已能送出與審查，但沒有橋接到實際 assignment，會讓 flow 停在半路
-
-### P2
-
-- developer candidate visibility
-- request / candidate aggregate views
-- request detail 與 assignment 結果的上下文補強
-
-判斷理由：
-
-- 當 request 可以往 assignment 前進後，開發者才需要更清楚的 overview 來做決策
-
-### P3
-
-- access / auth hardening draft
-- seed / QA / README / roadmap 收斂
-
-判斷理由：
-
-- access hardening 仍應延後於 flow bridge，但比起再開新 domain 更值得做
-
-## 5. Participation Phase 已完成票
-
-目前已完成：
-
-- `T051` Device Profile Install Channel Baseline and Form Support
-- `T052` Qualification Evaluator Install Channel Fidelity
-- `T053` Participation Intent Semantics Draft
-- `T054` Tester Campaign Participation Request Flow
-- `T055` Developer Participation Review Queue and Decision Actions
-- `T056` Participation Request Detail and Candidate Snapshot Panels
-- `T057` Participation-Aware Demo Seed and Docs Refresh
-
-## 6. 下一輪建議主題
-
-下一輪建議先規劃：
-
-- participation accepted -> task assignment bridge
-- request-to-task traceability
-- developer candidate overview panels
-- access / auth hardening draft
-
-## 7. 這一階段先不要做的事
-
-以下項目暫不建議在這一批 ticket 中啟動：
-
-- 正式 auth / password / session / OAuth
-- RBAC framework
-- organization / team model
 - notification system
-- 即時聊天或 threaded messaging
-- 搜尋系統
-- 複雜 matching engine
+- 搜尋系統 overhaul
 - auto matching
 - developer candidate recommendation ranking
-- tester 申請制 marketplace 大擴張
-- persistence / migration 重構
+- organization / team model
+- 完整 OAuth 套件
+- RBAC framework 大擴張
 - Steam / Desktop / Extension
-- 完整公開 reputation ranking
 
-## 8. 下一輪最推薦先做哪一張
+## 7. 一句話結論
 
-最推薦先做：
-
-- `T058 - Participation Accepted to Task Assignment Bridge`
-
-原因：
-
-- 這是目前 participation flow 最大、最真實的缺口
-- 做完後 workflow 才不會停在「request 已被接受，但還沒有真正進入 task 執行」
-- 也能讓 developer review queue 與 tester workspaces 形成更完整閉環
-
-## 9. 一句話結論
-
-qualification / assignment / participation 這一輪已完成，下一輪最值得做的，是把 accepted participation request 安全地橋接到 task assignment，並補上 developer candidate visibility。
+public beta readiness 這一輪已完成；接下來最合理的方向，是把資料生命周期、session-only 模式、read visibility、task resolution、audit trail 和真正的 beta rollout evidence 補齊。

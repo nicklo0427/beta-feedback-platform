@@ -49,9 +49,14 @@ export async function fetchTasks(
   })
 }
 
-export async function fetchTaskDetail(taskId: string): Promise<TaskDetail> {
+export async function fetchTaskDetail(
+  taskId: string,
+  actorId?: string | null
+): Promise<TaskDetail> {
   const { request } = useApiClient()
-  return request<TaskDetail>(`/tasks/${taskId}`)
+  return request<TaskDetail>(`/tasks/${taskId}`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function createTask(

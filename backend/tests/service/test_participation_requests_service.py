@@ -15,9 +15,11 @@ from app.modules.eligibility.service import create_eligibility_rule
 from app.modules.participation_requests.schemas import (
     ParticipationRequestCreate,
     ParticipationRequestStatus,
+    ParticipationRequestTaskCreate,
     ParticipationRequestUpdate,
 )
 from app.modules.participation_requests.service import (
+    create_task_from_participation_request,
     create_participation_request,
     get_participation_request,
     list_participation_requests,
@@ -105,6 +107,7 @@ def test_participation_request_service_create_and_list_mine() -> None:
     assert created_request.status == ParticipationRequestStatus.PENDING
     assert created_request.note == "Happy to help test the onboarding flow."
     assert created_request.decision_note is None
+    assert created_request.assignment_status == "not_assigned"
     assert listed_requests.total == 1
     assert listed_requests.items[0].id == created_request.id
 
@@ -156,6 +159,7 @@ def test_participation_request_service_lists_review_queue_for_owned_campaigns() 
     assert review_queue.total == 1
     assert review_queue.items[0].id == owned_request.id
     assert review_queue.items[0].campaign_id == campaign.id
+    assert review_queue.items[0].assignment_status == "not_assigned"
 
 
 def test_participation_request_service_returns_enriched_detail_for_owned_developer() -> None:
@@ -180,6 +184,7 @@ def test_participation_request_service_returns_enriched_detail_for_owned_develop
     assert detail.qualification_snapshot.device_profile_id == qualified_device_profile.id
     assert detail.campaign.id == campaign.id
     assert detail.campaign_reputation.campaign_id == campaign.id
+    assert detail.assignment_status == "not_assigned"
 
 
 def test_participation_request_service_rejects_duplicate_pending_request() -> None:
@@ -280,6 +285,124 @@ def test_participation_request_service_supports_developer_accepting_pending_requ
     assert decided_request.decision_note == "This device profile matches the current beta scope."
     assert decided_request.decided_at is not None
     assert decided_request.updated_at >= created_request.updated_at
+
+
+def test_participation_request_service_review_queue_keeps_accepted_requests_until_task_is_created() -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+    created_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=qualified_device_profile.id),
+        tester.id,
+    )
+
+    update_participation_request(
+        created_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+
+    review_queue = list_participation_requests(
+        review_mine=True,
+        current_actor_id=developer.id,
+    )
+
+    assert review_queue.total == 1
+    assert review_queue.items[0].id == created_request.id
+    assert review_queue.items[0].status == ParticipationRequestStatus.ACCEPTED
+    assert review_queue.items[0].linked_task_id is None
+    assert review_queue.items[0].assignment_status == "not_assigned"
+
+
+def test_participation_request_service_can_create_task_from_accepted_request() -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+    created_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(
+            device_profile_id=qualified_device_profile.id,
+            note="I can cover the onboarding and retention flows.",
+        ),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        created_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+
+    created_task = create_task_from_participation_request(
+        accepted_request.id,
+        ParticipationRequestTaskCreate(
+            title="Validate accepted candidate flow",
+            instruction_summary="Focus on onboarding regressions.",
+            status="assigned",
+        ),
+        developer.id,
+    )
+    refreshed_request = get_participation_request(accepted_request.id, developer.id)
+    review_queue = list_participation_requests(
+        review_mine=True,
+        current_actor_id=developer.id,
+    )
+
+    assert created_task.campaign_id == campaign.id
+    assert created_task.device_profile_id == qualified_device_profile.id
+    assert created_task.status == "assigned"
+    assert refreshed_request.linked_task_id == created_task.id
+    assert refreshed_request.assignment_created_at is not None
+    assert refreshed_request.assignment_status == "task_created"
+    assert review_queue.total == 0
+
+
+def test_participation_request_service_rejects_creating_task_before_request_is_accepted() -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+    created_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=qualified_device_profile.id),
+        tester.id,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        create_task_from_participation_request(
+            created_request.id,
+            ParticipationRequestTaskCreate(title="Should not work"),
+            developer.id,
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "participation_request_not_accepted"
+    assert error.details["current_status"] == "pending"
+
+
+def test_participation_request_service_rejects_duplicate_task_bridge() -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+    created_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=qualified_device_profile.id),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        created_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    created_task = create_task_from_participation_request(
+        accepted_request.id,
+        ParticipationRequestTaskCreate(title="Create linked task"),
+        developer.id,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        create_task_from_participation_request(
+            accepted_request.id,
+            ParticipationRequestTaskCreate(title="Create duplicate linked task"),
+            developer.id,
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "participation_request_task_already_created"
+    assert error.details["linked_task_id"] == created_task.id
 
 
 def test_participation_request_service_supports_developer_declining_pending_request() -> None:

@@ -160,6 +160,130 @@ def test_campaigns_list_supports_mine_filter_for_owned_projects(client: TestClie
     assert response.status_code == 200
     assert response.json()["total"] == 1
     assert response.json()["items"][0]["project_id"] == first_project_response.json()["id"]
+    assert response.json()["items"][0]["participation_summary"] == {
+        "campaign_id": response.json()["items"][0]["id"],
+        "pending_requests_count": 0,
+        "accepted_requests_count": 0,
+        "linked_tasks_count": 0,
+        "recent_participation_requests": [],
+    }
+
+
+def test_campaigns_mine_list_includes_participation_summary(client: TestClient) -> None:
+    developer_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "Dev Owner", "role": "developer"},
+    )
+    tester_response = client.post(
+        "/api/v1/accounts",
+        json={"display_name": "QA Tester", "role": "tester"},
+    )
+    developer_id = developer_response.json()["id"]
+    tester_id = tester_response.json()["id"]
+
+    project_response = client.post(
+        "/api/v1/projects",
+        headers=_actor_headers(developer_id),
+        json={"name": "HabitQuest"},
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        headers=_actor_headers(developer_id),
+        json={
+            "project_id": project_response.json()["id"],
+            "name": "iOS Closed Beta",
+            "target_platforms": ["ios"],
+        },
+    )
+    first_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester_id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+            "os_version": "17.4.1",
+            "install_channel": "testflight",
+        },
+    )
+    second_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester_id),
+        json={
+            "name": "QA iPhone 15 Alt",
+            "platform": "ios",
+            "device_model": "iPhone 15",
+            "os_name": "iOS",
+            "os_version": "17.4.1",
+            "install_channel": "testflight",
+        },
+    )
+    third_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester_id),
+        json={
+            "name": "QA iPhone 15 Bridge",
+            "platform": "ios",
+            "device_model": "iPhone 15 Plus",
+            "os_name": "iOS",
+            "os_version": "17.4.1",
+            "install_channel": "testflight",
+        },
+    )
+    client.post(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/eligibility-rules",
+        headers=_actor_headers(developer_id),
+        json={
+            "platform": "ios",
+            "os_name": "iOS",
+            "install_channel": "testflight",
+        },
+    )
+
+    pending_request_response = client.post(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/participation-requests",
+        headers=_actor_headers(tester_id),
+        json={"device_profile_id": first_profile_response.json()["id"]},
+    )
+    accepted_request_response = client.post(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/participation-requests",
+        headers=_actor_headers(tester_id),
+        json={"device_profile_id": second_profile_response.json()["id"]},
+    )
+    bridge_request_response = client.post(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/participation-requests",
+        headers=_actor_headers(tester_id),
+        json={"device_profile_id": third_profile_response.json()["id"]},
+    )
+    client.patch(
+        f"/api/v1/participation-requests/{accepted_request_response.json()['id']}",
+        headers=_actor_headers(developer_id),
+        json={"status": "accepted", "decision_note": "Looks good."},
+    )
+    client.patch(
+        f"/api/v1/participation-requests/{bridge_request_response.json()['id']}",
+        headers=_actor_headers(developer_id),
+        json={"status": "accepted", "decision_note": "Create task."},
+    )
+    client.post(
+        f"/api/v1/participation-requests/{bridge_request_response.json()['id']}/tasks",
+        headers=_actor_headers(developer_id),
+        json={"title": "Validate onboarding", "status": "assigned"},
+    )
+
+    response = client.get(
+        "/api/v1/campaigns?mine=true",
+        headers=_actor_headers(developer_id),
+    )
+
+    assert response.status_code == 200
+    summary = response.json()["items"][0]["participation_summary"]
+    assert summary["pending_requests_count"] == 1
+    assert summary["accepted_requests_count"] == 1
+    assert summary["linked_tasks_count"] == 1
+    assert len(summary["recent_participation_requests"]) == 3
+    assert summary["recent_participation_requests"][0]["tester_account_display_name"] == "QA Tester"
 
 
 def test_campaigns_mine_filter_requires_current_actor_header(client: TestClient) -> None:

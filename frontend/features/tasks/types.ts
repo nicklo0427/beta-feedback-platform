@@ -53,6 +53,7 @@ export interface TaskDetail {
   created_at: string
   updated_at: string
   qualification_context?: TaskQualificationContext
+  participation_request_context?: TaskParticipationRequestContext
 }
 
 export interface TaskQualificationContext {
@@ -62,6 +63,14 @@ export interface TaskQualificationContext {
   matched_rule_id: string | null
   reason_summary: string | null
   qualification_drift: boolean
+}
+
+export interface TaskParticipationRequestContext {
+  request_id: string
+  request_status: 'pending' | 'accepted' | 'declined' | 'withdrawn'
+  tester_account_id: string
+  tester_account_display_name: string
+  assignment_created_at: string | null
 }
 
 export interface TaskFormValues {

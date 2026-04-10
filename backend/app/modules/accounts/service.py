@@ -78,6 +78,42 @@ def ensure_account_exists(account_id: str) -> AccountRecord:
     return record
 
 
+def _ensure_account_read_visibility(
+    account_id: str,
+    current_actor_id: str | None,
+) -> AccountRecord:
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    account = ensure_account_exists(account_id)
+    actor = ensure_account_exists(current_actor_id)
+
+    if actor.id != account.id:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="ownership_mismatch",
+            message="Current actor does not own the target resource.",
+            details={
+                "actor_id": actor.id,
+                "resource": "account",
+                "ownership_anchor": {
+                    "resource": "account",
+                    "id": account.id,
+                    "owner_account_id": account.id,
+                },
+            },
+        )
+
+    return account
+
+
 def list_accounts() -> AccountListResponse:
     items = [_to_account_list_item(record) for record in repository.list_accounts()]
     return AccountListResponse.model_validate(build_list_response(items))
@@ -85,6 +121,15 @@ def list_accounts() -> AccountListResponse:
 
 def get_account(account_id: str) -> AccountDetail:
     return _to_account_detail(ensure_account_exists(account_id))
+
+
+def get_account_for_actor(
+    account_id: str,
+    current_actor_id: str | None,
+) -> AccountDetail:
+    return _to_account_detail(
+        _ensure_account_read_visibility(account_id, current_actor_id)
+    )
 
 
 def get_account_summary(account_id: str) -> AccountCollaborationSummary:
@@ -219,7 +264,25 @@ def get_account_summary(account_id: str) -> AccountCollaborationSummary:
     )
 
 
+def get_account_summary_for_actor(
+    account_id: str,
+    current_actor_id: str | None,
+) -> AccountCollaborationSummary:
+    _ensure_account_read_visibility(account_id, current_actor_id)
+    return get_account_summary(account_id)
+
+
 def create_account(payload: AccountCreate) -> AccountDetail:
+    return create_account_with_auth(payload)
+
+
+def create_account_with_auth(
+    payload: AccountCreate,
+    *,
+    email: str | None = None,
+    password_hash: str | None = None,
+    is_active: bool = True,
+) -> AccountDetail:
     timestamp = _utc_now_iso()
     record = AccountRecord(
         id=_generate_account_id(),
@@ -229,6 +292,9 @@ def create_account(payload: AccountCreate) -> AccountDetail:
         locale=payload.locale,
         created_at=timestamp,
         updated_at=timestamp,
+        email=email.strip().lower() if email else None,
+        password_hash=password_hash,
+        is_active=is_active,
     )
     repository.create_account(record)
     return _to_account_detail(record)

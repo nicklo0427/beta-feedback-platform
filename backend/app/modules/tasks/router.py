@@ -67,8 +67,11 @@ def create_task_route(
     response_model=TaskDetail,
     response_model_exclude_unset=True,
 )
-def get_task_route(task_id: str) -> TaskDetail:
-    return get_task(task_id)
+def get_task_route(
+    task_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> TaskDetail:
+    return get_task(task_id, current_actor_id)
 
 
 @router.patch(

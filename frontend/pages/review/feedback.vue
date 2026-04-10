@@ -4,6 +4,7 @@ import { computed, ref } from 'vue'
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
@@ -193,9 +194,14 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="feedback-review-error"
         >
-        <h2 class="resource-state__title">無法載入回饋審閱佇列</h2>
+          <h2 class="resource-state__title">無法載入回饋審閱佇列</h2>
           <p class="resource-state__description">
-            {{ queueError.message }}
+            {{
+              getActorAwareReadErrorMessage(
+                queueError,
+                '目前無法載入回饋審閱佇列。'
+              )
+            }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshQueue()">

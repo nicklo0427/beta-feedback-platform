@@ -1463,3 +1463,217 @@ UI baseline：
   - qualification summary
   - recent collaboration summary（若已存在）
 - 不要在這張票偷做完整 marketplace profile
+
+## 17. Access and Auth Hardening Draft
+
+在 `T032` 到 `T060` 之後，系統已經有足夠完整的 `current actor + ownership + actor-aware mutation` baseline，可以支撐：
+
+- developer / tester 雙角色工作流
+- `mine=true`、`review_mine=true`、`qualified_for_me=true` 這類 actor-aware query
+- participation request、task assignment、review action 這類 mutation guard
+
+但目前整體 access model 仍是 MVP 方案，而不是 production-ready auth system。
+
+### 17.1 Current Baseline and Its Limits
+
+目前的 access baseline：
+
+- frontend 以 localStorage 儲存 current actor
+- request 透過 `X-Actor-Id` 傳遞 actor context
+- backend 以 `Account` + ownership / derived ownership 進行 mutation guard
+
+這個 baseline 的優點是：
+
+- 易於本機開發與手動驗證
+- 足以支撐 role-aware MVP workflow
+- 可快速驗證 ownership / role / queue semantics
+
+這個 baseline 的限制也必須明講：
+
+- `X-Actor-Id` 沒有真正的身份驗證能力
+- frontend localStorage 不是可信任的 session source
+- actor identity 目前沒有 login / logout / expiry / revocation
+- 同一個 browser 可以任意切換 actor，不符合 production security expectation
+- read visibility 目前仍偏寬鬆，主要只在 mutation 與特殊 query 上有 guard
+
+因此目前的 current actor 應視為：
+
+- `workflow simulation context`
+- `manual QA / local demo baseline`
+
+而不是：
+
+- 正式登入狀態
+- 正式 access token
+- 可部署到 production 的 auth layer
+
+### 17.2 Read Visibility Baseline
+
+MVP 目前對 read route 的 baseline 應分三類理解：
+
+1. Public / anonymous read baseline
+
+- 一般 detail / list route 目前多數仍可不帶 actor 直接讀取
+- 例如：
+  - `GET /projects`
+  - `GET /projects/{project_id}`
+  - `GET /campaigns`
+  - `GET /campaigns/{campaign_id}`
+  - `GET /tasks/{task_id}`
+
+2. Actor-aware scoped read baseline
+
+- 帶有 `mine=true` / `review_mine=true` / `qualified_for_me=true` 的 query 一律需要 current actor
+- 這些 route 已經不是 public read，而是 scoped read
+- 若缺少 actor，應回：
+  - `missing_actor_context`
+
+3. Ownership-sensitive read baseline
+
+- 某些 detail / queue route 雖然是 read-only，但內容本身已包含 candidate snapshot、review context、owned workflow context
+- 這類 route 長期不應維持 anonymous read
+- 目前已具 actor-aware read baseline 的代表：
+  - participation request detail
+  - review queues
+  - tester inbox / developer workspace
+
+### 17.3 Long-Term Read Visibility Direction
+
+未來 access hardening 應把 read route 從「預設開放」逐步收斂成以下幾層：
+
+1. Anonymous read
+
+- 僅保留真正需要公開瀏覽的 overview / marketing-like data
+- 在本專案中，長期可能只該剩：
+  - very limited campaign overviews
+  - homepage informational copy
+
+2. Authenticated read
+
+- 需要已登入 actor，但不一定要求 ownership
+- 例如：
+  - tester 可讀自己的 qualification result
+  - developer 可讀可操作 queue summary
+
+3. Ownership-scoped read
+
+- 需要 actor 已登入，且必須屬於該資源上下文
+- 例如：
+  - developer 只能讀自己活動底下的 participation review data
+  - tester 只能讀自己的 participation requests / inbox / owned device profiles
+
+在這個 migration path 中，最應優先 harden 的 read routes 是：
+
+- `GET /participation-requests?mine=true`
+- `GET /participation-requests?review_mine=true`
+- `GET /participation-requests/{request_id}`
+- `GET /review/feedback` 對應的 API
+- `GET /my/tasks` 對應的 API
+- `GET /my/projects`
+- `GET /my/campaigns`
+- `GET /my/eligible-campaigns`
+
+### 17.4 Minimum Auth Migration Path
+
+這一階段不做正式 auth implementation，但應先定義未來 migration path：
+
+1. Keep current actor for local/dev mode
+
+- local 開發與 manual QA 仍可維持 current actor selector
+- `X-Actor-Id` 可保留為 dev-only / demo-only fallback
+
+2. Introduce authenticated actor session
+
+- 未來應以 `actor_session` 取代 `X-Actor-Id` 當作可信的 actor source
+- session 至少應表達：
+  - `actor_id`
+  - `issued_at`
+  - `expires_at`
+  - `auth_method`
+  - `access_scope`
+
+3. Separate identity from profile
+
+- `Account` 應維持 collaboration / ownership anchor
+- 正式身份驗證來源應獨立為：
+  - `identity_provider`
+  - `actor_session`
+
+4. Move actor resolution to backend trust boundary
+
+- actor 不再由 frontend 任意宣告
+- backend 應從 session / token / trusted middleware 解析 actor
+
+### 17.5 Concepts Reserved for Future Auth Work
+
+本票不新增 runtime model，但應保留未來概念：
+
+- `actor_session`
+  - 表達登入中的 actor 與有效期間
+- `identity_provider`
+  - 表達帳號身份來源，例如 email login / OAuth / internal auth
+- `access_scope`
+  - 表達 read / write / review / admin 類型的最小權限範圍
+
+這些概念在 MVP 階段不應直接寫進現在的 runtime schema，避免過早把系統帶往完整 auth platform。
+
+### 17.6 Flows That Must Eventually Require Formal Session/Auth
+
+以下流程若繼續往 production 靠近，未來一定不能只靠 `X-Actor-Id`：
+
+- developer review queues
+  - feedback review
+  - participation request review
+- task assignment / status mutation
+- participation request create / withdraw / accept / decline
+- owned resource workspace
+  - `/my/projects`
+  - `/my/campaigns`
+  - `/my/tasks`
+  - `/my/eligible-campaigns`
+  - `/my/participation-requests`
+- account-scoped summary / owned resource panels
+- any future private candidate data / ranking / recommendation panel
+
+### 17.7 Routes That Can Stay Relaxed Longer
+
+以下 routes 可以在較後面才收斂：
+
+- homepage informational shell
+- generic list shell used for local demo
+- non-sensitive public-looking campaign / project overview
+
+但即使如此，也應避免把 candidate data、owned workflow data、review data 暴露在 anonymous read route 上。
+
+### 17.8 Error and UX Baseline During Migration
+
+在 auth migration 過程中，錯誤語意應延續目前 guardrails，而不是突然全面改寫：
+
+- 缺少 actor context：
+  - `missing_actor_context`
+- actor role 不符：
+  - `forbidden_actor_role`
+- actor 不擁有資源：
+  - `ownership_mismatch`
+
+未來若導入正式 auth，可再另外補：
+
+- `unauthenticated`
+- `session_expired`
+- `insufficient_scope`
+
+但在正式引入前，不應把這些新錯誤碼先塞進目前 runtime。
+
+### 17.9 Guidance for T062 and Future Access Tickets
+
+- `T062` 應優先補 read visibility guard，而不是直接實作 login
+- read hardening 應優先從：
+  - queue
+  - owned workspace
+  - candidate snapshot
+  開始
+- 不要在 `T062` 偷做正式 token / OAuth / password flow
+- 若未來再往後切票，應先有：
+  - auth migration draft
+  - trusted actor resolution strategy
+  - dev-mode current actor fallback policy

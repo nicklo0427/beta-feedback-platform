@@ -9,7 +9,9 @@ from app.modules.accounts.service import (
     create_account,
     delete_account,
     ensure_account_exists,
+    get_account_for_actor,
     get_account_summary,
+    get_account_summary_for_actor,
     list_accounts,
     update_account,
 )
@@ -210,3 +212,53 @@ def test_account_service_summary_returns_tester_collaboration_footprint() -> Non
         summary.tester_summary.recent_feedback[0].review_status
         == FeedbackReviewStatus.SUBMITTED
     )
+
+
+def test_account_service_read_visibility_requires_current_actor() -> None:
+    tester = create_account(
+        AccountCreate(
+            display_name="Visible Tester",
+            role=AccountRole.TESTER,
+        )
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        get_account_for_actor(tester.id, None)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_400_BAD_REQUEST
+    assert error.code == "missing_actor_context"
+    assert error.details == {
+        "header": "X-Actor-Id",
+    }
+
+
+def test_account_service_read_visibility_rejects_other_actor() -> None:
+    tester = create_account(
+        AccountCreate(
+            display_name="Visible Tester",
+            role=AccountRole.TESTER,
+        )
+    )
+    other_actor = create_account(
+        AccountCreate(
+            display_name="Other Actor",
+            role=AccountRole.DEVELOPER,
+        )
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        get_account_summary_for_actor(tester.id, other_actor.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "ownership_mismatch"
+    assert error.details == {
+        "actor_id": other_actor.id,
+        "resource": "account",
+        "ownership_anchor": {
+            "resource": "account",
+            "id": tester.id,
+            "owner_account_id": tester.id,
+        },
+    }

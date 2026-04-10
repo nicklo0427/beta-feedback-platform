@@ -1,17 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
+import {
+  getActorAwareReadErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchTaskFeedback } from '~/features/feedback/api'
 import {
   formatFeedbackCategoryLabel,
   formatFeedbackSeverityLabel
 } from '~/features/feedback/types'
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
+import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
 import { fetchTaskDetail } from '~/features/tasks/api'
 import { formatTaskStatusLabel } from '~/features/tasks/types'
 
 const route = useRoute()
 const taskId = computed(() => String(route.params.taskId))
+useCurrentActorPersistence()
+const currentActorId = useCurrentActorId()
 
 const {
   data: task,
@@ -19,11 +28,11 @@ const {
   error,
   refresh
 } = useAsyncData(
-  () => `task-detail-${taskId.value}`,
-  () => fetchTaskDetail(taskId.value),
+  () => `task-detail-${taskId.value}-${currentActorId.value ?? 'none'}`,
+  () => fetchTaskDetail(taskId.value, currentActorId.value),
   {
     server: false,
-    watch: [taskId],
+    watch: [taskId, currentActorId],
     default: () => null
   }
 )
@@ -47,6 +56,9 @@ const {
 )
 
 const feedbackItems = computed(() => feedbackResponse.value.items)
+const taskDetailErrorMessage = computed(() =>
+  getActorAwareReadErrorMessage(error.value, '找不到指定的任務。')
+)
 </script>
 
 <template>
@@ -74,6 +86,11 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         </div>
       </header>
 
+      <CurrentActorSelector
+        title="任務檢視情境"
+        description="若這筆任務來自 participation request，系統會依目前操作帳號驗證你是否可查看來源候選人上下文。"
+      />
+
       <section
         v-if="pending"
         class="resource-state"
@@ -92,7 +109,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
       >
         <h2 class="resource-state__title">無法載入任務詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的任務。' }}
+          {{ taskDetailErrorMessage }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
@@ -223,6 +240,58 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           <p class="resource-state__description">
             這筆任務原本已完成指派，但目前依照最新的資格規則重新評估後，這個裝置設定檔已不再符合活動條件。
           </p>
+        </div>
+      </section>
+
+      <section
+        v-if="!pending && !error && task?.participation_request_context"
+        class="resource-section"
+        data-testid="task-participation-request-context"
+      >
+        <h2 class="resource-section__title">來源參與意圖</h2>
+
+        <div class="resource-state__actions">
+          <NuxtLink
+            class="resource-action"
+            data-testid="task-participation-request-review-link"
+            :to="`/review/participation-requests/${task.participation_request_context.request_id}`"
+          >
+            查看開發者檢視
+          </NuxtLink>
+          <NuxtLink
+            class="resource-action"
+            data-testid="task-participation-request-my-link"
+            to="/my/participation-requests"
+          >
+            查看我的參與意圖
+          </NuxtLink>
+        </div>
+
+        <div class="resource-key-value">
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">參與意圖 ID</span>
+            <span class="resource-key-value__value">
+              {{ task.participation_request_context.request_id }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">測試者</span>
+            <span class="resource-key-value__value">
+              {{ task.participation_request_context.tester_account_display_name }}（{{ task.participation_request_context.tester_account_id }}）
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">Request 狀態</span>
+            <span class="resource-key-value__value">
+              {{ formatParticipationRequestStatusLabel(task.participation_request_context.request_status) }}
+            </span>
+          </div>
+          <div class="resource-key-value__row">
+            <span class="resource-key-value__label">建立任務時間</span>
+            <span class="resource-key-value__value">
+              {{ task.participation_request_context.assignment_created_at || '尚未提供。' }}
+            </span>
+          </div>
         </div>
       </section>
 

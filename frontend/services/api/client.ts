@@ -85,7 +85,8 @@ export function useApiClient() {
         baseURL: config.public.apiBaseUrl,
         method: options.method,
         body: options.body,
-        headers: options.headers
+        headers: options.headers,
+        credentials: 'include'
       })
     } catch (error) {
       throw normalizeApiError(error)

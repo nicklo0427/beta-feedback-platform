@@ -19,12 +19,14 @@ const props = withDefaults(
     actorId?: string | null
     initialValues: TaskFormValues
     deviceProfiles: DeviceProfileListItem[]
+    lockDeviceProfile?: boolean
     pending?: boolean
     errorMessage?: string | null
     submitLabel?: string
     cancelTo: string
   }>(),
   {
+    lockDeviceProfile: false,
     pending: false,
     errorMessage: null,
     submitLabel: '儲存任務'
@@ -179,6 +181,11 @@ function validateForm(): boolean {
     return false
   }
 
+  if (props.lockDeviceProfile && !selectedDeviceProfileId.value) {
+    validationMessage.value = '這個流程需要綁定指定的裝置設定檔。'
+    return false
+  }
+
   if (
     selectedDeviceProfileId.value
     && qualificationPreview.value?.qualification_status === 'not_qualified'
@@ -255,9 +262,9 @@ function handleSubmit(): void {
           class="resource-select"
           data-testid="task-device-profile-field"
           name="device_profile_id"
-          :disabled="pending"
+          :disabled="pending || lockDeviceProfile"
         >
-          <option value="">尚未指派裝置設定檔</option>
+          <option v-if="!lockDeviceProfile" value="">尚未指派裝置設定檔</option>
           <option
             v-for="deviceProfile in deviceProfiles"
             :key="deviceProfile.id"

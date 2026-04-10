@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
+import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
 import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
@@ -46,6 +47,13 @@ const taskDetail = {
     matched_rule_id: 'er_123',
     reason_summary: '符合目前活動的資格條件。',
     qualification_drift: false
+  },
+  participation_request_context: {
+    request_id: 'pr_123',
+    request_status: 'accepted',
+    tester_account_id: 'acct_tester_123',
+    tester_account_display_name: 'QA Tester',
+    assignment_created_at: '2026-04-03T09:05:00Z'
   }
 }
 
@@ -120,6 +128,13 @@ test.describe('tasks shell flows', () => {
         taskDetail.qualification_context.qualification_status as 'qualified' | 'not_qualified'
       )
     )
+    await expect(page.getByTestId('task-participation-request-context')).toContainText('pr_123')
+    await expect(page.getByTestId('task-participation-request-context')).toContainText(
+      formatParticipationRequestStatusLabel('accepted')
+    )
+    await expect(page.getByTestId('task-participation-request-context')).toContainText(
+      'QA Tester'
+    )
     await expect(page.getByTestId('task-feedback-empty')).toBeVisible()
   })
 
@@ -150,6 +165,52 @@ test.describe('tasks shell flows', () => {
     await expect(page.getByTestId('task-qualification-context')).toContainText(
       '主要未符合條件：安裝渠道不符合目前活動條件。'
     )
+  })
+
+  test('requires current actor before showing participation-linked task detail context', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+    await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
+      const actorId = route.request().headers()['x-actor-id']
+
+      if (!actorId) {
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            code: 'missing_actor_context',
+            message: 'Current actor is required.',
+            details: {
+              header: 'X-Actor-Id'
+            }
+          })
+        })
+        return
+      }
+
+      expect(actorId).toBe(developerAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(taskDetail)
+      })
+    })
+    await mockApiJson(page, '/tasks/task_123/feedback', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/tasks/task_123')
+
+    await expect(page.getByTestId('task-detail-error')).toContainText(
+      '這筆資料包含受保護的協作上下文，請先選擇目前操作帳號。'
+    )
+
+    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+
+    await expect(page.getByTestId('task-detail-panel')).toBeVisible()
+    await expect(page.getByTestId('task-participation-request-context')).toContainText('QA Tester')
   })
 
   test('supports creating a task from the campaign context', async ({ page }) => {

@@ -145,7 +145,7 @@ test.describe('feedback shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/new$/)
     await expect(page.getByTestId('feedback-create-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('Onboarding copy is unclear')
     await page.getByTestId('feedback-severity-field').selectOption('medium')
@@ -206,7 +206,7 @@ test.describe('feedback shell flows', () => {
       '提交回饋前，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     await page.getByTestId('feedback-submit').click()
 
     await expect(page.getByTestId('feedback-form-error')).toContainText(
@@ -240,6 +240,7 @@ test.describe('feedback shell flows', () => {
     await feedbackCard.click()
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123$/)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const detailPanel = page.getByTestId('feedback-detail-panel')
     await expect(detailPanel).toBeVisible()
@@ -277,7 +278,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
     await page
@@ -325,7 +326,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('needs_more_info')
     await page
@@ -384,11 +385,12 @@ test.describe('feedback shell flows', () => {
 
     await page.goto('/tasks/task_123')
     await page.getByTestId('feedback-card-fb_123').click()
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     await page.getByTestId('feedback-edit-link').click()
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123\/edit$/)
     await expect(page.getByTestId('feedback-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('App crashes on launch after splash')
     await page.getByTestId('feedback-note-input').fill('Still reproducible after reinstall.')
@@ -440,7 +442,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('feedback-supplement-banner')).toContainText(
       'Please include the exact time between launch and crash.'
@@ -451,7 +453,7 @@ test.describe('feedback shell flows', () => {
     await expect(page.getByTestId('feedback-resubmission-context')).toContainText(
       '需補充資訊'
     )
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await page
       .getByTestId('feedback-actual-result-input')
@@ -500,7 +502,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123/edit')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await page.getByTestId('feedback-summary-input').fill('Crash remains after reinstall')
     await page.getByTestId('feedback-submit').click()
@@ -543,7 +545,7 @@ test.describe('feedback shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/feedback/fb_123')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page.getByTestId('feedback-review-status-field').selectOption('reviewed')
     await page.getByTestId('feedback-review-submit').click()
@@ -574,10 +576,21 @@ test.describe('feedback shell flows', () => {
     )
 
     await page.goto('/tasks/task_123/feedback/fb_missing/edit')
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const errorState = page.getByTestId('feedback-edit-error')
     await expect(errorState).toBeVisible()
     await expect(errorState).toContainText('Feedback not found.')
+  })
+
+  test('requires selecting an actor before reading feedback detail', async ({
+    page
+  }) => {
+    await mockAccounts(page)
+
+    await page.goto('/tasks/task_123/feedback/fb_123')
+
+    await expect(page.getByTestId('feedback-detail-select-actor')).toBeVisible()
   })
 
   test('renders the task feedback empty state when the API returns no items', async ({

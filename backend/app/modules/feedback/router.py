@@ -16,7 +16,7 @@ from app.modules.feedback.schemas import (
 from app.modules.feedback.service import (
     create_feedback,
     delete_feedback,
-    get_feedback,
+    get_feedback_for_actor,
     list_feedback,
     list_feedback_queue,
     update_feedback,
@@ -61,8 +61,11 @@ def list_feedback_queue_route(
 
 
 @router.get("/feedback/{feedback_id}", response_model=FeedbackDetail)
-def get_feedback_route(feedback_id: str) -> FeedbackDetail:
-    return get_feedback(feedback_id)
+def get_feedback_route(
+    feedback_id: str,
+    current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
+) -> FeedbackDetail:
+    return get_feedback_for_actor(feedback_id, current_actor_id)
 
 
 @router.patch("/feedback/{feedback_id}", response_model=FeedbackDetail)

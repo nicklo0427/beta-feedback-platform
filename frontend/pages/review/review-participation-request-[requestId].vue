@@ -8,13 +8,17 @@ import { computed } from 'vue'
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
 import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
-import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
+import {
+  formatParticipationAssignmentStatusLabel,
+  formatParticipationRequestStatusLabel
+} from '~/features/participation-requests/types'
 import { fetchParticipationRequestDetail } from '~/features/participation-requests/api'
 import { formatPlatformLabel } from '~/features/platform-display'
 
@@ -67,6 +71,14 @@ const {
 
 const testerSummary = computed(
   () => participationRequest.value?.tester_account_summary.tester_summary ?? null
+)
+const canCreateTaskFromRequest = computed(
+  () =>
+    participationRequest.value?.status === 'accepted'
+    && !participationRequest.value.linked_task_id
+)
+const detailErrorMessage = computed(() =>
+  getActorAwareReadErrorMessage(error.value, '找不到指定的參與意圖。')
 )
 </script>
 
@@ -164,7 +176,7 @@ const testerSummary = computed(
       >
         <h2 class="resource-state__title">無法載入參與意圖詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的參與意圖。' }}
+          {{ detailErrorMessage }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
@@ -189,6 +201,22 @@ const testerSummary = computed(
             >
               查看活動
             </NuxtLink>
+            <NuxtLink
+              v-if="canCreateTaskFromRequest"
+              class="resource-action"
+              data-testid="participation-request-create-task-link"
+              :to="`/review/participation-requests/${participationRequest.id}/tasks/new`"
+            >
+              從 request 建立任務
+            </NuxtLink>
+            <NuxtLink
+              v-else-if="participationRequest.linked_task_id"
+              class="resource-action"
+              data-testid="participation-request-linked-task-link"
+              :to="`/tasks/${participationRequest.linked_task_id}`"
+            >
+              查看對應任務
+            </NuxtLink>
             <NuxtLink class="resource-action" to="/review/participation-requests">
               返回審查佇列
             </NuxtLink>
@@ -199,6 +227,9 @@ const testerSummary = computed(
             </span>
             <span class="resource-shell__meta-chip">
               裝置 {{ participationRequest.device_profile_name }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              任務橋接 {{ formatParticipationAssignmentStatusLabel(participationRequest.assignment_status) }}
             </span>
           </div>
           <div class="resource-key-value">
@@ -230,6 +261,25 @@ const testerSummary = computed(
               <span class="resource-key-value__label">處理時間</span>
               <span class="resource-key-value__value">
                 {{ participationRequest.decided_at || '尚未處理。' }}
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">對應任務</span>
+              <NuxtLink
+                v-if="participationRequest.linked_task_id"
+                class="resource-key-value__value"
+                :to="`/tasks/${participationRequest.linked_task_id}`"
+              >
+                {{ participationRequest.linked_task_id }}
+              </NuxtLink>
+              <span v-else class="resource-key-value__value">
+                尚未建立。
+              </span>
+            </div>
+            <div class="resource-key-value__row">
+              <span class="resource-key-value__label">建立任務時間</span>
+              <span class="resource-key-value__value">
+                {{ participationRequest.assignment_created_at || '尚未建立。' }}
               </span>
             </div>
           </div>

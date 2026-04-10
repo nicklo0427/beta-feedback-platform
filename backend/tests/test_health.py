@@ -10,4 +10,6 @@ def test_health_check_returns_ok(client: TestClient) -> None:
         "service": "beta-feedback-platform-backend",
         "environment": "development",
         "database_configured": False,
+        "persistence_mode": "memory",
+        "auth_mode": "session_with_header_fallback",
     }

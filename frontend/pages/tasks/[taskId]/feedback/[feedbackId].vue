@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -30,11 +31,17 @@ const {
   error,
   refresh
 } = useAsyncData(
-  () => `feedback-detail-${feedbackId.value}`,
-  () => fetchFeedbackDetail(feedbackId.value),
+  () => `feedback-detail-${feedbackId.value}-${currentActorId.value ?? 'none'}`,
+  async () => {
+    if (!currentActorId.value) {
+      return null
+    }
+
+    return fetchFeedbackDetail(feedbackId.value, currentActorId.value)
+  },
   {
     server: false,
-    watch: [feedbackId],
+    watch: [feedbackId, currentActorId],
     default: () => null
   }
 )
@@ -153,7 +160,18 @@ async function handleReviewSubmit(): Promise<void> {
       />
 
       <section
-        v-if="pending"
+        v-if="!currentActorId"
+        class="resource-state"
+        data-testid="feedback-detail-select-actor"
+      >
+        <h2 class="resource-state__title">請先選擇目前操作帳號</h2>
+        <p class="resource-state__description">
+          回饋詳情現在需要 actor-aware read context，請先選擇目前操作帳號。
+        </p>
+      </section>
+
+      <section
+        v-else-if="pending"
         class="resource-state"
         data-testid="feedback-detail-loading"
       >
@@ -170,7 +188,7 @@ async function handleReviewSubmit(): Promise<void> {
       >
         <h2 class="resource-state__title">無法載入回饋詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的回饋。' }}
+          {{ getActorAwareReadErrorMessage(error, '找不到指定的回饋。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">

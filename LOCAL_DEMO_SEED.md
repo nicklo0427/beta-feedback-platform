@@ -2,11 +2,19 @@
 
 ## 1. 目的
 
-這份文件對應 `T028-local-demo-data-seeding-workflow`。
+這份文件對應 `T028-local-demo-data-seeding-workflow`，並一路收斂到 public beta 前的本地 QA fixture workflow。
 
 目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures`、`T049-qualification-aware-demo-seed-and-manual-qa-refresh` 與 `T057-participation-aware-demo-seed-and-docs-refresh`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware、qualification / assignment、以及 participation flow 驗收的 fixture graph。
 
 用途是用一個命令，透過既有 HTTP API 建立一組本地 demo graph，方便手動驗收與錄影 demo。
+
+補充：
+
+- 這份 seed 主要服務的是 `full fixture regression`
+- 它不是 `session-only beta smoke`
+- 若你要驗證 public beta 真實上線條件，請先看：
+  - [OPS_RUNBOOK.md](/Users/lowhaijer/projects/beta-feedback-platform/OPS_RUNBOOK.md)
+  - [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)
 
 建立的資料至少包含：
 
@@ -17,7 +25,7 @@
 - 1 筆 `Campaign Safety`
 - 2 筆 `Eligibility Rule`
 - 3 筆 `Device Profile`
-- 2 筆 `Task`
+- 3 筆 `Task`
 - 1 筆 `Feedback`
 - 2 筆 `Participation Request`
 
@@ -32,6 +40,17 @@
 對應 API base URL：
 
 - `http://127.0.0.1:8000/api/v1`
+
+若你要成功建立這份 role-aware fixture，建議 QA 環境設定：
+
+- `BFP_DATABASE_URL` 已設定
+- `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=true`
+
+原因：
+
+- script 仍會傳 `X-Actor-Id`
+- 這是為了快速建立 owned fixture graph
+- 它適合本地 QA，不適合拿來代表 public beta 真實登入流程
 
 ### 2.2 Frontend
 
@@ -113,6 +132,9 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - `Task`
   - drift task 也會先成功指派到 iOS device profile
   - 之後因 drift campaign 的 eligibility rule 被更新，這筆 task 會顯示 qualification drift
+- `Task`
+  - accepted-request linked task 會由已 accepted 的 participation request 橋接建立
+  - 用來驗證 request-to-task traceability、actor-aware task detail read、以及 candidate snapshot 到 task detail 的鏈路
 - `Feedback`
   - 建立後由既有 backend flow 推進 task 狀態
   - feedback 會保留 `review_status = submitted`，方便手動驗證 `T027`
@@ -122,7 +144,8 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - `Participation Request`
   - 一筆 `accepted` request
   - 會出現在 tester 的 `/my/participation-requests`
-  - 可直接用來驗證已處理狀態與 request detail 快照
+  - 而且已經橋接建立對應 task
+  - 可直接用來驗證已處理狀態、request detail 快照、linked task 與 traceability
 
 這代表：
 
@@ -141,6 +164,10 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - task assignment qualification preview
 - task qualification drift panel
 - participation request create / review / detail
+- participation accepted -> task assignment bridge
+- request-to-task traceability
+- participation-linked task detail read guard
+- developer participation funnel summary
 
 ## 5. Script 輸出內容
 
@@ -173,26 +200,28 @@ script 成功後，至少確認以下頁面：
 7. `Tester participation requests workspace`
 8. `Developer participation review queue`
 9. `Participation request detail`
+10. `Participation-linked task detail`
+11. `Pending participation request task-bridge route`
 
 若要驗收 role-aware flow，建議再補：
 
-10. `Accounts detail`
-11. 首頁 current actor 切換
-12. `/my/projects`
-13. `/my/campaigns`
-14. `/review/feedback`
-15. `Feedback detail`
+12. `Accounts detail`
+13. 首頁 current actor 切換
+14. `/my/projects`
+15. `/my/campaigns`
+16. `/review/feedback`
+17. `Feedback detail`
 
 推薦直接打開 script 輸出的 frontend URLs。
 
 ## 7. 重要限制
 
-- backend 目前仍是 in-memory repository
-- backend process restart 後，所有 seed data 都會消失
+- 若未設定 `BFP_DATABASE_URL`，backend 仍可能跑在 in-memory mode
+- 若你真的用 in-memory mode 跑 seed，backend restart 後資料仍會消失
 - 這是本地 demo workflow，不是正式 fixture system
 - 這支 script 只調用現有 product API，不會直接碰 repository internals
 - 這支 script 會傳 `X-Actor-Id`，用既有 current actor baseline 建立 ownership fixture
-- current actor 仍不是正式 auth / session；它只是本地驗收用 baseline
+- 這表示它需要 fallback-enabled QA 環境，不適合當成 strict `session_only` beta smoke
 - 目前 seed 已使用 `install_channel` 驗證 qualification fidelity，因此 iOS fixture 會使用 `testflight`，Android fixture 會使用 `play-store`
 
 ## 8. 實作備註
@@ -204,4 +233,7 @@ script 成功後，至少確認以下頁面：
 - 若你要驗證 ineligible assignment fail，請用 developer actor 打開 qualified campaign 的 task create form，並選擇那筆 Android device profile
 - 若你要驗證 drift warning，請直接打開 script 輸出的 drift task detail 與 `/my/tasks`
 - 若你要驗證 participation review queue，請切到 developer actor 打開 `/review/participation-requests`
-- 若你要驗證已接受的 participation request 狀態，請切到 tester actor 打開 `/my/participation-requests`
+- 若你要驗證已接受的 participation request 狀態與 linked task，請切到 tester actor 打開 `/my/participation-requests`
+- 若你要驗證 manual bridge flow，請先在 developer review queue 接受 pending request，再開 `/review/participation-requests/:requestId/tasks/new`
+- 若你要驗證 public beta 上線條件，不要只跑 seed；請另外執行：
+  - [scripts/public_beta_smoke.py](/Users/lowhaijer/projects/beta-feedback-platform/scripts/public_beta_smoke.py)

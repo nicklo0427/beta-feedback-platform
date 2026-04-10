@@ -287,6 +287,15 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "status": "accepted",
             "decision_note": "Accepted for the next beta batch. Please watch the onboarding funnel."
         },
+        "accepted_request_task": {
+            "title": "Follow up accepted participation request onboarding run",
+            "instruction_summary": (
+                "This task is seeded from an accepted participation request so request-to-task "
+                "traceability, candidate snapshot linkage, and actor-aware task detail reads can "
+                "be verified from the UI."
+            ),
+            "status": "assigned",
+        },
     }
 
 
@@ -310,6 +319,7 @@ def print_summary(
     feedback: dict[str, Any],
     pending_participation_request: dict[str, Any],
     accepted_participation_request: dict[str, Any],
+    accepted_request_task: dict[str, Any],
 ) -> None:
     frontend = config.frontend_base_url
     api_base = config.api_base_url
@@ -320,6 +330,7 @@ def print_summary(
     print("Backend health")
     print(f"- service: {health.get('service')}")
     print(f"- status: {health.get('status')}")
+    print(f"- database_configured: {health.get('database_configured')}")
     print("")
     print("Current actors")
     print(
@@ -356,6 +367,10 @@ def print_summary(
     )
     print(f"- qualified task: {qualified_task['id']} ({qualified_task['title']})")
     print(f"- drift task: {drift_task['id']} ({drift_task['title']})")
+    print(
+        "- accepted-request linked task: "
+        f"{accepted_request_task['id']} ({accepted_request_task['title']})"
+    )
     print(f"- feedback: {feedback['id']} ({feedback['summary']})")
     print(
         "- pending participation request: "
@@ -395,6 +410,10 @@ def print_summary(
     print(f"- qualified task detail: {frontend}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {frontend}/tasks/{drift_task['id']}")
     print(
+        "- accepted-request linked task detail: "
+        f"{frontend}/tasks/{accepted_request_task['id']}"
+    )
+    print(
         "- feedback detail: "
         f"{frontend}/tasks/{qualified_task['id']}/feedback/{feedback['id']}"
     )
@@ -405,6 +424,10 @@ def print_summary(
     print(
         "- accepted participation request detail: "
         f"{frontend}/review/participation-requests/{accepted_participation_request['id']}"
+    )
+    print(
+        "- pending participation request task-bridge route: "
+        f"{frontend}/review/participation-requests/{pending_participation_request['id']}/tasks/new"
     )
     print("")
     print("Qualification verification URLs")
@@ -444,6 +467,10 @@ def print_summary(
     )
     print(f"- qualified task detail: {api_base}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {api_base}/tasks/{drift_task['id']}")
+    print(
+        "- accepted-request linked task detail: "
+        f"{api_base}/tasks/{accepted_request_task['id']}"
+    )
     print(f"- feedback detail: {api_base}/feedback/{feedback['id']}")
     print(
         f"- pending participation request detail: {api_base}/participation-requests/{pending_participation_request['id']}"
@@ -457,11 +484,14 @@ def print_summary(
     print("- The seeded qualified campaign gives you two passing iOS device profiles and one failing Android device profile for qualification checks.")
     print("- Use the qualified campaign task form to verify assignment preview and ineligible assignment blocking.")
     print("- The drift campaign already contains an assigned task whose qualification now drifts after rule changes.")
-    print("- The seeded pending participation request appears in the developer participation review queue and tester participation workspace.")
-    print("- The seeded accepted participation request lets you verify reviewed status and request detail snapshots without first clicking accept.")
+    print("- The seeded pending participation request appears in the developer participation review queue and tester participation workspace, and can be manually accepted then bridged into a task.")
+    print("- The seeded accepted participation request is already linked to a task, so request-to-task traceability and actor-aware task detail reads can be verified immediately.")
     print("- The seeded project and both campaigns are owned by the developer actor.")
     print("- All seeded device profiles belong to the tester actor.")
-    print("- Backend data is in-memory. Restarting the backend clears everything.")
+    if health.get("database_configured"):
+        print("- Backend data is persisted. Restarting the backend keeps data until the database file or schema is reset.")
+    else:
+        print("- Backend data is in-memory. Restarting the backend clears everything.")
     print("- The seeded feedback remains in review_status=submitted for manual T027 checks.")
     print("- Re-running this script creates a fresh demo graph with a new label.")
 
@@ -597,6 +627,17 @@ def main() -> int:
             payload=payloads["accepted_participation_decision"],
             actor_id=developer_account["id"],
         )
+        accepted_request_task = post_resource(
+            config=config,
+            path=f"/participation-requests/{accepted_participation_request['id']}/tasks",
+            payload=payloads["accepted_request_task"],
+            actor_id=developer_account["id"],
+        )
+        accepted_participation_request = get_resource(
+            config=config,
+            path=f"/participation-requests/{accepted_participation_request['id']}",
+            actor_id=developer_account["id"],
+        )
         drift_eligibility_rule = patch_resource(
             config=config,
             path=f"/eligibility-rules/{drift_eligibility_rule['id']}",
@@ -627,6 +668,7 @@ def main() -> int:
             feedback=feedback,
             pending_participation_request=pending_participation_request,
             accepted_participation_request=accepted_participation_request,
+            accepted_request_task=accepted_request_task,
         )
         return 0
     except SeedWorkflowError as exc:

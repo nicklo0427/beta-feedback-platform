@@ -18,6 +18,8 @@ from app.modules.campaigns.schemas import (
     CampaignDetail,
     CampaignListItem,
     CampaignListResponse,
+    CampaignParticipationSummary,
+    CampaignParticipationRecentRequest,
     CampaignStatus,
     CampaignUpdate,
 )
@@ -43,12 +45,15 @@ def _to_campaign_list_item(
     *,
     qualifying_device_profiles: list[dict[str, str]] | None = None,
     qualification_summary: str | None = None,
+    participation_summary: CampaignParticipationSummary | None = None,
 ) -> CampaignListItem:
     payload: dict[str, object] = asdict(record)
     if qualifying_device_profiles is not None:
         payload["qualifying_device_profiles"] = qualifying_device_profiles
     if qualification_summary is not None:
         payload["qualification_summary"] = qualification_summary
+    if participation_summary is not None:
+        payload["participation_summary"] = participation_summary.model_dump()
     return CampaignListItem.model_validate(payload)
 
 
@@ -221,6 +226,80 @@ def _build_campaign_qualification_summary(
     return f"目前有 {qualifying_profile_count} 個裝置設定檔符合這個活動資格。"
 
 
+def _build_campaign_participation_summary(
+    campaign_id: str,
+) -> CampaignParticipationSummary:
+    from app.modules.accounts.service import get_account
+    from app.modules.device_profiles import repository as device_profiles_repository
+    from app.modules.participation_requests import repository as participation_repository
+
+    records = sorted(
+        [
+            record
+            for record in participation_repository.list_participation_requests()
+            if record.campaign_id == campaign_id
+        ],
+        key=lambda record: record.created_at,
+        reverse=True,
+    )
+
+    device_profiles_by_id = {
+        record.id: record
+        for record in device_profiles_repository.list_device_profiles()
+    }
+
+    pending_requests_count = sum(
+        1 for record in records if record.status == "pending"
+    )
+    accepted_requests_count = sum(
+        1
+        for record in records
+        if record.status == "accepted" and record.linked_task_id is None
+    )
+    linked_tasks_count = sum(
+        1 for record in records if record.linked_task_id is not None
+    )
+
+    recent_participation_requests = [
+        CampaignParticipationRecentRequest.model_validate(
+            {
+                "id": record.id,
+                "tester_account_id": record.tester_account_id,
+                "tester_account_display_name": get_account(
+                    record.tester_account_id
+                ).display_name,
+                "device_profile_id": record.device_profile_id,
+                "device_profile_name": device_profiles_by_id.get(
+                    record.device_profile_id
+                ).name
+                if device_profiles_by_id.get(record.device_profile_id) is not None
+                else record.device_profile_id,
+                "status": record.status,
+                "linked_task_id": record.linked_task_id,
+                "assignment_status": (
+                    "task_created"
+                    if record.linked_task_id is not None
+                    else "not_assigned"
+                ),
+                "created_at": record.created_at,
+            }
+        )
+        for record in records[:3]
+    ]
+
+    return CampaignParticipationSummary.model_validate(
+        {
+            "campaign_id": campaign_id,
+            "pending_requests_count": pending_requests_count,
+            "accepted_requests_count": accepted_requests_count,
+            "linked_tasks_count": linked_tasks_count,
+            "recent_participation_requests": [
+                item.model_dump() for item in recent_participation_requests
+            ],
+        }
+    )
+
+
 def list_campaigns(
     project_id: Optional[str] = None,
     *,
@@ -245,6 +324,14 @@ def list_campaigns(
         records = [
             record for record in records if record.project_id in owned_project_ids
         ]
+        items = [
+            _to_campaign_list_item(
+                record,
+                participation_summary=_build_campaign_participation_summary(record.id),
+            )
+            for record in records
+        ]
+        return CampaignListResponse.model_validate(build_list_response(items))
 
     if qualified_for_me:
         if current_actor_id is None:

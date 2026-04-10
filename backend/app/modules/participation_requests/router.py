@@ -10,14 +10,17 @@ from app.modules.participation_requests.schemas import (
     ParticipationRequestDetail,
     ParticipationRequestEnrichedDetail,
     ParticipationRequestListResponse,
+    ParticipationRequestTaskCreate,
     ParticipationRequestUpdate,
 )
 from app.modules.participation_requests.service import (
+    create_task_from_participation_request,
     create_participation_request,
     get_participation_request,
     list_participation_requests,
     update_participation_request,
 )
+from app.modules.tasks.schemas import TaskDetail
 
 router = APIRouter(tags=["participation_requests"])
 
@@ -83,6 +86,24 @@ def update_participation_request_route(
     current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> ParticipationRequestDetail:
     return update_participation_request(
+        request_id,
+        payload,
+        require_current_actor_id(current_actor_id),
+    )
+
+
+@router.post(
+    "/participation-requests/{request_id}/tasks",
+    response_model=TaskDetail,
+    status_code=status.HTTP_201_CREATED,
+    response_model_exclude_unset=True,
+)
+def create_task_from_participation_request_route(
+    request_id: str,
+    payload: ParticipationRequestTaskCreate,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> TaskDetail:
+    return create_task_from_participation_request(
         request_id,
         payload,
         require_current_actor_id(current_actor_id),

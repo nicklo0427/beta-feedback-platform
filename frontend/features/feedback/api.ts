@@ -41,10 +41,13 @@ export async function fetchFeedbackQueue(
 }
 
 export async function fetchFeedbackDetail(
-  feedbackId: string
+  feedbackId: string,
+  actorId?: string | null
 ): Promise<FeedbackDetail> {
   const { request } = useApiClient()
-  return request<FeedbackDetail>(`/feedback/${feedbackId}`)
+  return request<FeedbackDetail>(`/feedback/${feedbackId}`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function createFeedback(

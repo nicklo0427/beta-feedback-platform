@@ -40,6 +40,9 @@ test.describe('participation review queue flows', () => {
         created_at: string
         updated_at: string
         decided_at: string | null
+        linked_task_id: string | null
+        assignment_created_at: string | null
+        assignment_status: string
       }>
       total: number
     } = {
@@ -56,7 +59,10 @@ test.describe('participation review queue flows', () => {
           decision_note: null,
           created_at: '2026-04-09T09:30:00Z',
           updated_at: '2026-04-09T09:30:00Z',
-          decided_at: null
+          decided_at: null,
+          linked_task_id: null,
+          assignment_created_at: null,
+          assignment_status: 'not_assigned'
         }
       ],
       total: 1
@@ -113,12 +119,15 @@ test.describe('participation review queue flows', () => {
         status: 'accepted',
         decision_note: '你的裝置與目前 beta 目標相符。',
         updated_at: '2026-04-09T10:00:00Z',
-        decided_at: '2026-04-09T10:00:00Z'
+        decided_at: '2026-04-09T10:00:00Z',
+        linked_task_id: null,
+        assignment_created_at: null,
+        assignment_status: 'not_assigned'
       }
 
       reviewQueueResponse = {
-        items: [],
-        total: 0
+        items: [updatedRequest],
+        total: 1
       }
       myRequestsResponse = {
         items: [updatedRequest],
@@ -142,7 +151,15 @@ test.describe('participation review queue flows', () => {
       .fill('你的裝置與目前 beta 目標相符。')
     await page.getByTestId('review-participation-accept-pr_123').click()
 
-    await expect(page.getByTestId('participation-review-empty')).toBeVisible()
+    const acceptedCard = page.getByTestId('review-participation-request-card-pr_123')
+    await expect(acceptedCard).toContainText(
+      formatParticipationRequestStatusLabel('accepted')
+    )
+    await expect(acceptedCard).toContainText('任務橋接 尚未建立任務')
+    await expect(page.getByTestId('review-participation-create-task-pr_123')).toBeVisible()
+    await expect(page.getByTestId('participation-review-summary')).toContainText('待處理 0')
+    await expect(page.getByTestId('participation-review-summary')).toContainText('已接受待建任務 1')
+    await expect(page.getByTestId('participation-review-summary')).toContainText('涉及活動 1')
 
     await page.goto('/my/participation-requests')
     await page.getByTestId('current-actor-select').selectOption(testerAccount.id)

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.modules.accounts.repository import clear_accounts
+from app.modules.auth.repository import clear_sessions
 from app.modules.campaigns.repository import clear_campaigns
 from app.modules.device_profiles.repository import clear_device_profiles
 from app.modules.eligibility.repository import clear_eligibility_rules
@@ -21,6 +22,7 @@ from app.modules.tasks.repository import clear_tasks
 def clear_in_memory_state() -> Generator[None, None, None]:
     # Keep the in-memory repositories isolated between tests.
     clear_accounts()
+    clear_sessions()
     clear_campaigns()
     clear_device_profiles()
     clear_eligibility_rules()
@@ -31,6 +33,7 @@ def clear_in_memory_state() -> Generator[None, None, None]:
     clear_tasks()
     yield
     clear_accounts()
+    clear_sessions()
     clear_campaigns()
     clear_device_profiles()
     clear_eligibility_rules()

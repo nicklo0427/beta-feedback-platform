@@ -9,12 +9,15 @@ import type {
   CampaignReputationSummary,
   DeviceProfileReputationSummary
 } from '~/features/reputation/types'
+import type { TaskStatus } from '~/features/tasks/types'
 
 export type ParticipationRequestStatus =
   | 'pending'
   | 'accepted'
   | 'declined'
   | 'withdrawn'
+
+export type ParticipationAssignmentStatus = 'not_assigned' | 'task_created'
 
 const PARTICIPATION_REQUEST_STATUS_LABELS: Record<
   ParticipationRequestStatus,
@@ -32,6 +35,20 @@ export function formatParticipationRequestStatusLabel(
   return PARTICIPATION_REQUEST_STATUS_LABELS[value]
 }
 
+const PARTICIPATION_ASSIGNMENT_STATUS_LABELS: Record<
+  ParticipationAssignmentStatus,
+  string
+> = {
+  not_assigned: '尚未建立任務',
+  task_created: '已建立任務'
+}
+
+export function formatParticipationAssignmentStatusLabel(
+  value: ParticipationAssignmentStatus
+): string {
+  return PARTICIPATION_ASSIGNMENT_STATUS_LABELS[value]
+}
+
 export interface ParticipationRequestListItem {
   id: string
   campaign_id: string
@@ -45,6 +62,9 @@ export interface ParticipationRequestListItem {
   created_at: string
   updated_at: string
   decided_at: string | null
+  linked_task_id: string | null
+  assignment_created_at: string | null
+  assignment_status: ParticipationAssignmentStatus
 }
 
 export interface ParticipationRequestDetail extends ParticipationRequestListItem {}
@@ -75,6 +95,12 @@ export type ParticipationRequestDecisionStatus = 'accepted' | 'declined'
 export interface ParticipationRequestDecisionPayload {
   status: ParticipationRequestDecisionStatus
   decision_note: string | null
+}
+
+export interface ParticipationRequestTaskCreatePayload {
+  title: string
+  instruction_summary: string | null
+  status: TaskStatus
 }
 
 export interface ParticipationRequestQualifiedDeviceProfileOption {

@@ -12,6 +12,16 @@ from app.modules.device_profiles.schemas import DeviceProfileCreate
 from app.modules.device_profiles.service import create_device_profile
 from app.modules.eligibility.schemas import EligibilityRuleCreate, EligibilityRulePlatform
 from app.modules.eligibility.service import create_eligibility_rule
+from app.modules.participation_requests.schemas import (
+    ParticipationRequestCreate,
+    ParticipationRequestTaskCreate,
+    ParticipationRequestUpdate,
+)
+from app.modules.participation_requests.service import (
+    create_participation_request,
+    create_task_from_participation_request,
+    update_participation_request,
+)
 from app.modules.projects.schemas import ProjectCreate
 from app.modules.projects.service import create_project, delete_project
 from app.modules.safety.schemas import CampaignSafetyCreate, DistributionChannel, RiskLevel
@@ -109,6 +119,114 @@ def test_campaign_service_list_supports_mine_filter_for_owned_projects() -> None
     assert filtered_campaigns.total == 1
     assert filtered_campaigns.items[0].id == owned_campaign.id
     assert filtered_campaigns.items[0].project_id == owned_project.id
+    assert filtered_campaigns.items[0].participation_summary is not None
+    assert filtered_campaigns.items[0].participation_summary.pending_requests_count == 0
+    assert filtered_campaigns.items[0].participation_summary.accepted_requests_count == 0
+    assert filtered_campaigns.items[0].participation_summary.linked_tasks_count == 0
+
+
+def test_campaign_service_list_mine_includes_participation_summary_and_recent_candidates() -> None:
+    developer = _create_developer_account("Owner Dev")
+    tester = _create_tester_account("Qualified Tester")
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="iOS Closed Beta",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    first_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform="ios",
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            os_version="17.4.1",
+            install_channel="testflight",
+        ),
+        current_actor_id=tester.id,
+    )
+    second_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15 Alt",
+            platform="ios",
+            device_model="iPhone 15",
+            os_name="iOS",
+            os_version="17.4.1",
+            install_channel="testflight",
+        ),
+        current_actor_id=tester.id,
+    )
+    third_device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15 Bridge",
+            platform="ios",
+            device_model="iPhone 15 Plus",
+            os_name="iOS",
+            os_version="17.4.1",
+            install_channel="testflight",
+        ),
+        current_actor_id=tester.id,
+    )
+    create_eligibility_rule(
+        campaign.id,
+        EligibilityRuleCreate(
+            platform=EligibilityRulePlatform.IOS,
+            os_name="iOS",
+            install_channel="testflight",
+        ),
+        current_actor_id=developer.id,
+    )
+
+    pending_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=first_device_profile.id),
+        tester.id,
+    )
+    accepted_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=second_device_profile.id),
+        tester.id,
+    )
+    update_participation_request(
+        accepted_request.id,
+        ParticipationRequestUpdate(status="accepted", decision_note="Looks good."),
+        developer.id,
+    )
+
+    bridge_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=third_device_profile.id, note="Second pass"),
+        tester.id,
+    )
+    update_participation_request(
+        bridge_request.id,
+        ParticipationRequestUpdate(status="accepted", decision_note="Create task."),
+        developer.id,
+    )
+    create_task_from_participation_request(
+        bridge_request.id,
+        ParticipationRequestTaskCreate(title="Validate onboarding"),
+        developer.id,
+    )
+
+    filtered_campaigns = list_campaigns(
+        mine=True,
+        current_actor_id=developer.id,
+    )
+
+    summary = filtered_campaigns.items[0].participation_summary
+    assert summary is not None
+    assert summary.pending_requests_count == 1
+    assert summary.accepted_requests_count == 1
+    assert summary.linked_tasks_count == 1
+    assert len(summary.recent_participation_requests) == 3
+    assert summary.recent_participation_requests[0].tester_account_display_name == tester.display_name
 
 
 def test_campaign_service_list_mine_rejects_non_developer_actor() -> None:

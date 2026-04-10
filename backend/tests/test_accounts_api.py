@@ -38,7 +38,10 @@ def test_accounts_crud_flow_returns_expected_shapes(client: TestClient) -> None:
         "total": 1,
     }
 
-    detail_response = client.get(f"/api/v1/accounts/{account_id}")
+    detail_response = client.get(
+        f"/api/v1/accounts/{account_id}",
+        headers={"X-Actor-Id": account_id},
+    )
 
     assert detail_response.status_code == 200
     assert detail_response.json() == created_account
@@ -62,7 +65,10 @@ def test_accounts_crud_flow_returns_expected_shapes(client: TestClient) -> None:
     assert delete_response.status_code == 204
     assert delete_response.content == b""
 
-    missing_response = client.get(f"/api/v1/accounts/{account_id}")
+    missing_response = client.get(
+        f"/api/v1/accounts/{account_id}",
+        headers={"X-Actor-Id": account_id},
+    )
 
     assert missing_response.status_code == 404
     assert missing_response.json() == {
@@ -135,7 +141,10 @@ def test_account_summary_returns_developer_owned_resource_counts(client: TestCli
     )
     campaign = campaign_response.json()
 
-    summary_response = client.get(f"/api/v1/accounts/{developer['id']}/summary")
+    summary_response = client.get(
+        f"/api/v1/accounts/{developer['id']}/summary",
+        headers={"X-Actor-Id": developer["id"]},
+    )
 
     assert summary_response.status_code == 200
     assert summary_response.json() == {
@@ -179,7 +188,10 @@ def test_account_summary_returns_tester_zero_state_without_owned_resources(
     )
     tester = tester_response.json()
 
-    summary_response = client.get(f"/api/v1/accounts/{tester['id']}/summary")
+    summary_response = client.get(
+        f"/api/v1/accounts/{tester['id']}/summary",
+        headers={"X-Actor-Id": tester["id"]},
+    )
 
     assert summary_response.status_code == 200
     assert summary_response.json() == {
@@ -201,7 +213,10 @@ def test_account_summary_returns_tester_zero_state_without_owned_resources(
 def test_account_summary_returns_not_found_for_missing_account(
     client: TestClient,
 ) -> None:
-    response = client.get("/api/v1/accounts/acct_missing/summary")
+    response = client.get(
+        "/api/v1/accounts/acct_missing/summary",
+        headers={"X-Actor-Id": "acct_missing"},
+    )
 
     assert response.status_code == 404
     assert response.json() == {
@@ -210,5 +225,66 @@ def test_account_summary_returns_not_found_for_missing_account(
         "details": {
             "resource": "account",
             "id": "acct_missing",
+        },
+    }
+
+
+def test_account_detail_requires_current_actor_header(client: TestClient) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "Alice QA",
+            "role": "tester",
+        },
+    )
+    account_id = account_response.json()["id"]
+
+    response = client.get(f"/api/v1/accounts/{account_id}")
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_account_summary_rejects_other_actor_read(client: TestClient) -> None:
+    target_response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "Alice QA",
+            "role": "tester",
+        },
+    )
+    actor_response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "Build Owner",
+            "role": "developer",
+        },
+    )
+    target_id = target_response.json()["id"]
+    actor_id = actor_response.json()["id"]
+
+    response = client.get(
+        f"/api/v1/accounts/{target_id}/summary",
+        headers={"X-Actor-Id": actor_id},
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "ownership_mismatch",
+        "message": "Current actor does not own the target resource.",
+        "details": {
+            "actor_id": actor_id,
+            "resource": "account",
+            "ownership_anchor": {
+                "resource": "account",
+                "id": target_id,
+                "owner_account_id": target_id,
+            },
         },
     }

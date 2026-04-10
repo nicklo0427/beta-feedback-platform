@@ -20,6 +20,16 @@ from app.modules.projects.schemas import ProjectCreate
 from app.modules.projects.service import create_project
 from app.modules.feedback.schemas import FeedbackCategory, FeedbackCreate, FeedbackSeverity
 from app.modules.feedback.service import create_feedback
+from app.modules.participation_requests.schemas import (
+    ParticipationRequestCreate,
+    ParticipationRequestTaskCreate,
+    ParticipationRequestUpdate,
+)
+from app.modules.participation_requests.service import (
+    create_participation_request,
+    create_task_from_participation_request,
+    update_participation_request,
+)
 from app.modules.tasks.schemas import TaskCreate, TaskStatus, TaskUpdate
 from app.modules.tasks.service import (
     create_task,
@@ -222,6 +232,175 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
         "主要未符合條件：安裝渠道不符合目前活動條件。"
     )
     assert detail_after_drift.qualification_context.qualification_drift is True
+
+
+def test_task_service_detail_includes_participation_request_context_when_linked() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            install_channel="testflight",
+            os_version="17.4",
+        ),
+        tester.id,
+    )
+    participation_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=device_profile.id),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    created_task = create_task_from_participation_request(
+        accepted_request.id,
+        ParticipationRequestTaskCreate(title="Validate request bridge"),
+        developer.id,
+    )
+
+    detail = get_task(created_task.id, developer.id)
+
+    assert detail.participation_request_context is not None
+    assert detail.participation_request_context.request_id == accepted_request.id
+    assert detail.participation_request_context.request_status == "accepted"
+    assert detail.participation_request_context.tester_account_id == tester.id
+    assert detail.participation_request_context.tester_account_display_name == (
+        tester.display_name
+    )
+    assert detail.participation_request_context.assignment_created_at is not None
+
+
+def test_task_service_detail_requires_actor_for_linked_participation_request() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            install_channel="testflight",
+            os_version="17.4",
+        ),
+        tester.id,
+    )
+    participation_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=device_profile.id),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    created_task = create_task_from_participation_request(
+        accepted_request.id,
+        ParticipationRequestTaskCreate(title="Validate request bridge"),
+        developer.id,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        get_task(created_task.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_400_BAD_REQUEST
+    assert error.code == "missing_actor_context"
+
+
+def test_task_service_detail_rejects_wrong_tester_for_linked_participation_request() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    other_tester = create_account(
+        AccountCreate(display_name="QA Backup", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            install_channel="testflight",
+            os_version="17.4",
+        ),
+        tester.id,
+    )
+    participation_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=device_profile.id),
+        tester.id,
+    )
+    accepted_request = update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    created_task = create_task_from_participation_request(
+        accepted_request.id,
+        ParticipationRequestTaskCreate(title="Validate request bridge"),
+        developer.id,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        get_task(created_task.id, other_tester.id)
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "ownership_mismatch"
 
 
 def test_task_service_list_mine_returns_empty_when_actor_has_no_owned_device_profiles() -> None:

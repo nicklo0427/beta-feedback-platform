@@ -7,6 +7,7 @@ import { computed, ref, watch } from 'vue'
 
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -41,11 +42,17 @@ const {
   error,
   refresh
 } = useAsyncData(
-  () => `feedback-edit-${feedbackId.value}`,
-  () => fetchFeedbackDetail(feedbackId.value),
+  () => `feedback-edit-${feedbackId.value}-${currentActorId.value ?? 'none'}`,
+  async () => {
+    if (!currentActorId.value) {
+      return null
+    }
+
+    return fetchFeedbackDetail(feedbackId.value, currentActorId.value)
+  },
   {
     server: false,
-    watch: [feedbackId],
+    watch: [feedbackId, currentActorId],
     default: () => null
   }
 )
@@ -123,7 +130,18 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
       />
 
       <section
-        v-if="pending"
+        v-if="!currentActorId"
+        class="resource-state"
+        data-testid="feedback-edit-select-actor"
+      >
+        <h2 class="resource-state__title">請先選擇目前操作帳號</h2>
+        <p class="resource-state__description">
+          回饋編輯頁現在需要 actor-aware read context，請先選擇目前操作帳號。
+        </p>
+      </section>
+
+      <section
+        v-else-if="pending"
         class="resource-state"
         data-testid="feedback-edit-loading"
       >
@@ -140,7 +158,7 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
       >
         <h2 class="resource-state__title">無法載入回饋編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || '目前無法載入回饋編輯表單。' }}
+          {{ getActorAwareReadErrorMessage(error, '目前無法載入回饋編輯表單。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">

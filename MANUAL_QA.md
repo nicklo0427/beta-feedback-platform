@@ -1,11 +1,12 @@
-# Manual QA Checklist
+# Public Beta Manual QA Checklist
 
 ## 1. 目的
 
-這份文件提供目前 repo 可直接在瀏覽器執行的手動驗收清單。
+這份文件提供目前 repo 在 public beta 前可直接執行的手動驗收清單。
 
 重點是驗證：
 
+- session/auth 與 persistence baseline 是否可用
 - MVP 核心閉環是否可操作
 - role-aware collaboration 是否可操作
 - create / edit / review / resubmit flow 是否串得起來
@@ -13,21 +14,66 @@
 
 ## 2. 前置條件
 
-### 2.1 啟動 backend
+### 2.1 建議先載入 `.env.local`
+
+推薦先依 [/.env.example](/Users/lowhaijer/projects/beta-feedback-platform/.env.example) 建立 `.env.local`：
 
 ```bash
-cd /Users/lowhaijer/projects/beta-feedback-platform/backend
+cd /Users/lowhaijer/projects/beta-feedback-platform
+cp .env.example .env.local
+```
+
+再用 shell 載入：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+set -a
+source ./.env.local
+set +a
+```
+
+補充：
+
+- 若你要跑 `session-only beta smoke`，請確認：
+  - `BFP_DATABASE_URL` 已設定
+  - `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=false`
+- 若你要跑完整 seed fixture regression，建議改用本地 QA 環境，並允許：
+  - `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=true`
+
+### 2.2 啟動 backend
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+set -a
+source ./.env.local
+set +a
+cd backend
 ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 2.2 啟動 frontend
+### 2.3 啟動 frontend
 
 ```bash
-cd /Users/lowhaijer/projects/beta-feedback-platform/frontend
+cd /Users/lowhaijer/projects/beta-feedback-platform
+set -a
+source ./.env.local
+set +a
+cd frontend
 npm run dev -- --host 127.0.0.1 --port 3000
 ```
 
-### 2.3 準備 role-aware 測試資料
+### 2.4 Public beta smoke 前置檢查
+
+若你要先確認 public beta 環境最小 readiness，推薦先執行：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+./backend/.venv/bin/python scripts/public_beta_smoke.py --require-database-configured --require-session-only
+```
+
+如果這個 smoke 還沒過，就不建議直接進入完整手動驗收。
+
+### 2.5 準備 role-aware 測試資料
 
 推薦先執行：
 
@@ -48,6 +94,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - ineligible device profile ID
 - qualified task ID
 - drift task ID
+- accepted-request linked task ID
 - feedback ID
 - pending participation request ID
 - accepted participation request ID
@@ -66,15 +113,17 @@ script 也會同時提供兩條 participation 驗證線：
 - `Pending participation request`
   - 會出現在 tester 的 `/my/participation-requests`
   - 也會出現在 developer 的 `/review/participation-requests`
+  - 可手動走 `accept -> create task from request` bridge flow
 - `Accepted participation request`
   - 會出現在 tester 的 `/my/participation-requests`
-  - 可直接驗證已處理狀態與 request detail 候選人快照
+  - 已經有對應 linked task
+  - 可直接驗證已處理狀態、request detail 候選人快照、request-to-task traceability、與 actor-aware task detail read
 
 詳細說明請看：
 
 - [LOCAL_DEMO_SEED.md](/Users/lowhaijer/projects/beta-feedback-platform/LOCAL_DEMO_SEED.md)
 
-### 2.4 測試時建議使用的 actor
+### 2.6 測試時建議使用的 actor
 
 請優先使用 seed 建立的：
 
@@ -83,7 +132,45 @@ script 也會同時提供兩條 participation 驗證線：
 
 並透過首頁的 `Current Actor` selector 切換。
 
+若你在 `session-only` beta 模式下驗收，請另外用：
+
+- `/register`
+- `/login`
+
+建立一組 developer / tester 帳號做 auth 流程驗證。
+
 ## 3. 測試案例清單
+
+### TC-00 Public beta health 與 smoke
+
+測試步驟
+1. 打開 `http://127.0.0.1:8000/api/v1/health`
+2. 觀察回傳內容
+3. 執行：
+   - `./backend/.venv/bin/python scripts/public_beta_smoke.py --require-database-configured --require-session-only`
+
+預期結果
+- health 回傳 `status = ok`
+- `database_configured = true`
+- `persistence_mode = database`
+- `auth_mode = session_only`
+- smoke script 成功通過
+
+### TC-00A Login / Register / Logout
+
+測試步驟
+1. 打開 `http://127.0.0.1:3000/register`
+2. 註冊一筆 developer 或 tester 帳號
+3. 確認登入狀態已建立
+4. 打開首頁與 account detail
+5. 執行 logout
+6. 再打開需要 session 的頁面
+
+預期結果
+- register 成功
+- 已登入時，頁面可顯示 session account 狀態
+- logout 成功後，受保護的 session flow 會要求重新登入或顯示 unauthenticated 對應提示
+- session cookie 可驅動至少一筆 create flow
 
 ### TC-01 首頁載入與主要導航
 
@@ -319,16 +406,33 @@ script 也會同時提供兩條 participation 驗證線：
 
 預期結果
 - developer 可看到自己擁有活動底下的 pending requests
-- queue 中不應出現已 accepted 的 request
+- queue 頂部會顯示 participation funnel summary
+- queue 中不應出現已經建立 linked task 的 accepted request
 - developer 可成功 accept / decline pending request
-- 更新成功後 queue 會刷新
+- 若把 pending request accept，queue 會刷新，並可繼續從這筆 request 建立 task
 - 若切到 tester actor，頁面顯示 role mismatch
 
-### TC-16 參與意圖詳情與候選人快照
+### TC-16 Accepted request 橋接成 task
 
 測試步驟
 1. 把 current actor 切到 seeded developer
-2. 從 `/review/participation-requests` 點進某筆 request detail
+2. 開啟 `http://127.0.0.1:3000/review/participation-requests`
+3. 對 seeded pending request 送出 `accepted`
+4. 從 queue 或 detail 進入 `/review/participation-requests/:requestId/tasks/new`
+5. 填寫 task 表單並送出
+
+預期結果
+- accepted request 會出現 `從 request 建立任務` 入口
+- create-task 頁會鎖定 campaign / device profile 上下文
+- 送出成功後會導到新建的 task detail
+- request 之後會帶 `linked_task_id`
+- request 之後會帶 `assignment_created_at`
+
+### TC-17 參與意圖詳情與候選人快照
+
+測試步驟
+1. 把 current actor 切到 seeded developer
+2. 從 `/review/participation-requests` 點進 seeded accepted participation request detail
 3. 觀察 tester snapshot、device profile snapshot、qualification snapshot、campaign snapshot
 
 預期結果
@@ -339,9 +443,44 @@ script 也會同時提供兩條 participation 驗證線：
   - device profile 與 reputation summary
   - qualification snapshot
   - campaign 與 campaign reputation
+- 若該 request 已 linked 到 task，detail 會顯示 linked task 與 assignment created at
 - 若 request 不屬於目前 developer 的 owned campaign，應顯示 error state
 
-### TC-17 Device Profile 建立、mine filter、詳情、編輯
+### TC-18 Request-to-task traceability 與 actor-aware read guard
+
+測試步驟
+1. 把 current actor 清空，直接打開 seeded accepted-request linked task detail
+2. 觀察頁面狀態
+3. 切到 seeded tester 或 seeded developer
+4. 再次觀察 task detail 的 participation request context
+5. 切到不相干的帳號，或手動建立另一個 tester 後再打開同一頁
+
+預期結果
+- 未選 actor 時，participation-linked task detail 會提示先選目前操作帳號
+- 切到正確的 tester / developer 後，可正常讀取 task detail
+- task detail 會顯示 participation request context：
+  - request id
+  - tester account
+  - request status
+  - assignment created at
+- 不相干 actor 應看到 ownership mismatch / 對應 error state
+
+### TC-19 Developer 候選人總覽與 participation funnel
+
+測試步驟
+1. 把 current actor 切到 seeded developer
+2. 開啟 `http://127.0.0.1:3000/my/campaigns`
+3. 觀察 qualified campaign card 上的 participation summary
+
+預期結果
+- campaign card 會顯示：
+  - 待處理
+  - 已接受待建任務
+  - 已建立任務
+- 至少會看得到 recent participation requests 摘要
+- 可從 campaign card 進一步進到 review queue 或 detail
+
+### TC-20 Device Profile 建立、mine filter、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 seeded tester
@@ -360,7 +499,7 @@ script 也會同時提供兩條 participation 驗證線：
 - detail 頁會顯示 reputation summary
 - 編輯成功後 detail 內容更新
 
-### TC-18 Task 建立、詳情、編輯
+### TC-21 Task 建立、詳情、編輯
 
 測試步驟
 1. 把 current actor 切到 developer
@@ -375,7 +514,7 @@ script 也會同時提供兩條 participation 驗證線：
 - detail 可看到 campaign / device profile 關聯
 - 編輯成功後 detail 更新
 
-### TC-19 Task assignment preview 與 ineligible assignment guard
+### TC-22 Task assignment preview 與 ineligible assignment guard
 
 測試步驟
 1. 把 current actor 切到 seeded developer
@@ -393,7 +532,7 @@ script 也會同時提供兩條 participation 驗證線：
 - 若規則要求 `install_channel = testflight`，使用 Android `play-store` fixture 也應維持不符合
 - 表單送出按鈕應被阻擋，不能建立不符合資格的 task
 
-### TC-20 Tester Inbox
+### TC-23 Tester Inbox
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/my/tasks`
@@ -410,7 +549,7 @@ script 也會同時提供兩條 participation 驗證線：
 - 可切 `assigned / in_progress / submitted / closed`
 - assigned task 的 quick action 可推進到 `in_progress`
 
-### TC-21 Task 資格上下文與 drift warning
+### TC-24 Task 資格上下文與 drift warning
 
 測試步驟
 1. 打開 seeded qualified task detail
@@ -428,7 +567,7 @@ script 也會同時提供兩條 participation 驗證線：
 - drift task detail 會顯示 drift warning
 - `/my/tasks` 的 drift task card 也會顯示 `資格已漂移` 與對應提示
 
-### TC-22 Feedback 提交與編輯
+### TC-25 Feedback 提交與編輯
 
 測試步驟
 1. 開啟某個 task detail
@@ -444,7 +583,7 @@ script 也會同時提供兩條 participation 驗證線：
 - detail 可看到結構化欄位
 - 編輯成功後 detail 內容更新
 
-### TC-23 Developer Review Queue
+### TC-26 Developer Review Queue
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/review/feedback`
@@ -461,7 +600,7 @@ script 也會同時提供兩條 participation 驗證線：
 - review status filter 可正常工作
 - 可從 queue 進入 feedback detail
 
-### TC-24 Feedback Review
+### TC-27 Feedback Review
 
 測試步驟
 1. 打開 `/tasks/:taskId/feedback/:feedbackId`
@@ -478,7 +617,7 @@ script 也會同時提供兩條 participation 驗證線：
 - 可儲存 `developer_note`
 - 儲存成功後 detail 會顯示更新後的狀態與 note
 
-### TC-25 Feedback 補件與重新提交
+### TC-28 Feedback 補件與重新提交
 
 測試步驟
 1. 先把某筆 feedback 標成 `needs_more_info`
@@ -494,7 +633,7 @@ script 也會同時提供兩條 participation 驗證線：
   - `resubmitted_at` 會出現
   - `developer_note` 仍保留
 
-### TC-26 Reputation Summary
+### TC-29 Reputation Summary
 
 測試步驟
 1. 打開 `/device-profiles/:deviceProfileId`
@@ -506,7 +645,7 @@ script 也會同時提供兩條 participation 驗證線：
 - 若有 seed data，應看到非零 summary
 - 若資料不足，應看到 zero-state，而不是白頁或 crash
 
-### TC-27 Error State 抽查
+### TC-30 Error State 抽查
 
 測試步驟
 1. 停掉 backend
@@ -556,9 +695,10 @@ script 也會同時提供兩條 participation 驗證線：
 
 ## 5. 重要限制
 
-- backend 目前是 in-memory repository
-- backend restart 後，資料會全部消失
-- current actor 目前只是最小 baseline，不是正式 auth
+- 若未設定 `BFP_DATABASE_URL`，backend 仍會 fallback 到 in-memory mode
+- migration 目前仍是 SQLAlchemy `create_all` baseline，不是完整 Alembic
+- seed fixture 仍使用 current actor / `X-Actor-Id` baseline 建立 owned fixtures
+- session-only public beta smoke 與 fallback-enabled 完整 fixture regression 是兩種不同驗收模式
 - role-aware seed 會建立 owned fixtures，但不會取代正式 fixture framework
 - qualification-aware seed 會額外建立 pass / fail / drift fixtures，但不會自動幫你送出 ineligible assignment；那一段需要在 UI 上手動驗證
 - participation-aware seed 會額外建立 pending / accepted participation requests，方便直接驗收 tester workspace、developer review queue 與 detail snapshot
@@ -570,3 +710,5 @@ script 也會同時提供兩條 participation 驗證線：
 - 對外顯示用語使用 `Mobile Web`
 - internal / API enum value 仍是 `h5`
 - 這份文件以目前已完成功能為準
+- public beta 發佈前的最後核對，請搭配：
+  - [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)

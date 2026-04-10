@@ -145,6 +145,25 @@ def _resolve_owned_campaign_ids_for_actor(current_actor_id: str) -> set[str]:
     }
 
 
+def _resolve_owned_device_profile_ids_for_actor(current_actor_id: str) -> set[str]:
+    from app.modules.device_profiles import repository as device_profiles_repository
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role != AccountRole.TESTER.value:
+        _raise_forbidden_actor_role(
+            actor_id=actor.id,
+            actor_role=actor.role,
+            required_role=AccountRole.TESTER.value,
+            message="Tester role is required to read owned feedback.",
+        )
+
+    return {
+        record.id
+        for record in device_profiles_repository.list_device_profiles()
+        if record.owner_account_id == current_actor_id
+    }
+
+
 def ensure_feedback_owned_by_tester(
     feedback_id: str,
     current_actor_id: str | None,
@@ -230,27 +249,84 @@ def list_feedback_queue(
     if review_status is not None:
         records = [record for record in records if record.review_status == review_status.value]
 
-    if mine:
-        if current_actor_id is None:
-            raise AppError(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="missing_actor_context",
-                message="Current actor is required.",
-                details={
-                    "header": "X-Actor-Id",
-                },
-            )
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
 
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role == AccountRole.DEVELOPER.value:
         owned_campaign_ids = _resolve_owned_campaign_ids_for_actor(current_actor_id)
         records = [
             record for record in records if record.campaign_id in owned_campaign_ids
         ]
+    elif actor.role == AccountRole.TESTER.value:
+        owned_device_profile_ids = _resolve_owned_device_profile_ids_for_actor(
+            current_actor_id
+        )
+        records = [
+            record
+            for record in records
+            if record.device_profile_id in owned_device_profile_ids
+        ]
+    else:
+        _raise_forbidden_actor_role(
+            actor_id=actor.id,
+            actor_role=actor.role,
+            required_role=AccountRole.DEVELOPER.value,
+            message="Developer or tester role is required to read feedback queue.",
+        )
 
     items = [_to_feedback_queue_item(record) for record in records]
     return FeedbackQueueResponse.model_validate(build_list_response(items))
 
 
 def get_feedback(feedback_id: str) -> FeedbackDetail:
+    return _to_feedback_detail(ensure_feedback_exists(feedback_id))
+
+
+def get_feedback_for_actor(
+    feedback_id: str,
+    current_actor_id: str | None,
+) -> FeedbackDetail:
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role == AccountRole.DEVELOPER.value:
+        feedback = ensure_feedback_owned_by_developer(
+            feedback_id,
+            current_actor_id,
+            resource="feedback",
+        )
+        return _to_feedback_detail(feedback)
+
+    if actor.role == AccountRole.TESTER.value:
+        feedback = ensure_feedback_owned_by_tester(
+            feedback_id,
+            current_actor_id,
+            resource="feedback",
+        )
+        return _to_feedback_detail(feedback)
+
+    _raise_forbidden_actor_role(
+        actor_id=actor.id,
+        actor_role=actor.role,
+        required_role=AccountRole.DEVELOPER.value,
+        message="Developer or tester role is required to read feedback detail.",
+    )
     return _to_feedback_detail(ensure_feedback_exists(feedback_id))
 
 

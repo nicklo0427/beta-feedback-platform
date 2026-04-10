@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -13,7 +14,10 @@ import {
   decideParticipationRequest,
   fetchReviewParticipationRequests
 } from '~/features/participation-requests/api'
-import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
+import {
+  formatParticipationAssignmentStatusLabel,
+  formatParticipationRequestStatusLabel
+} from '~/features/participation-requests/types'
 
 useCurrentActorPersistence()
 
@@ -70,6 +74,24 @@ const {
 )
 
 const participationRequests = computed(() => queueResponse.value.items)
+const pendingRequestsCount = computed(
+  () => participationRequests.value.filter((request) => request.status === 'pending').length
+)
+const acceptedRequestsCount = computed(
+  () =>
+    participationRequests.value.filter(
+      (request) => request.status === 'accepted' && request.assignment_status === 'not_assigned'
+    ).length
+)
+const involvedCampaignCount = computed(
+  () => new Set(participationRequests.value.map((request) => request.campaign_id)).size
+)
+const queueErrorMessage = computed(() =>
+  getActorAwareReadErrorMessage(
+    queueError.value,
+    '目前無法載入參與意圖審查佇列。'
+  )
+)
 
 async function handleDecision(
   requestId: string,
@@ -204,7 +226,16 @@ watch([currentActorId, currentActor], () => {
               目前帳號 {{ currentActor.display_name }}
             </span>
             <span class="resource-shell__meta-chip">
-              待處理 {{ queueResponse.total }}
+              需處理 / 建立任務 {{ queueResponse.total }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              待處理 {{ pendingRequestsCount }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              已接受待建任務 {{ acceptedRequestsCount }}
+            </span>
+            <span class="resource-shell__meta-chip">
+              涉及活動 {{ involvedCampaignCount }}
             </span>
           </div>
         </section>
@@ -227,7 +258,7 @@ watch([currentActorId, currentActor], () => {
         >
           <h2 class="resource-state__title">無法載入參與意圖審查佇列</h2>
           <p class="resource-state__description">
-            {{ queueError.message }}
+            {{ queueErrorMessage }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshQueue()">
@@ -241,9 +272,9 @@ watch([currentActorId, currentActor], () => {
           class="resource-state"
           data-testid="participation-review-empty"
         >
-          <h2 class="resource-state__title">目前沒有待處理的參與意圖</h2>
+          <h2 class="resource-state__title">目前沒有待處理或待建立任務的參與意圖</h2>
           <p class="resource-state__description">
-            目前這位開發者擁有的活動底下沒有任何待處理 participation requests。
+            目前這位開發者擁有的活動底下沒有任何待處理 participation requests，也沒有已接受但尚未建立任務的 request。
           </p>
         </section>
 
@@ -278,7 +309,16 @@ watch([currentActorId, currentActor], () => {
               <span class="resource-card__chip">
                 狀態 {{ formatParticipationRequestStatusLabel(request.status) }}
               </span>
+              <span class="resource-card__chip">
+                任務橋接 {{ formatParticipationAssignmentStatusLabel(request.assignment_status) }}
+              </span>
               <span class="resource-card__chip">建立時間 {{ request.created_at }}</span>
+              <span
+                v-if="request.assignment_created_at"
+                class="resource-card__chip"
+              >
+                已建立任務 {{ request.assignment_created_at }}
+              </span>
             </div>
             <p
               v-if="request.note"
@@ -286,7 +326,17 @@ watch([currentActorId, currentActor], () => {
             >
               測試者備註：{{ request.note }}
             </p>
-            <label class="resource-field" :for="`participation-review-note-${request.id}`">
+            <p
+              v-if="request.decision_note"
+              class="resource-card__description"
+            >
+              處理備註：{{ request.decision_note }}
+            </p>
+            <label
+              v-if="request.status === 'pending'"
+              class="resource-field"
+              :for="`participation-review-note-${request.id}`"
+            >
               <span class="resource-field__label">處理備註</span>
               <textarea
                 :id="`participation-review-note-${request.id}`"
@@ -312,24 +362,42 @@ watch([currentActorId, currentActor], () => {
               >
                 查看活動
               </NuxtLink>
-              <button
+              <template v-if="request.status === 'pending'">
+                <button
+                  class="resource-action"
+                  type="button"
+                  :disabled="decidingRequestId === request.id"
+                  :data-testid="`review-participation-accept-${request.id}`"
+                  @click="handleDecision(request.id, 'accepted')"
+                >
+                  {{ decidingRequestId === request.id ? '處理中...' : '接受參與意圖' }}
+                </button>
+                <button
+                  class="resource-action"
+                  type="button"
+                  :disabled="decidingRequestId === request.id"
+                  :data-testid="`review-participation-decline-${request.id}`"
+                  @click="handleDecision(request.id, 'declined')"
+                >
+                  {{ decidingRequestId === request.id ? '處理中...' : '婉拒參與意圖' }}
+                </button>
+              </template>
+              <NuxtLink
+                v-else-if="request.status === 'accepted' && !request.linked_task_id"
                 class="resource-action"
-                type="button"
-                :disabled="decidingRequestId === request.id"
-                :data-testid="`review-participation-accept-${request.id}`"
-                @click="handleDecision(request.id, 'accepted')"
+                :data-testid="`review-participation-create-task-${request.id}`"
+                :to="`/review/participation-requests/${request.id}/tasks/new`"
               >
-                {{ decidingRequestId === request.id ? '處理中...' : '接受參與意圖' }}
-              </button>
-              <button
+                從 request 建立任務
+              </NuxtLink>
+              <NuxtLink
+                v-else-if="request.linked_task_id"
                 class="resource-action"
-                type="button"
-                :disabled="decidingRequestId === request.id"
-                :data-testid="`review-participation-decline-${request.id}`"
-                @click="handleDecision(request.id, 'declined')"
+                :data-testid="`review-participation-linked-task-${request.id}`"
+                :to="`/tasks/${request.linked_task_id}`"
               >
-                {{ decidingRequestId === request.id ? '處理中...' : '婉拒參與意圖' }}
-              </button>
+                查看對應任務
+              </NuxtLink>
             </div>
           </article>
         </section>

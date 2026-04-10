@@ -31,6 +31,36 @@ export interface CampaignQualifyingDeviceProfileRef {
   name: string
 }
 
+export type CampaignParticipationRequestStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'withdrawn'
+
+export type CampaignParticipationAssignmentStatus =
+  | 'not_assigned'
+  | 'task_created'
+
+export interface CampaignParticipationRecentRequest {
+  id: string
+  tester_account_id: string
+  tester_account_display_name: string
+  device_profile_id: string
+  device_profile_name: string
+  status: CampaignParticipationRequestStatus
+  linked_task_id: string | null
+  assignment_status: CampaignParticipationAssignmentStatus
+  created_at: string
+}
+
+export interface CampaignParticipationSummary {
+  campaign_id: string
+  pending_requests_count: number
+  accepted_requests_count: number
+  linked_tasks_count: number
+  recent_participation_requests: CampaignParticipationRecentRequest[]
+}
+
 export interface CampaignListItem {
   id: string
   project_id: string
@@ -41,6 +71,7 @@ export interface CampaignListItem {
   updated_at: string
   qualifying_device_profiles?: CampaignQualifyingDeviceProfileRef[]
   qualification_summary?: string | null
+  participation_summary?: CampaignParticipationSummary | null
 }
 
 export interface CampaignDetail {

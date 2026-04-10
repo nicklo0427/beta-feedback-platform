@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from app.modules.participation_requests.schemas import (
     ParticipationRequestCreate,
+    ParticipationRequestTaskCreate,
     ParticipationRequestUpdate,
 )
 
@@ -43,3 +44,23 @@ def test_participation_request_update_rejects_unknown_status() -> None:
         ParticipationRequestUpdate(status="reviewing")
 
     assert "withdrawn" in str(exc_info.value)
+
+
+def test_participation_request_task_create_normalizes_instruction_summary() -> None:
+    payload = ParticipationRequestTaskCreate(
+        title="  Validate onboarding checklist  ",
+        instruction_summary="  Please focus on first-run polish.  ",
+    )
+
+    assert payload.title == "Validate onboarding checklist"
+    assert payload.instruction_summary == "Please focus on first-run polish."
+    assert payload.status == "assigned"
+
+
+def test_participation_request_task_create_rejects_blank_title() -> None:
+    with pytest.raises(ValidationError) as exc_info:
+        ParticipationRequestTaskCreate(
+            title="   ",
+        )
+
+    assert "Task title cannot be blank." in str(exc_info.value)

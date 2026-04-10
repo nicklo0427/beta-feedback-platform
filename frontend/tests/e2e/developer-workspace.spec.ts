@@ -42,7 +42,26 @@ const campaignListItem = {
   target_platforms: ['ios', 'android'],
   version_label: '0.9.0-beta.1',
   status: 'active',
-  updated_at: '2026-04-03T10:00:00Z'
+  updated_at: '2026-04-03T10:00:00Z',
+  participation_summary: {
+    campaign_id: 'camp_123',
+    pending_requests_count: 2,
+    accepted_requests_count: 1,
+    linked_tasks_count: 3,
+    recent_participation_requests: [
+      {
+        id: 'pr_123',
+        tester_account_id: 'acct_tester_123',
+        tester_account_display_name: 'QA Tester',
+        device_profile_id: 'dp_123',
+        device_profile_name: 'QA iPhone 15',
+        status: 'pending',
+        linked_task_id: null,
+        assignment_status: 'not_assigned',
+        created_at: '2026-04-09T09:30:00Z'
+      }
+    ]
+  }
 }
 
 async function mockAccounts(
@@ -158,6 +177,10 @@ test.describe('developer workspace flows', () => {
     await expect(campaignCard).toContainText(
       formatCampaignStatusLabel(campaignListItem.status as CampaignStatus)
     )
+    await expect(campaignCard).toContainText('待處理 2')
+    await expect(campaignCard).toContainText('已接受待建任務 1')
+    await expect(campaignCard).toContainText('已建立任務 3')
+    await expect(campaignCard).toContainText('QA Tester / QA iPhone 15')
 
     await page.getByTestId('my-campaign-project-link-camp_123').click()
     await expect(page).toHaveURL(/\/projects\/proj_123$/)

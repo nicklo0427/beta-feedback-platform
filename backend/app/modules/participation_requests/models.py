@@ -16,4 +16,5 @@ class ParticipationRequestRecord:
     created_at: str
     updated_at: str
     decided_at: Optional[str]
-
+    linked_task_id: Optional[str]
+    assignment_created_at: Optional[str]

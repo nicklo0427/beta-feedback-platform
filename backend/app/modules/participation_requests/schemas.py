@@ -13,6 +13,7 @@ from app.modules.reputation.schemas import (
     CampaignReputationSummary,
     DeviceProfileReputationSummary,
 )
+from app.modules.tasks.schemas import TaskStatus
 
 
 class ParticipationRequestStatus(str, Enum):
@@ -20,6 +21,11 @@ class ParticipationRequestStatus(str, Enum):
     ACCEPTED = "accepted"
     DECLINED = "declined"
     WITHDRAWN = "withdrawn"
+
+
+class ParticipationAssignmentStatus(str, Enum):
+    NOT_ASSIGNED = "not_assigned"
+    TASK_CREATED = "task_created"
 
 
 class ParticipationRequestCreate(BaseModel):
@@ -62,6 +68,31 @@ class ParticipationRequestUpdate(BaseModel):
         return normalized or None
 
 
+class ParticipationRequestTaskCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(..., min_length=1)
+    instruction_summary: Optional[str] = None
+    status: TaskStatus = TaskStatus.ASSIGNED
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Task title cannot be blank.")
+        return normalized
+
+    @field_validator("instruction_summary")
+    @classmethod
+    def normalize_instruction_summary(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        return normalized or None
+
+
 class ParticipationRequestListItem(BaseModel):
     id: str
     campaign_id: str
@@ -75,6 +106,9 @@ class ParticipationRequestListItem(BaseModel):
     created_at: str
     updated_at: str
     decided_at: Optional[str] = None
+    linked_task_id: Optional[str] = None
+    assignment_created_at: Optional[str] = None
+    assignment_status: ParticipationAssignmentStatus
 
 
 class ParticipationRequestDetail(BaseModel):
@@ -90,6 +124,9 @@ class ParticipationRequestDetail(BaseModel):
     created_at: str
     updated_at: str
     decided_at: Optional[str] = None
+    linked_task_id: Optional[str] = None
+    assignment_created_at: Optional[str] = None
+    assignment_status: ParticipationAssignmentStatus
 
 
 class ParticipationRequestEnrichedDetail(ParticipationRequestDetail):

@@ -4,6 +4,7 @@ import { computed, ref, watch } from 'vue'
 import { fetchAccounts } from '~/features/accounts/api'
 import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -13,7 +14,10 @@ import {
   fetchMyParticipationRequests,
   withdrawParticipationRequest
 } from '~/features/participation-requests/api'
-import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
+import {
+  formatParticipationAssignmentStatusLabel,
+  formatParticipationRequestStatusLabel
+} from '~/features/participation-requests/types'
 
 useCurrentActorPersistence()
 
@@ -69,6 +73,12 @@ const {
 )
 
 const participationRequests = computed(() => requestResponse.value.items)
+const requestsErrorMessage = computed(() =>
+  getActorAwareReadErrorMessage(
+    requestsError.value,
+    '目前無法載入我的參與意圖。'
+  )
+)
 
 async function handleWithdrawRequest(requestId: string): Promise<void> {
   actionError.value = null
@@ -213,7 +223,7 @@ watch([currentActorId, currentActor], () => {
         >
           <h2 class="resource-state__title">無法載入我的參與意圖</h2>
           <p class="resource-state__description">
-            {{ requestsError.message }}
+            {{ requestsErrorMessage }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshRequests()">
@@ -276,6 +286,9 @@ watch([currentActorId, currentActor], () => {
               <span class="resource-card__chip">
                 裝置 {{ request.device_profile_name }}
               </span>
+              <span class="resource-card__chip">
+                任務橋接 {{ formatParticipationAssignmentStatusLabel(request.assignment_status) }}
+              </span>
             </div>
             <div class="resource-card__meta">
               <span class="resource-card__chip">建立時間 {{ request.created_at }}</span>
@@ -298,6 +311,23 @@ watch([currentActorId, currentActor], () => {
                 處理備註 {{ request.decision_note }}
               </span>
             </div>
+            <div
+              v-if="request.linked_task_id || request.status === 'accepted'"
+              class="resource-card__meta"
+            >
+              <span
+                v-if="request.assignment_created_at"
+                class="resource-card__chip"
+              >
+                建立任務時間 {{ request.assignment_created_at }}
+              </span>
+              <span
+                v-else-if="request.status === 'accepted'"
+                class="resource-card__chip"
+              >
+                已接受，等待建立任務
+              </span>
+            </div>
             <div class="resource-state__actions">
               <NuxtLink
                 class="resource-action"
@@ -305,6 +335,14 @@ watch([currentActorId, currentActor], () => {
                 :to="`/campaigns/${request.campaign_id}`"
               >
                 查看活動
+              </NuxtLink>
+              <NuxtLink
+                v-if="request.linked_task_id"
+                class="resource-action"
+                :data-testid="`participation-request-task-link-${request.id}`"
+                :to="`/tasks/${request.linked_task_id}`"
+              >
+                查看對應任務
               </NuxtLink>
               <button
                 v-if="request.status === 'pending'"

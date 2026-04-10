@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Response, status
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, Depends, Response, status
+
+from app.api.deps import get_current_actor_id_dep
 
 from app.modules.accounts.schemas import (
     AccountCollaborationSummary,
@@ -12,8 +16,8 @@ from app.modules.accounts.schemas import (
 from app.modules.accounts.service import (
     create_account,
     delete_account,
-    get_account_summary,
-    get_account,
+    get_account_summary_for_actor,
+    get_account_for_actor,
     list_accounts,
     update_account,
 )
@@ -32,13 +36,19 @@ def create_account_route(payload: AccountCreate) -> AccountDetail:
 
 
 @router.get("/{account_id}", response_model=AccountDetail)
-def get_account_route(account_id: str) -> AccountDetail:
-    return get_account(account_id)
+def get_account_route(
+    account_id: str,
+    current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
+) -> AccountDetail:
+    return get_account_for_actor(account_id, current_actor_id)
 
 
 @router.get("/{account_id}/summary", response_model=AccountCollaborationSummary)
-def get_account_summary_route(account_id: str) -> AccountCollaborationSummary:
-    return get_account_summary(account_id)
+def get_account_summary_route(
+    account_id: str,
+    current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
+) -> AccountCollaborationSummary:
+    return get_account_summary_for_actor(account_id, current_actor_id)
 
 
 @router.patch("/{account_id}", response_model=AccountDetail)

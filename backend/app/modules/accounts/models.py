@@ -13,3 +13,6 @@ class AccountRecord:
     locale: Optional[str]
     created_at: str
     updated_at: str
+    email: Optional[str] = None
+    password_hash: Optional[str] = None
+    is_active: bool = True

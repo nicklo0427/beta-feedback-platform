@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import { fetchAccountDetail, fetchAccountSummary } from '~/features/accounts/api'
+import {
+  getActorAwareReadErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { formatAccountRoleLabel } from '~/features/accounts/types'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatFeedbackReviewStatusLabel } from '~/features/feedback/types'
@@ -9,7 +15,10 @@ import { formatPlatformLabel } from '~/features/platform-display'
 import { formatTaskStatusLabel } from '~/features/tasks/types'
 
 const route = useRoute()
+useCurrentActorPersistence()
+
 const accountId = computed(() => String(route.params.accountId))
+const currentActorId = useCurrentActorId()
 
 const {
   data: account,
@@ -17,11 +26,17 @@ const {
   error,
   refresh
 } = useAsyncData(
-  () => `account-detail-${accountId.value}`,
-  () => fetchAccountDetail(accountId.value),
+  () => `account-detail-${accountId.value}-${currentActorId.value ?? 'none'}`,
+  async () => {
+    if (!currentActorId.value) {
+      return null
+    }
+
+    return fetchAccountDetail(accountId.value, currentActorId.value)
+  },
   {
     server: false,
-    watch: [accountId],
+    watch: [accountId, currentActorId],
     default: () => null
   }
 )
@@ -32,17 +47,26 @@ const {
   error: summaryError,
   refresh: refreshSummary
 } = useAsyncData(
-  () => `account-summary-${accountId.value}`,
-  () => fetchAccountSummary(accountId.value),
+  () => `account-summary-${accountId.value}-${currentActorId.value ?? 'none'}`,
+  async () => {
+    if (!currentActorId.value) {
+      return null
+    }
+
+    return fetchAccountSummary(accountId.value, currentActorId.value)
+  },
   {
     server: false,
-    watch: [accountId],
+    watch: [accountId, currentActorId],
     default: () => null
   }
 )
 
 const developerSummary = computed(() => accountSummary.value?.developer_summary ?? null)
 const testerSummary = computed(() => accountSummary.value?.tester_summary ?? null)
+const accountSummaryUpdatedAt = computed(
+  () => accountSummary.value?.updated_at ?? '尚未提供。'
+)
 </script>
 
 <template>
@@ -56,8 +80,24 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
         </p>
       </header>
 
+      <CurrentActorSelector
+        title="帳號可見性情境"
+        description="帳號詳情與協作摘要現在需要 actor-aware read context。請先選擇目前操作帳號，並且只能查看自己的帳號資料。"
+      />
+
       <section
-        v-if="pending"
+        v-if="!currentActorId"
+        class="resource-state"
+        data-testid="account-detail-select-actor"
+      >
+        <h2 class="resource-state__title">請先選擇目前操作帳號</h2>
+        <p class="resource-state__description">
+          帳號詳情與協作摘要包含受保護的個人協作資料，請先選擇要查看的帳號本人。
+        </p>
+      </section>
+
+      <section
+        v-else-if="pending"
         class="resource-state"
         data-testid="account-detail-loading"
       >
@@ -74,7 +114,7 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
       >
         <h2 class="resource-state__title">帳號詳情暫時無法使用</h2>
         <p class="resource-state__description">
-          {{ error?.message || '無法載入指定的帳號。' }}
+          {{ getActorAwareReadErrorMessage(error, '無法載入指定的帳號。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
@@ -135,7 +175,7 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
       </section>
 
       <section
-        v-if="summaryPending"
+        v-if="currentActorId && summaryPending"
         class="resource-state"
         data-testid="account-summary-loading"
       >
@@ -146,13 +186,18 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
       </section>
 
       <section
-        v-else-if="summaryError || !accountSummary"
+        v-else-if="currentActorId && (summaryError || !accountSummary)"
         class="resource-state"
         data-testid="account-summary-error"
       >
         <h2 class="resource-state__title">協作摘要暫時無法使用</h2>
         <p class="resource-state__description">
-          {{ summaryError?.message || '目前無法載入帳號協作摘要。' }}
+          {{
+            getActorAwareReadErrorMessage(
+              summaryError,
+              '目前無法載入帳號協作摘要。'
+            )
+          }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshSummary()">
@@ -197,7 +242,7 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
           <div class="resource-key-value__row">
             <span class="resource-key-value__label">摘要更新時間</span>
             <span class="resource-key-value__value">
-              {{ accountSummary.updated_at }}
+              {{ accountSummaryUpdatedAt }}
             </span>
           </div>
         </div>
@@ -304,7 +349,7 @@ const testerSummary = computed(() => accountSummary.value?.tester_summary ?? nul
           <div class="resource-key-value__row">
             <span class="resource-key-value__label">摘要更新時間</span>
             <span class="resource-key-value__value">
-              {{ accountSummary.updated_at }}
+              {{ accountSummaryUpdatedAt }}
             </span>
           </div>
         </div>

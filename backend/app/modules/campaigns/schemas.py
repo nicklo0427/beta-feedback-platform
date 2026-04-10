@@ -25,6 +25,26 @@ class CampaignQualifyingDeviceProfileRef(BaseModel):
     name: str
 
 
+class CampaignParticipationRecentRequest(BaseModel):
+    id: str
+    tester_account_id: str
+    tester_account_display_name: str
+    device_profile_id: str
+    device_profile_name: str
+    status: str
+    linked_task_id: Optional[str] = None
+    assignment_status: str
+    created_at: str
+
+
+class CampaignParticipationSummary(BaseModel):
+    campaign_id: str
+    pending_requests_count: int
+    accepted_requests_count: int
+    linked_tasks_count: int
+    recent_participation_requests: list[CampaignParticipationRecentRequest]
+
+
 class CampaignCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -139,6 +159,7 @@ class CampaignListItem(BaseModel):
     updated_at: str
     qualifying_device_profiles: Optional[list[CampaignQualifyingDeviceProfileRef]] = None
     qualification_summary: Optional[str] = None
+    participation_summary: Optional[CampaignParticipationSummary] = None
 
 
 class CampaignDetail(BaseModel):

@@ -8,8 +8,10 @@ import type {
   ParticipationRequestDecisionPayload,
   ParticipationRequestDetail,
   ParticipationRequestEnrichedDetail,
-  ParticipationRequestListItem
+  ParticipationRequestListItem,
+  ParticipationRequestTaskCreatePayload
 } from './types'
+import type { TaskDetail } from '~/features/tasks/types'
 
 export async function fetchMyParticipationRequests(
   actorId?: string | null
@@ -86,6 +88,19 @@ export async function decideParticipationRequest(
   const { request } = useApiClient()
   return request<ParticipationRequestDetail>(`/participation-requests/${requestId}`, {
     method: 'PATCH',
+    body: payload,
+    headers: buildCurrentActorHeaders(actorId)
+  })
+}
+
+export async function createTaskFromParticipationRequest(
+  requestId: string,
+  payload: ParticipationRequestTaskCreatePayload,
+  actorId?: string | null
+): Promise<TaskDetail> {
+  const { request } = useApiClient()
+  return request<TaskDetail>(`/participation-requests/${requestId}/tasks`, {
+    method: 'POST',
     body: payload,
     headers: buildCurrentActorHeaders(actorId)
   })

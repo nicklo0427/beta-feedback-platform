@@ -123,6 +123,18 @@ def test_participation_requests_api_create_list_review_and_withdraw_flow(
     assert accepted_request["status"] == "accepted"
     assert accepted_request["decision_note"] == "Your current device profile is a good fit."
     assert accepted_request["decided_at"] is not None
+    assert accepted_request["assignment_status"] == "not_assigned"
+
+    review_queue_after_accept = client.get(
+        "/api/v1/participation-requests?review_mine=true",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert review_queue_after_accept.status_code == 200
+    assert review_queue_after_accept.json() == {
+        "items": [accepted_request],
+        "total": 1,
+    }
 
     list_response = client.get(
         "/api/v1/participation-requests?mine=true",
@@ -169,6 +181,132 @@ def test_participation_request_detail_returns_enriched_candidate_snapshot(
     assert payload["qualification_snapshot"]["device_profile_id"] == qualified_device_profile.id
     assert payload["campaign"]["id"] == campaign.id
     assert payload["campaign_reputation"]["campaign_id"] == campaign.id
+    assert payload["linked_task_id"] is None
+    assert payload["assignment_created_at"] is None
+    assert payload["assignment_status"] == "not_assigned"
+
+
+def test_participation_request_api_can_create_task_from_accepted_request(
+    client: TestClient,
+) -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+
+    create_response = client.post(
+        f"/api/v1/campaigns/{campaign.id}/participation-requests",
+        json={
+            "device_profile_id": qualified_device_profile.id,
+            "note": "I can help cover onboarding and retention flows.",
+        },
+        headers=_actor_headers(tester.id),
+    )
+    request_id = create_response.json()["id"]
+
+    accept_response = client.patch(
+        f"/api/v1/participation-requests/{request_id}",
+        json={"status": "accepted"},
+        headers=_actor_headers(developer.id),
+    )
+    assert accept_response.status_code == 200
+
+    create_task_response = client.post(
+        f"/api/v1/participation-requests/{request_id}/tasks",
+        json={
+            "title": "Validate accepted participation request",
+            "instruction_summary": "Focus on onboarding polish.",
+            "status": "assigned",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    assert create_task_response.status_code == 201
+    created_task = create_task_response.json()
+    assert created_task["campaign_id"] == campaign.id
+    assert created_task["device_profile_id"] == qualified_device_profile.id
+    assert created_task["status"] == "assigned"
+
+    detail_response = client.get(
+        f"/api/v1/participation-requests/{request_id}",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.json()
+    assert detail_payload["linked_task_id"] == created_task["id"]
+    assert detail_payload["assignment_created_at"] is not None
+    assert detail_payload["assignment_status"] == "task_created"
+
+
+def test_participation_request_task_bridge_rejects_non_accepted_request(
+    client: TestClient,
+) -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+
+    create_response = client.post(
+        f"/api/v1/campaigns/{campaign.id}/participation-requests",
+        json={"device_profile_id": qualified_device_profile.id},
+        headers=_actor_headers(tester.id),
+    )
+    request_id = create_response.json()["id"]
+
+    response = client.post(
+        f"/api/v1/participation-requests/{request_id}/tasks",
+        json={"title": "Should fail"},
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "participation_request_not_accepted",
+        "message": "Only accepted participation requests can be turned into tasks.",
+        "details": {
+            "resource": "participation_request",
+            "id": request_id,
+            "current_status": "pending",
+            "required_status": "accepted",
+        },
+    }
+
+
+def test_participation_request_task_bridge_rejects_duplicate_linked_task(
+    client: TestClient,
+) -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+
+    create_response = client.post(
+        f"/api/v1/campaigns/{campaign.id}/participation-requests",
+        json={"device_profile_id": qualified_device_profile.id},
+        headers=_actor_headers(tester.id),
+    )
+    request_id = create_response.json()["id"]
+    client.patch(
+        f"/api/v1/participation-requests/{request_id}",
+        json={"status": "accepted"},
+        headers=_actor_headers(developer.id),
+    )
+
+    first_task_response = client.post(
+        f"/api/v1/participation-requests/{request_id}/tasks",
+        json={"title": "First linked task"},
+        headers=_actor_headers(developer.id),
+    )
+    first_task_id = first_task_response.json()["id"]
+
+    duplicate_response = client.post(
+        f"/api/v1/participation-requests/{request_id}/tasks",
+        json={"title": "Duplicate linked task"},
+        headers=_actor_headers(developer.id),
+    )
+
+    assert duplicate_response.status_code == 409
+    assert duplicate_response.json() == {
+        "code": "participation_request_task_already_created",
+        "message": "This participation request already has a linked task.",
+        "details": {
+            "resource": "participation_request",
+            "id": request_id,
+            "linked_task_id": first_task_id,
+        },
+    }
 
 
 def test_participation_request_review_queue_requires_current_actor(
