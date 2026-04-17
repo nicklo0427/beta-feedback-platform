@@ -5,7 +5,6 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
@@ -69,13 +68,14 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
         </p>
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">活動 {{ campaignId }}</span>
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
         </div>
       </header>
-
-      <CurrentActorSelector
-        title="資格條件操作帳號"
-        description="選擇目前正在操作的開發者帳號。建立資格條件規則時，系統會驗證活動擁有權。"
-      />
 
       <section class="resource-section" data-testid="eligibility-rule-create-panel">
         <h2 class="resource-section__title">新增資格條件規則</h2>

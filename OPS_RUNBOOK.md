@@ -42,15 +42,25 @@ set +a
 
 - `BFP_APP_ENV=development` 或你的 beta 環境名稱
 - `BFP_DATABASE_URL=sqlite+pysqlite:///./data/beta-feedback-platform.sqlite3`
-- `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=false`
+- `BFP_AUTH_MODE=session_only`
 - `BFP_AUTH_SESSION_COOKIE_SECURE=false`
   - 本機 HTTP 測試時維持 `false`
   - 若部署到 HTTPS beta 網址，請改成 `true`
 - `NUXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000/api/v1`
+- `NUXT_PUBLIC_AUTH_MODE=session_only`
 
 ## 3. 本機 Public Beta 啟動方式
 
 ### 3.1 啟動 backend
+
+建議先執行 migration：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform/backend
+./.venv/bin/alembic -c alembic.ini upgrade head
+```
+
+再啟動 backend：
 
 ```bash
 cd /Users/lowhaijer/projects/beta-feedback-platform
@@ -61,6 +71,11 @@ mkdir -p runtime_logs
 cd backend
 ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 2>&1 | tee ../runtime_logs/backend.log
 ```
+
+補充：
+
+- backend startup 現在也會用 Alembic baseline 自動補齊 schema
+- 但對 beta / staging / production，仍建議把 `upgrade head` 當成 deploy 前明確步驟
 
 ### 3.2 啟動 frontend
 
@@ -120,6 +135,33 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - auth register / me / logout 可用
 - session cookie 可直接驅動 project create
 
+### 5.1A Rollout evidence pack
+
+若你要留下可交接的 rollout rehearsal 證據，建議直接跑：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+./backend/.venv/bin/python scripts/beta_rollout_verification.py --environment-label local-rehearsal --require-database-configured --require-session-only
+```
+
+這支腳本會輸出：
+
+- `summary.json`
+- `health.json`
+- `page_checks.json`
+- `smoke_stdout.txt`
+- `smoke_stderr.txt`
+- `evidence_pack.md`
+
+預設輸出目錄：
+
+- `runtime_artifacts/rollout-verification/<label>-<timestamp>/`
+
+補充：
+
+- 若 `--manual-qa-status` 不是 `pass`，evidence pack 會保守給出 `no_go`
+- 這是刻意的，因為 public beta release gate 不應把 manual QA 視為已完成
+
 ### 5.2 Demo fixture smoke
 
 若你也要驗證 seed / manual QA baseline：
@@ -161,24 +203,33 @@ seed 完成後，請再搭配：
    - 確認 `status = ok`
    - 確認 `database_configured` 是否符合預期
    - 確認 `auth_mode` 是否為預期模式
+   - 若是 database mode，確認 deploy 前是否已跑 `alembic upgrade head`
 2. 再看 frontend root 是否 `200`
 3. 再跑一次 `scripts/public_beta_smoke.py`
 4. 如果 smoke fail：
    - 看 backend log 的 traceback
    - 看 frontend dev server log
    - 看 browser network response body
+5. 如果你已經跑了 rollout evidence：
+   - 先打開 `evidence_pack.md`
+   - 先看 `Go / No-Go Rationale`
+   - 再對照 `smoke_stderr.txt` 與 `page_checks.json`
 
 ### 6.3 常見故障類型
 
 - `database_configured=false`
   - 通常代表 `BFP_DATABASE_URL` 沒有被載入到 process environment
 - `auth_mode=session_with_header_fallback`
-  - 通常代表 `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED` 還沒切成 `false`
+  - 通常代表你目前仍在 local QA / seed 模式
+  - 若你預期是 beta/staging/production，請確認 `BFP_AUTH_MODE=session_only`
 - frontend 無法連到 API
   - 先確認 `NUXT_PUBLIC_API_BASE_URL` 是否指向正確 backend
   - 再確認 backend CORS origins 是否包含 frontend origin
 - 資料重啟後消失
   - 先確認 backend 是否真的啟動在 `database` persistence mode，而不是 memory fallback
+- 啟動後出現 schema / table 缺失
+  - 先手動跑一次 `./.venv/bin/alembic -c alembic.ini upgrade head`
+  - 再重新確認 backend health 與 app startup
 
 ## 7. 本票刻意不做的事
 

@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import { formatPlatformLabel } from '~/features/platform-display'
 import { fetchTaskAssignmentQualificationPreview } from '~/features/tasks/api'
 import type { DeviceProfileListItem } from '~/features/device-profiles/types'
@@ -29,7 +30,7 @@ const props = withDefaults(
     lockDeviceProfile: false,
     pending: false,
     errorMessage: null,
-    submitLabel: '儲存任務'
+    submitLabel: undefined
   }
 )
 
@@ -38,8 +39,10 @@ const emit = defineEmits<{
   change: [values: TaskFormValues]
 }>()
 
+const { locale, t } = useAppI18n()
 const validationMessage = ref<string | null>(null)
 const statusOptions = TASK_STATUSES
+const resolvedSubmitLabel = computed(() => props.submitLabel || t('common.saveTask'))
 const values = reactive<TaskFormValues>({
   ...props.initialValues
 })
@@ -113,7 +116,7 @@ async function loadQualificationPreview(): Promise<void> {
     qualificationPreviewError.value =
       error instanceof Error
         ? error
-        : new Error('目前無法檢查這個裝置設定檔的活動資格。')
+        : new Error(t('taskForm.qualificationErrorGeneric'))
   } finally {
     if (requestId === qualificationPreviewRequestId) {
       qualificationPreviewPending.value = false
@@ -145,19 +148,19 @@ const qualificationPreviewErrorMessage = computed(() => {
   }
 
   if (!props.actorId) {
-    return '請先選擇目前操作帳號，才能檢查這個裝置設定檔是否符合活動資格。'
+    return t('taskForm.qualificationErrorNoActor')
   }
 
   if (!(qualificationPreviewError.value instanceof ApiClientError)) {
-    return qualificationPreviewError.value?.message || '目前無法檢查這個裝置設定檔的活動資格。'
+    return qualificationPreviewError.value?.message || t('taskForm.qualificationErrorGeneric')
   }
 
   if (qualificationPreviewError.value.code === 'forbidden_actor_role') {
-    return '目前操作帳號角色不符合檢查任務指派資格的條件。'
+    return t('taskForm.qualificationErrorForbiddenRole')
   }
 
   if (qualificationPreviewError.value.code === 'ownership_mismatch') {
-    return '你不能替不屬於自己的活動檢查指派資格。'
+    return t('taskForm.qualificationErrorOwnershipMismatch')
   }
 
   return qualificationPreviewError.value.message
@@ -177,12 +180,12 @@ const qualificationBlocksSubmit = computed(() => {
 
 function validateForm(): boolean {
   if (!values.title.trim()) {
-    validationMessage.value = '標題為必填。'
+    validationMessage.value = t('taskForm.validationTitleRequired')
     return false
   }
 
   if (props.lockDeviceProfile && !selectedDeviceProfileId.value) {
-    validationMessage.value = '這個流程需要綁定指定的裝置設定檔。'
+    validationMessage.value = t('taskForm.validationDeviceProfileRequired')
     return false
   }
 
@@ -192,7 +195,7 @@ function validateForm(): boolean {
   ) {
     validationMessage.value =
       qualificationPreview.value.reason_summary
-      || '目前選擇的裝置設定檔不符合活動資格條件。'
+      || t('taskForm.validationQualificationFailed')
     return false
   }
 
@@ -223,86 +226,102 @@ function handleSubmit(): void {
       {{ validationMessage || errorMessage }}
     </div>
 
-    <div class="resource-form__grid">
-      <label class="resource-field">
-        <span class="resource-field__label">標題</span>
-        <input
-          v-model="values.title"
-          class="resource-input"
-          data-testid="task-title-input"
-          name="title"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">{{ t('taskForm.basicTitle') }}</h2>
+        <p class="resource-form__section-description">
+          {{ t('taskForm.basicDescription') }}
+        </p>
+      </div>
 
-      <label class="resource-field">
-        <span class="resource-field__label">狀態</span>
-        <select
-          v-model="values.status"
-          class="resource-select"
-          data-testid="task-status-field"
-          name="status"
-          :disabled="pending"
-        >
-          <option
-            v-for="status in statusOptions"
-            :key="status"
-            :value="status"
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">{{ t('taskForm.titleLabel') }}</span>
+          <input
+            v-model="values.title"
+            class="resource-input"
+            data-testid="task-title-input"
+            name="title"
+            type="text"
+            :disabled="pending"
           >
-            {{ formatTaskStatusLabel(status) }}
-          </option>
-        </select>
-      </label>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">{{ t('taskForm.statusLabel') }}</span>
+          <select
+            v-model="values.status"
+            class="resource-select"
+            data-testid="task-status-field"
+            name="status"
+            :disabled="pending"
+          >
+            <option
+              v-for="status in statusOptions"
+              :key="status"
+              :value="status"
+            >
+              {{ formatTaskStatusLabel(status, locale) }}
+            </option>
+          </select>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">{{ t('taskForm.deviceProfileLabel') }}</span>
+          <select
+            v-model="values.device_profile_id"
+            class="resource-select"
+            data-testid="task-device-profile-field"
+            name="device_profile_id"
+            :disabled="pending || lockDeviceProfile"
+          >
+            <option v-if="!lockDeviceProfile" value="">
+              {{ t('taskForm.unassignedDeviceProfile') }}
+            </option>
+            <option
+              v-for="deviceProfile in deviceProfiles"
+              :key="deviceProfile.id"
+              :value="deviceProfile.id"
+            >
+              {{ deviceProfile.name }} ({{ formatPlatformLabel(deviceProfile.platform, locale) }})
+            </option>
+          </select>
+        </label>
+      </div>
 
       <label class="resource-field">
-        <span class="resource-field__label">裝置設定檔</span>
-        <select
-          v-model="values.device_profile_id"
-          class="resource-select"
-          data-testid="task-device-profile-field"
-          name="device_profile_id"
-          :disabled="pending || lockDeviceProfile"
-        >
-          <option v-if="!lockDeviceProfile" value="">尚未指派裝置設定檔</option>
-          <option
-            v-for="deviceProfile in deviceProfiles"
-            :key="deviceProfile.id"
-            :value="deviceProfile.id"
-          >
-            {{ deviceProfile.name }} ({{ formatPlatformLabel(deviceProfile.platform) }})
-          </option>
-        </select>
+        <span class="resource-field__label">{{ t('taskForm.instructionSummaryLabel') }}</span>
+        <textarea
+          v-model="values.instruction_summary"
+          class="resource-textarea"
+          data-testid="task-instruction-summary-input"
+          name="instruction_summary"
+          rows="5"
+          :disabled="pending"
+        />
       </label>
-    </div>
-
-    <label class="resource-field">
-      <span class="resource-field__label">任務說明摘要</span>
-      <textarea
-        v-model="values.instruction_summary"
-        class="resource-textarea"
-        data-testid="task-instruction-summary-input"
-        name="instruction_summary"
-        rows="5"
-        :disabled="pending"
-      />
-    </label>
+    </section>
 
     <section
       v-if="selectedDeviceProfileId"
-      class="resource-section"
+      class="resource-form__section"
       data-testid="task-assignment-preview-section"
     >
-      <h2 class="resource-section__title">指派資格檢查</h2>
+      <div>
+        <h2 class="resource-form__section-title">{{ t('taskForm.qualificationTitle') }}</h2>
+        <p class="resource-form__section-description">
+          {{ t('taskForm.qualificationDescription') }}
+        </p>
+      </div>
 
       <section
         v-if="qualificationPreviewPending"
         class="resource-state"
         data-testid="task-assignment-preview-loading"
       >
-        <h3 class="resource-state__title">檢查裝置設定檔資格中</h3>
+        <h3 class="resource-state__title">{{ t('taskForm.qualificationLoadingTitle') }}</h3>
         <p class="resource-state__description">
-          正在確認這個裝置設定檔是否符合目前活動的資格條件。
+          {{ t('taskForm.qualificationLoadingDescription') }}
         </p>
       </section>
 
@@ -313,30 +332,31 @@ function handleSubmit(): void {
       >
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
-            狀態 {{ formatQualificationStatusLabel(qualificationPreview.qualification_status) }}
+            {{ t('taskForm.qualificationStatusLabel') }}
+            {{ formatQualificationStatusLabel(qualificationPreview.qualification_status, locale) }}
           </span>
           <span class="resource-shell__meta-chip">
-            裝置 {{ qualificationPreview.device_profile_id }}
+            {{ t('taskForm.qualificationDeviceLabel') }} {{ qualificationPreview.device_profile_id }}
           </span>
           <span
             v-if="qualificationPreview.matched_rule_id"
             class="resource-shell__meta-chip"
           >
-            命中規則 {{ qualificationPreview.matched_rule_id }}
+            {{ t('taskForm.qualificationMatchedRuleLabel') }} {{ qualificationPreview.matched_rule_id }}
           </span>
         </div>
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">裝置設定檔</span>
+            <span class="resource-key-value__label">{{ t('taskForm.qualificationProfileLabel') }}</span>
             <span class="resource-key-value__value">
               {{ qualificationPreview.device_profile_name }}
             </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">資格說明</span>
+            <span class="resource-key-value__label">{{ t('taskForm.qualificationSummaryLabel') }}</span>
             <span class="resource-key-value__value">
-              {{ qualificationPreview.reason_summary || '目前沒有額外資格說明。' }}
+              {{ qualificationPreview.reason_summary || t('taskForm.qualificationSummaryEmpty') }}
             </span>
           </div>
         </div>
@@ -347,7 +367,7 @@ function handleSubmit(): void {
         class="resource-state"
         data-testid="task-assignment-preview-error"
       >
-        <h3 class="resource-state__title">無法取得指派資格結果</h3>
+        <h3 class="resource-state__title">{{ t('taskForm.qualificationErrorTitle') }}</h3>
         <p class="resource-state__description">
           {{ qualificationPreviewErrorMessage }}
         </p>
@@ -364,17 +384,17 @@ function handleSubmit(): void {
 
     </section>
 
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         data-testid="task-submit"
         type="submit"
         :disabled="pending || qualificationBlocksSubmit"
       >
-        {{ pending ? '儲存中...' : submitLabel }}
+        {{ pending ? t('taskForm.saving') : resolvedSubmitLabel }}
       </button>
       <NuxtLink class="resource-action" :to="cancelTo">
-        取消
+        {{ t('taskForm.cancel') }}
       </NuxtLink>
     </div>
   </form>

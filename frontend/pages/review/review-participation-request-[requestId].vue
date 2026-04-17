@@ -5,8 +5,9 @@ definePageMeta({
 
 import { computed } from 'vue'
 
+import ActivityTimelinePanel from '~/features/activity-events/ActivityTimelinePanel.vue'
+import { fetchParticipationRequestTimeline } from '~/features/activity-events/api'
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareReadErrorMessage,
   useCurrentActorId,
@@ -80,6 +81,38 @@ const canCreateTaskFromRequest = computed(
 const detailErrorMessage = computed(() =>
   getActorAwareReadErrorMessage(error.value, '找不到指定的參與意圖。')
 )
+const {
+  data: timelineResponse,
+  pending: timelinePending,
+  error: timelineError
+} = useAsyncData(
+  () =>
+    `review-participation-request-timeline-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+  async () => {
+    if (!currentActorId.value || !isDeveloperActor.value) {
+      return {
+        items: [],
+        total: 0
+      }
+    }
+
+    return fetchParticipationRequestTimeline(requestId.value, currentActorId.value)
+  },
+  {
+    server: false,
+    watch: [requestId, currentActorId, currentActor],
+    default: () => ({
+      items: [],
+      total: 0
+    })
+  }
+)
+const timelineEvents = computed(() => timelineResponse.value.items)
+const timelineErrorMessage = computed(() =>
+  timelineError.value
+    ? getActorAwareReadErrorMessage(timelineError.value, '目前無法載入參與意圖時間線。')
+    : null
+)
 </script>
 
 <template>
@@ -94,11 +127,6 @@ const detailErrorMessage = computed(() =>
           這個頁面提供開發者查看單一 participation request 的候選人快照，包含測試者摘要、裝置設定檔、資格判斷與活動上下文。
         </p>
       </header>
-
-      <CurrentActorSelector
-        title="開發者情境"
-        description="選擇目前操作的開發者帳號，系統會依其擁有的活動決定是否可查看這筆 participation request。"
-      />
 
       <section
         v-if="accountsError"
@@ -189,10 +217,13 @@ const detailErrorMessage = computed(() =>
       </section>
 
       <template v-else>
+        <div class="detail-layout" data-testid="participation-request-detail-layout">
+          <div class="detail-layout__main">
         <section
           class="resource-section"
           data-testid="participation-request-detail-panel"
         >
+          <span class="resource-section__eyebrow">Participation Request</span>
           <h2 class="resource-section__title">{{ participationRequest.campaign_name }}</h2>
           <div class="resource-state__actions">
             <NuxtLink
@@ -284,6 +315,16 @@ const detailErrorMessage = computed(() =>
             </div>
           </div>
         </section>
+
+        <ActivityTimelinePanel
+          title="參與意圖時間線"
+          description="這裡會整理這筆 participation request 的關鍵操作事件，方便開發者回顧接受、婉拒或任務橋接是怎麼發生的。"
+          :pending="timelinePending"
+          :error-message="timelineErrorMessage"
+          :events="timelineEvents"
+          empty-message="這筆 participation request 目前還沒有可顯示的關鍵事件。"
+          test-id-prefix="participation-request-timeline"
+        />
 
         <section
           class="resource-section"
@@ -400,10 +441,15 @@ const detailErrorMessage = computed(() =>
           </div>
         </section>
 
+          </div>
+
+          <aside class="detail-layout__rail">
+
         <section
           class="resource-section"
           data-testid="participation-request-qualification-panel"
         >
+          <span class="resource-section__eyebrow">Qualification</span>
           <h2 class="resource-section__title">資格判斷快照</h2>
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
@@ -440,6 +486,7 @@ const detailErrorMessage = computed(() =>
           class="resource-section"
           data-testid="participation-request-campaign-panel"
         >
+          <span class="resource-section__eyebrow">Campaign Snapshot</span>
           <h2 class="resource-section__title">活動快照</h2>
           <div class="resource-state__actions">
             <NuxtLink
@@ -489,6 +536,8 @@ const detailErrorMessage = computed(() =>
             </div>
           </div>
         </section>
+          </aside>
+        </div>
       </template>
     </section>
   </main>

@@ -71,33 +71,51 @@ function handleSubmit(): void {
       {{ validationMessage || errorMessage }}
     </div>
 
-    <div class="resource-form__grid">
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">基本資料</h2>
+        <p class="resource-form__section-description">
+          先定義專案名稱與範圍描述，後續活動會延續這個產品脈絡。
+        </p>
+      </div>
+
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">名稱</span>
+          <input
+            v-model="values.name"
+            class="resource-input"
+            data-testid="project-name-input"
+            name="name"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+      </div>
+    </section>
+
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">專案說明</h2>
+        <p class="resource-form__section-description">
+          用簡短文字說明這個專案的測試目標、產品範圍或目前版本情境。
+        </p>
+      </div>
+
       <label class="resource-field">
-        <span class="resource-field__label">名稱</span>
-        <input
-          v-model="values.name"
-          class="resource-input"
-          data-testid="project-name-input"
-          name="name"
-          type="text"
+        <span class="resource-field__label">說明</span>
+        <textarea
+          v-model="values.description"
+          class="resource-textarea"
+          data-testid="project-description-input"
+          name="description"
+          rows="5"
           :disabled="pending"
-        >
+        />
       </label>
-    </div>
+    </section>
 
-    <label class="resource-field">
-      <span class="resource-field__label">說明</span>
-      <textarea
-        v-model="values.description"
-        class="resource-textarea"
-        data-testid="project-description-input"
-        name="description"
-        rows="5"
-        :disabled="pending"
-      />
-    </label>
-
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         data-testid="project-submit"

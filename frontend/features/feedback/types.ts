@@ -1,3 +1,5 @@
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
+
 export type FeedbackSeverity = 'low' | 'medium' | 'high' | 'critical'
 
 export type FeedbackCategory =
@@ -115,35 +117,71 @@ export interface FeedbackQueueFilters {
   reviewStatus?: FeedbackReviewStatus | null
 }
 
-const FEEDBACK_REVIEW_STATUS_LABELS: Record<FeedbackReviewStatus, string> = {
-  submitted: '已提交',
-  needs_more_info: '需補充資訊',
-  reviewed: '已審閱'
+const FEEDBACK_REVIEW_STATUS_LABELS: Record<
+  AppLocale,
+  Record<FeedbackReviewStatus, string>
+> = {
+  'zh-TW': {
+    submitted: '已提交',
+    needs_more_info: '需補充資訊',
+    reviewed: '已審閱'
+  },
+  en: {
+    submitted: 'Submitted',
+    needs_more_info: 'Needs more info',
+    reviewed: 'Reviewed'
+  }
 }
 
-const FEEDBACK_SEVERITY_LABELS: Record<FeedbackSeverity, string> = {
-  low: '低',
-  medium: '中',
-  high: '高',
-  critical: '嚴重'
+const FEEDBACK_SEVERITY_LABELS: Record<AppLocale, Record<FeedbackSeverity, string>> = {
+  'zh-TW': {
+    low: '低',
+    medium: '中',
+    high: '高',
+    critical: '嚴重'
+  },
+  en: {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+    critical: 'Critical'
+  }
 }
 
-const FEEDBACK_CATEGORY_LABELS: Record<FeedbackCategory, string> = {
-  bug: '錯誤',
-  usability: '易用性',
-  performance: '效能',
-  compatibility: '相容性',
-  other: '其他'
+const FEEDBACK_CATEGORY_LABELS: Record<AppLocale, Record<FeedbackCategory, string>> = {
+  'zh-TW': {
+    bug: '錯誤',
+    usability: '易用性',
+    performance: '效能',
+    compatibility: '相容性',
+    other: '其他'
+  },
+  en: {
+    bug: 'Bug',
+    usability: 'Usability',
+    performance: 'Performance',
+    compatibility: 'Compatibility',
+    other: 'Other'
+  }
 }
 
-export function formatFeedbackReviewStatusLabel(value: FeedbackReviewStatus): string {
-  return FEEDBACK_REVIEW_STATUS_LABELS[value]
+export function formatFeedbackReviewStatusLabel(
+  value: FeedbackReviewStatus,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return FEEDBACK_REVIEW_STATUS_LABELS[locale][value]
 }
 
-export function formatFeedbackSeverityLabel(value: FeedbackSeverity): string {
-  return FEEDBACK_SEVERITY_LABELS[value]
+export function formatFeedbackSeverityLabel(
+  value: FeedbackSeverity,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return FEEDBACK_SEVERITY_LABELS[locale][value]
 }
 
-export function formatFeedbackCategoryLabel(value: FeedbackCategory): string {
-  return FEEDBACK_CATEGORY_LABELS[value]
+export function formatFeedbackCategoryLabel(
+  value: FeedbackCategory,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return FEEDBACK_CATEGORY_LABELS[locale][value]
 }

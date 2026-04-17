@@ -58,6 +58,20 @@ def get_campaign_safety(campaign_id: str) -> CampaignSafetyDetail:
     return _to_campaign_safety_detail(ensure_campaign_safety_exists(campaign_id))
 
 
+def get_campaign_safety_for_actor(
+    campaign_id: str,
+    current_actor_id: str | None,
+) -> CampaignSafetyDetail:
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
+
+    ensure_campaign_owned_by_actor(
+        campaign_id,
+        current_actor_id,
+        resource="campaign_safety",
+    )
+    return _to_campaign_safety_detail(ensure_campaign_safety_exists(campaign_id))
+
+
 def create_campaign_safety(
     campaign_id: str,
     payload: CampaignSafetyCreate,

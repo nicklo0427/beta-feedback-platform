@@ -8,12 +8,15 @@ import type {
 } from './types'
 
 export async function fetchCampaignSafety(
-  campaignId: string
+  campaignId: string,
+  actorId?: string | null
 ): Promise<CampaignSafetyDetail | null> {
   const { request } = useApiClient()
 
   try {
-    return await request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`)
+    return await request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
+      headers: buildCurrentActorHeaders(actorId)
+    })
   } catch (error) {
     if (error instanceof ApiClientError && error.code === 'resource_not_found') {
       return null
@@ -24,10 +27,13 @@ export async function fetchCampaignSafety(
 }
 
 export async function fetchCampaignSafetyDetail(
-  campaignId: string
+  campaignId: string,
+  actorId?: string | null
 ): Promise<CampaignSafetyDetail> {
   const { request } = useApiClient()
-  return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`)
+  return request<CampaignSafetyDetail>(`/campaigns/${campaignId}/safety`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function createCampaignSafety(

@@ -31,6 +31,7 @@
 - [ ] `persistence_mode = database`
 - [ ] `auth_mode = session_only`
 - [ ] `scripts/public_beta_smoke.py` 成功
+- [ ] `scripts/beta_rollout_verification.py` 已產出一份 evidence pack
 - [ ] backend 全量 pytest 成功
 - [ ] frontend `npm run typecheck` 成功
 - [ ] frontend `npm run build` 成功
@@ -45,9 +46,11 @@
 
 - [ ] `.env.local` 已從 [/.env.example](/Users/lowhaijer/projects/beta-feedback-platform/.env.example) 建立
 - [ ] `BFP_DATABASE_URL` 已設定
-- [ ] `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=false`
+- [ ] `BFP_AUTH_MODE=session_only`
 - [ ] `NUXT_PUBLIC_API_BASE_URL` 指向正確 backend
+- [ ] `NUXT_PUBLIC_AUTH_MODE=session_only`
 - [ ] 若 beta 為 HTTPS，`BFP_AUTH_SESSION_COOKIE_SECURE=true`
+- [ ] deploy 前已執行 `./backend/.venv/bin/alembic -c backend/alembic.ini upgrade head`
 
 ### 4.2 啟動檢查
 
@@ -74,6 +77,28 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - [ ] logout 後 `me` 回 `401`
 - [ ] session cookie 可直接建立 project
 
+### 4.4 Rollout Evidence Pack
+
+建議指令：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+./backend/.venv/bin/python scripts/beta_rollout_verification.py --environment-label beta-rollout --require-database-configured --require-session-only --manual-qa-status pending
+```
+
+確認項目：
+
+- [ ] evidence pack 成功輸出
+- [ ] `summary.json` 與 `health.json` 可讀
+- [ ] `evidence_pack.md` 已包含：
+  - health 結果
+  - smoke 結果
+  - 關鍵頁面檢查
+  - manual QA 狀態
+  - 已知限制
+  - go / no-go 結論
+- [ ] 若 launch 當天 manual QA 已完成，已用最終狀態重跑或補齊 go / no-go 結論
+
 ## 5. Full Fixture Regression
 
 這一段建議在本地 QA 環境執行，而不是直接在對外 beta 環境執行。
@@ -86,7 +111,8 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 ### 5.1 QA 環境設定
 
 - [ ] QA backend 可啟動
-- [ ] 若要跑完整 fixture regression，`BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=true`
+- [ ] 若要跑完整 fixture regression，`BFP_AUTH_MODE=session_with_header_fallback`
+- [ ] 若 frontend 要顯示 fallback actor selector，`NUXT_PUBLIC_AUTH_MODE=session_with_header_fallback`
 - [ ] `BFP_DATABASE_URL` 仍建議維持為 database mode
 
 ### 5.2 Seed 與驗收
@@ -112,7 +138,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 目前建議在 beta onboarding 或內部發佈說明中明確寫出：
 
-- migration 目前仍是 SQLAlchemy `create_all` baseline，不是完整 Alembic
+- schema lifecycle 現在依賴 Alembic migration；deploy 需先執行 `upgrade head`
 - `X-Actor-Id` 仍保留作為 local QA / seed fallback，不是正式 production identity model
 - current beta 僅支援：
   - `Web`
@@ -129,14 +155,16 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 3. 啟動 frontend
 4. 確認 health
 5. 跑 `public_beta_smoke.py`
-6. 用真實 beta 帳號手動走 login / project create / feedback review 短流程
-7. 再開放對外試用
+6. 跑 `beta_rollout_verification.py` 產出 evidence pack
+7. 用真實 beta 帳號手動走 login / project create / feedback review 短流程
+8. 再開放對外試用
 
 ## 9. 若出問題先做什麼
 
 - 先看 [OPS_RUNBOOK.md](/Users/lowhaijer/projects/beta-feedback-platform/OPS_RUNBOOK.md)
 - 先打 health endpoint
 - 再跑 `scripts/public_beta_smoke.py`
+- 再看最新那份 `evidence_pack.md`
 - 再看 backend / frontend process logs
 
 若上面三步還無法定位，再判斷是否需要暫停 beta 開放。

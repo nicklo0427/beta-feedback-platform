@@ -8,10 +8,12 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
-from app.modules.feedback import repository
-from app.modules.feedback.models import FeedbackRecord
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
+from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
+from app.modules.activity_events.service import record_activity_event
+from app.modules.feedback import repository
+from app.modules.feedback.models import FeedbackRecord
 from app.modules.feedback.schemas import (
     FeedbackCreate,
     FeedbackDetail,
@@ -238,6 +240,51 @@ def list_feedback(task_id: str) -> FeedbackListResponse:
     return FeedbackListResponse.model_validate(build_list_response(items))
 
 
+def list_feedback_for_actor(
+    task_id: str,
+    current_actor_id: str | None,
+) -> FeedbackListResponse:
+    from app.modules.tasks.service import (
+        ensure_task_owned_by_developer,
+        ensure_task_owned_by_tester,
+    )
+
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role == AccountRole.DEVELOPER.value:
+        ensure_task_owned_by_developer(
+            task_id,
+            current_actor_id,
+            resource="feedback",
+        )
+        return list_feedback(task_id)
+
+    if actor.role == AccountRole.TESTER.value:
+        ensure_task_owned_by_tester(
+            task_id,
+            current_actor_id,
+            resource="feedback",
+        )
+        return list_feedback(task_id)
+
+    _raise_forbidden_actor_role(
+        actor_id=actor.id,
+        actor_role=actor.role,
+        required_role=AccountRole.DEVELOPER.value,
+        message="Developer or tester role is required to read task feedback.",
+    )
+    return list_feedback(task_id)
+
+
 def list_feedback_queue(
     *,
     review_status: FeedbackReviewStatus | None = None,
@@ -377,6 +424,13 @@ def create_feedback(
         updated_at=timestamp,
     )
     repository.create_feedback(record)
+    record_activity_event(
+        entity_type=ActivityEntityType.FEEDBACK,
+        entity_id=record.id,
+        event_type=ActivityEventType.FEEDBACK_SUBMITTED,
+        actor_account_id=current_actor_id,
+        summary="提交回饋。",
+    )
     return _to_feedback_detail(record)
 
 
@@ -480,6 +534,31 @@ def update_feedback(
         updated_at=timestamp,
     )
     repository.update_feedback(updated)
+    if is_resubmission:
+        record_activity_event(
+            entity_type=ActivityEntityType.FEEDBACK,
+            entity_id=updated.id,
+            event_type=ActivityEventType.FEEDBACK_RESUBMITTED,
+            actor_account_id=current_actor_id,
+            summary="補充資訊後重新提交回饋。",
+        )
+    elif updated.review_status != current.review_status:
+        if updated.review_status == FeedbackReviewStatus.NEEDS_MORE_INFO.value:
+            record_activity_event(
+                entity_type=ActivityEntityType.FEEDBACK,
+                entity_id=updated.id,
+                event_type=ActivityEventType.FEEDBACK_NEEDS_MORE_INFO,
+                actor_account_id=current_actor_id,
+                summary="要求補充更多資訊。",
+            )
+        elif updated.review_status == FeedbackReviewStatus.REVIEWED.value:
+            record_activity_event(
+                entity_type=ActivityEntityType.FEEDBACK,
+                entity_id=updated.id,
+                event_type=ActivityEventType.FEEDBACK_REVIEWED,
+                actor_account_id=current_actor_id,
+                summary="將回饋標記為已審閱。",
+            )
     return _to_feedback_detail(updated)
 
 

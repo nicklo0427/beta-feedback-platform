@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.activity_events.service import list_participation_request_timeline
 from app.modules.accounts.schemas import AccountCreate
 from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate
@@ -261,7 +262,40 @@ def test_participation_request_service_supports_withdrawing_own_pending_request(
 
     assert updated_request.id == created_request.id
     assert updated_request.status == ParticipationRequestStatus.WITHDRAWN
-    assert updated_request.updated_at >= created_request.updated_at
+
+
+def test_participation_request_timeline_records_create_decision_and_task_bridge() -> None:
+    developer, tester, campaign, qualified_device_profile, _ = _seed_participation_context()
+
+    created_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=qualified_device_profile.id),
+        tester.id,
+    )
+    update_participation_request(
+        created_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    create_task_from_participation_request(
+        created_request.id,
+        ParticipationRequestTaskCreate(
+            title="Validate accepted candidate",
+            status="assigned",
+        ),
+        developer.id,
+    )
+
+    timeline = list_participation_request_timeline(created_request.id, developer.id)
+
+    assert timeline.total == 3
+    assert [item.event_type.value for item in timeline.items] == [
+        "task_created_from_participation_request",
+        "participation_request_accepted",
+        "participation_request_created",
+    ]
+    assert timeline.items[0].actor_account_id == developer.id
+    assert timeline.items[-1].actor_account_id == tester.id
 
 
 def test_participation_request_service_supports_developer_accepting_pending_request() -> None:

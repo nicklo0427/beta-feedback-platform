@@ -39,7 +39,7 @@ const relatedCampaign = {
 }
 
 test.describe('projects shell flows', () => {
-  test('navigates from home to projects list and project detail with related campaigns', async ({
+  test('navigates from the projects list to project detail with related campaigns', async ({
     page
   }) => {
     await mockApiJson(page, '/accounts', {
@@ -56,8 +56,7 @@ test.describe('projects shell flows', () => {
       total: 1
     })
 
-    await page.goto('/')
-    await page.getByTestId('home-projects-link').click()
+    await page.goto('/projects')
 
     await expect(page).toHaveURL(/\/projects$/)
     await expect(page.getByTestId('projects-list')).toBeVisible()
@@ -146,7 +145,10 @@ test.describe('projects shell flows', () => {
     await page.getByTestId('project-create-link').click()
 
     await expect(page).toHaveURL(/\/projects\/new$/)
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.waitForLoadState('networkidle')
+    const actorSelect = page.getByTestId('current-actor-select').first()
+    await actorSelect.selectOption(developerAccount.id)
+    await expect(actorSelect).toHaveValue(developerAccount.id)
     await expect(page.getByTestId('project-form')).toBeVisible()
 
     await page.getByTestId('project-name-input').fill('FocusFlow')
@@ -201,7 +203,7 @@ test.describe('projects shell flows', () => {
     })
 
     await page.goto('/projects/new')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await expect(page.getByTestId('project-form')).toBeVisible()
     await page.getByTestId('project-submit').click()
 
@@ -257,7 +259,7 @@ test.describe('projects shell flows', () => {
 
     await page.goto('/projects')
 
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('projects-mine-toggle').click()
 
     await expect(page.getByTestId('projects-list')).toBeVisible()

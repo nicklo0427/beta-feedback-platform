@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   useCurrentActorId,
   useCurrentActorPersistence
@@ -22,6 +21,9 @@ const currentActorId = useCurrentActorId()
 const submitError = ref<string | null>(null)
 const submitting = ref(false)
 const initialValues = createEmptyProjectFormValues()
+const actorStatusLabel = computed(() =>
+  currentActorId.value ? `已選擇 actor ${currentActorId.value}` : '尚未選擇 actor'
+)
 
 async function handleSubmit(values: ProjectFormValues): Promise<void> {
   if (!currentActorId.value) {
@@ -60,12 +62,11 @@ async function handleSubmit(values: ProjectFormValues): Promise<void> {
         <p class="resource-shell__description">
           建立一筆最小的專案，作為後續活動、任務與回饋流程的上游入口。
         </p>
+        <div class="resource-shell__meta">
+          <span class="resource-shell__meta-chip">{{ actorStatusLabel }}</span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="專案擁有者"
-        description="選擇目前正在操作的開發者帳號，建立後會自動寫入專案的擁有者欄位。"
-      />
 
       <section class="resource-section" data-testid="project-create-panel">
         <h2 class="resource-section__title">新增專案</h2>

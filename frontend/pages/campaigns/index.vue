@@ -24,12 +24,24 @@ const campaigns = computed(() => campaignResponse.value.items)
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
         <h1 class="resource-shell__title">活動列表</h1>
         <p class="resource-shell__description">
           這個頁面對齊後端的活動列表與詳情契約，先承接 MVP 階段的活動列表、狀態與平台欄位。
         </p>
+        <div class="app-page-summary-grid">
+          <article class="app-page-summary-card">
+            <span class="app-page-summary-card__label">活動數</span>
+            <strong class="app-page-summary-card__value">{{ campaigns.length }}</strong>
+            <span class="app-page-summary-card__description">活動列表現在會沿用與 workspace 頁一致的卡片節奏與 header hierarchy。</span>
+          </article>
+          <article class="app-page-summary-card">
+            <span class="app-page-summary-card__label">頁面角色</span>
+            <strong class="app-page-summary-card__value">Campaign catalog</strong>
+            <span class="app-page-summary-card__description">保留 public discovery 的資料邏輯，但套進新的 app list template。</span>
+          </article>
+        </div>
       </header>
 
       <section
@@ -72,7 +84,7 @@ const campaigns = computed(() => campaignResponse.value.items)
 
       <section
         v-else
-        class="resource-shell__grid"
+        class="resource-shell__grid app-page-card-grid"
         data-testid="campaigns-list"
       >
         <NuxtLink

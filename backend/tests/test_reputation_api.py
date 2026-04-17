@@ -111,7 +111,10 @@ def test_campaign_reputation_api_returns_zero_state_for_existing_campaign(
     )
     campaign_id = campaign_response.json()["id"]
 
-    response = client.get(f"/api/v1/campaigns/{campaign_id}/reputation")
+    response = client.get(
+        f"/api/v1/campaigns/{campaign_id}/reputation",
+        headers=_actor_headers(developer.id),
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -138,7 +141,11 @@ def test_reputation_api_returns_not_found_for_missing_anchor(client: TestClient)
         },
     }
 
-    campaign_response = client.get("/api/v1/campaigns/camp_missing/reputation")
+    developer = _create_developer_account()
+    campaign_response = client.get(
+        "/api/v1/campaigns/camp_missing/reputation",
+        headers=_actor_headers(developer.id),
+    )
 
     assert campaign_response.status_code == 404
     assert campaign_response.json() == {
@@ -147,5 +154,35 @@ def test_reputation_api_returns_not_found_for_missing_anchor(client: TestClient)
         "details": {
             "resource": "campaign",
             "id": "camp_missing",
+        },
+    }
+
+
+def test_campaign_reputation_read_requires_current_actor(client: TestClient) -> None:
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.get(
+        f"/api/v1/campaigns/{campaign_response.json()['id']}/reputation"
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
         },
     }

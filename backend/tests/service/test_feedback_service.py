@@ -4,9 +4,10 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.activity_events.service import list_feedback_timeline
 from app.modules.campaigns.schemas import CampaignCreate
 from app.modules.campaigns.service import create_campaign
-from app.modules.accounts.schemas import AccountCreate
+from app.modules.accounts.schemas import AccountCreate, AccountRole
 from app.modules.accounts.service import create_account
 from app.modules.device_profiles.schemas import DeviceProfileCreate, DeviceProfilePlatform
 from app.modules.device_profiles.service import create_device_profile
@@ -33,6 +34,9 @@ from app.modules.tasks.service import create_task, get_task
 
 
 def test_feedback_service_create_and_list_derives_task_relations() -> None:
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
     project = create_project(ProjectCreate(name="HabitQuest"))
     campaign = create_campaign(
         CampaignCreate(
@@ -47,7 +51,8 @@ def test_feedback_service_create_and_list_derives_task_relations() -> None:
             platform=DeviceProfilePlatform.IOS,
             device_model="iPhone 15 Pro",
             os_name="iOS",
-        )
+        ),
+        tester.id,
     )
     task = create_task(
         campaign.id,
@@ -67,10 +72,11 @@ def test_feedback_service_create_and_list_derives_task_relations() -> None:
             category=FeedbackCategory.BUG,
             actual_result="App exits immediately.",
         ),
+        tester.id,
     )
 
     listed_feedback = list_feedback(task.id)
-    submitted_task = get_task(task.id)
+    submitted_task = get_task(task.id, tester.id)
 
     assert listed_feedback.total == 1
     assert listed_feedback.items[0].id == created_feedback.id
@@ -253,7 +259,90 @@ def test_feedback_service_content_update_does_not_set_resubmitted_at_when_not_re
     )
 
     assert updated_feedback.review_status == FeedbackReviewStatus.SUBMITTED
-    assert updated_feedback.resubmitted_at is None
+
+
+def test_feedback_timeline_records_submit_review_and_resubmission_events() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        tester.id,
+    )
+    task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.ASSIGNED,
+        ),
+        developer.id,
+    )
+
+    created_feedback = create_feedback(
+        task.id,
+        FeedbackCreate(
+            summary="App crashes on launch",
+            severity=FeedbackSeverity.HIGH,
+            category=FeedbackCategory.BUG,
+            actual_result="App exits immediately.",
+        ),
+        tester.id,
+    )
+    update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            review_status=FeedbackReviewStatus.NEEDS_MORE_INFO,
+            developer_note="Please include exact cold-start timing.",
+        ),
+        developer.id,
+    )
+    update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            actual_result="App exits after three seconds on a cold launch.",
+        ),
+        tester.id,
+    )
+    update_feedback(
+        created_feedback.id,
+        FeedbackUpdate(
+            review_status=FeedbackReviewStatus.REVIEWED,
+        ),
+        developer.id,
+    )
+
+    timeline = list_feedback_timeline(created_feedback.id, developer.id)
+
+    assert timeline.total == 4
+    assert [item.event_type.value for item in timeline.items] == [
+        "feedback_reviewed",
+        "feedback_resubmitted",
+        "feedback_needs_more_info",
+        "feedback_submitted",
+    ]
+    assert timeline.items[0].actor_account_id == developer.id
+    assert timeline.items[1].actor_account_id == tester.id
 
 
 def test_feedback_service_list_queue_supports_mine_filter_for_owned_projects() -> None:

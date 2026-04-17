@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
 
-import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
+import {
+  formatTaskResolutionOutcomeLabel,
+  formatTaskStatusLabel,
+  type TaskStatus
+} from '~/features/tasks/types'
 
 const testerAccount = {
   id: 'acct_tester_123',
@@ -53,10 +57,45 @@ const inProgressTaskDetail = {
   }
 }
 
+const resolvedClosedTask = {
+  ...assignedTask,
+  status: 'closed',
+  resolution_context: {
+    resolution_outcome: 'confirmed_issue',
+    resolution_note: '已確認 onboarding 首次開啟會 crash。',
+    resolved_at: '2026-04-03T12:10:00Z',
+    resolved_by_account_id: 'acct_dev_123',
+    resolved_by_account_display_name: 'Dev Lead'
+  }
+}
+
 test.describe('my tasks inbox flows', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
+    })
+
+    await page.route(/\/api\/v1\/tasks\/[^/]+\/timeline$/, async (route) => {
+      const taskId = route.request().url().match(/\/tasks\/([^/]+)\/timeline$/)?.[1] ?? 'task_unknown'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: `evt_${taskId}`,
+              entity_type: 'task',
+              entity_id: taskId,
+              event_type: 'task_created',
+              actor_account_id: developerAccount.id,
+              actor_account_display_name: developerAccount.display_name,
+              summary: '建立任務。',
+              created_at: '2026-04-03T09:00:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
     })
   })
 
@@ -105,7 +144,7 @@ test.describe('my tasks inbox flows', () => {
     })
 
     await page.goto('/my/tasks')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-tasks-list')).toBeVisible()
     const taskCard = page.getByTestId('my-task-card-task_123')
@@ -149,7 +188,7 @@ test.describe('my tasks inbox flows', () => {
     })
 
     await page.goto('/my/tasks')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-tasks-empty')).toBeVisible()
   })
@@ -221,7 +260,7 @@ test.describe('my tasks inbox flows', () => {
     })
 
     await page.goto('/my/tasks')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     const updateRequestPromise = page.waitForRequest((request) => {
       return /\/api\/v1\/tasks\/task_123$/.test(request.url()) && request.method() === 'PATCH'
     })
@@ -275,11 +314,58 @@ test.describe('my tasks inbox flows', () => {
     })
 
     await page.goto('/my/tasks')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-task-drift-chip-task_123')).toBeVisible()
     await expect(page.getByTestId('my-task-drift-warning-task_123')).toContainText(
       '已不再符合活動條件'
+    )
+  })
+
+  test('shows task resolution summary in the tester inbox', async ({ page }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [testerAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/tasks\?status=assigned&mine=true$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [],
+          total: 0
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/tasks\?status=closed&mine=true$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [resolvedClosedTask],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/my/tasks')
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
+    await page.getByTestId('my-tasks-filter-closed').click()
+
+    await expect(page.getByTestId('my-task-resolution-chip-task_123')).toContainText(
+      formatTaskResolutionOutcomeLabel('confirmed_issue')
+    )
+    await expect(page.getByTestId('my-task-resolution-summary-task_123')).toContainText(
+      resolvedClosedTask.resolution_context.resolved_at
+    )
+    await expect(page.getByTestId('my-task-resolution-note-task_123')).toContainText(
+      resolvedClosedTask.resolution_context.resolution_note
     )
   })
 })

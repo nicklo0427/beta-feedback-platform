@@ -40,7 +40,7 @@ test.describe('eligible campaigns workspace flows', () => {
     })
   })
 
-  test('opens the tester eligible campaigns workspace from home and navigates to campaign detail', async ({
+  test('opens the tester eligible campaigns workspace and navigates to campaign detail', async ({
     page
   }) => {
     await page.route(/\/api\/v1\/accounts$/, async (route) => {
@@ -156,9 +156,9 @@ test.describe('eligible campaigns workspace flows', () => {
       })
     })
 
-    await page.goto('/')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
-    await page.getByTestId('home-role-action-eligible-campaigns').click()
+    await page.goto('/my/eligible-campaigns')
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
+    await page.waitForLoadState('networkidle')
 
     await expect(page).toHaveURL(/\/my\/eligible-campaigns$/)
     await expect(page.getByTestId('my-eligible-campaigns-list')).toBeVisible()
@@ -202,7 +202,7 @@ test.describe('eligible campaigns workspace flows', () => {
     })
 
     await page.goto('/my/eligible-campaigns')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-eligible-campaigns-empty')).toBeVisible()
   })
@@ -222,7 +222,7 @@ test.describe('eligible campaigns workspace flows', () => {
     })
 
     await page.goto('/my/eligible-campaigns')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-eligible-campaigns-role-mismatch')).toBeVisible()
   })
@@ -286,7 +286,7 @@ test.describe('eligible campaigns workspace flows', () => {
     )
 
     await page.goto('/my/eligible-campaigns')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await page
       .getByTestId('eligible-campaign-participation-camp_123-note-input')

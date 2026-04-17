@@ -5,7 +5,6 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
@@ -95,13 +94,14 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
           >
             狀態 {{ formatTaskStatusLabel(task.status) }}
           </span>
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
         </div>
       </header>
-
-      <CurrentActorSelector
-        title="回饋提交帳號"
-        description="選擇目前正在操作的測試者帳號。提交回饋時，系統會驗證這個任務是否真的指派給你。"
-      />
 
       <section
         v-if="pending"

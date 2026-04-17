@@ -142,7 +142,7 @@ test.describe('participation review queue flows', () => {
     })
 
     await page.goto('/review/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     const card = page.getByTestId('review-participation-request-card-pr_123')
     await expect(card).toContainText('Closed Beta Round 1')
@@ -157,12 +157,14 @@ test.describe('participation review queue flows', () => {
     )
     await expect(acceptedCard).toContainText('任務橋接 尚未建立任務')
     await expect(page.getByTestId('review-participation-create-task-pr_123')).toBeVisible()
-    await expect(page.getByTestId('participation-review-summary')).toContainText('待處理 0')
-    await expect(page.getByTestId('participation-review-summary')).toContainText('已接受待建任務 1')
-    await expect(page.getByTestId('participation-review-summary')).toContainText('涉及活動 1')
+    await expect(page.getByTestId('participation-review-summary')).toContainText(/待處理\s*0/)
+    await expect(page.getByTestId('participation-review-summary')).toContainText(
+      /已接受待建任務\s*1/
+    )
+    await expect(page.getByTestId('participation-review-summary')).toContainText(/涉及活動\s*1/)
 
     await page.goto('/my/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const testerCard = page.getByTestId('participation-request-card-pr_123')
     await expect(testerCard).toContainText(
@@ -187,7 +189,7 @@ test.describe('participation review queue flows', () => {
     })
 
     await page.goto('/review/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('participation-review-role-mismatch')).toBeVisible()
   })

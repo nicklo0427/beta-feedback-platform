@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+AuthMode = Literal["auto", "session_only", "session_with_header_fallback"]
 
 
 class Settings(BaseSettings):
@@ -34,15 +37,51 @@ class Settings(BaseSettings):
         default=False,
         description="Whether the auth session cookie should require HTTPS.",
     )
-    auth_dev_actor_header_fallback_enabled: bool = Field(
-        default=True,
-        description="Allows X-Actor-Id fallback for local dev and seed workflows.",
+    auth_mode: AuthMode = Field(
+        default="auto",
+        description=(
+            "Auth mode baseline. Use session_only for beta/staging/production and "
+            "session_with_header_fallback only for local QA / seed workflows."
+        ),
+    )
+    auth_dev_actor_header_fallback_enabled: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Legacy compatibility override for X-Actor-Id fallback. Prefer BFP_AUTH_MODE."
+        ),
     )
 
     model_config = SettingsConfigDict(
         env_prefix="BFP_",
         case_sensitive=False,
     )
+
+    @property
+    def resolved_auth_mode(
+        self,
+    ) -> Literal["session_only", "session_with_header_fallback"]:
+        if self.auth_mode == "session_only":
+            return "session_only"
+
+        if self.auth_mode == "session_with_header_fallback":
+            return "session_with_header_fallback"
+
+        if self.auth_dev_actor_header_fallback_enabled is not None:
+            return (
+                "session_with_header_fallback"
+                if self.auth_dev_actor_header_fallback_enabled
+                else "session_only"
+            )
+
+        app_env = self.app_env.strip().lower()
+        if app_env in {"beta", "staging", "production", "prod", "qa"}:
+            return "session_only"
+
+        return "session_with_header_fallback"
+
+    @property
+    def auth_header_fallback_enabled(self) -> bool:
+        return self.resolved_auth_mode == "session_with_header_fallback"
 
 
 @lru_cache

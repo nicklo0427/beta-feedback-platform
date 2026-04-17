@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   useCurrentActorId,
   useCurrentActorPersistence
@@ -69,13 +68,13 @@ const projects = computed(() => projectResponse.value.items)
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
         <h1 class="resource-shell__title">我的專案</h1>
         <p class="resource-shell__description">
           這個頁面提供開發者端最小的 owned workspace，讓你集中查看由目前操作帳號擁有的專案，並快速進入主流程的上游入口。
         </p>
-        <div class="resource-state__actions">
+        <div class="resource-state__actions app-page-actions">
           <NuxtLink class="resource-action" to="/projects">
             查看所有專案
           </NuxtLink>
@@ -87,12 +86,6 @@ const projects = computed(() => projectResponse.value.items)
           </NuxtLink>
         </div>
       </header>
-
-      <CurrentActorSelector
-        title="開發者專案工作區"
-        description="選擇目前正在操作的開發者帳號，系統會依據擁有者資訊推導這位開發者的專案工作區。"
-      />
-
       <section
         v-if="accountsError"
         class="resource-state"
@@ -156,13 +149,17 @@ const projects = computed(() => projectResponse.value.items)
       <template v-else>
         <section class="resource-section" data-testid="my-projects-summary">
           <h2 class="resource-section__title">我的專案總覽</h2>
-          <div class="resource-shell__meta">
-            <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              我的專案 {{ projectResponse.total }}
-            </span>
+          <div class="app-page-summary-grid">
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">目前帳號</span>
+              <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
+              <span class="app-page-summary-card__description">這個 workspace 目前正在讀取這位開發者擁有的專案。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">我的專案</span>
+              <strong class="app-page-summary-card__value">{{ projectResponse.total }}</strong>
+              <span class="app-page-summary-card__description">可直接往上游專案與下游活動流程延伸。</span>
+            </article>
           </div>
         </section>
 
@@ -211,7 +208,7 @@ const projects = computed(() => projectResponse.value.items)
 
         <section
           v-else
-          class="resource-section__body"
+          class="resource-section__body app-page-card-grid"
           data-testid="my-projects-list"
         >
           <article

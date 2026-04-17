@@ -5,7 +5,6 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
@@ -110,12 +109,16 @@ async function handleSubmit(values: CampaignFormValues): Promise<void> {
         <p class="resource-shell__description">
           更新既有活動的最小欄位、目標平台與狀態，讓後續安全設定、資格條件與任務流程維持一致。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="活動操作帳號"
-        description="選擇目前正在操作的開發者帳號。更新活動時，系統會用它驗證活動所屬專案的擁有權。"
-      />
 
       <section
         v-if="pending"

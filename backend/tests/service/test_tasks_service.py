@@ -4,6 +4,7 @@ import pytest
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.activity_events.service import list_task_timeline
 from app.modules.accounts.schemas import AccountCreate, AccountRole
 from app.modules.accounts.service import create_account
 from app.modules.campaigns.schemas import CampaignCreate
@@ -30,7 +31,12 @@ from app.modules.participation_requests.service import (
     create_task_from_participation_request,
     update_participation_request,
 )
-from app.modules.tasks.schemas import TaskCreate, TaskStatus, TaskUpdate
+from app.modules.tasks.schemas import (
+    TaskCreate,
+    TaskResolutionOutcome,
+    TaskStatus,
+    TaskUpdate,
+)
 from app.modules.tasks.service import (
     create_task,
     delete_task,
@@ -42,6 +48,9 @@ from app.modules.tasks.service import (
 
 
 def test_task_service_create_and_list_supports_filters() -> None:
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
     project = create_project(ProjectCreate(name="HabitQuest"))
     campaign = create_campaign(
         CampaignCreate(
@@ -56,7 +65,8 @@ def test_task_service_create_and_list_supports_filters() -> None:
             platform=DeviceProfilePlatform.IOS,
             device_model="iPhone 15 Pro",
             os_name="iOS",
-        )
+        ),
+        tester.id,
     )
 
     created_task = create_task(
@@ -79,6 +89,7 @@ def test_task_service_create_and_list_supports_filters() -> None:
         campaign_id=campaign.id,
         device_profile_id=device_profile.id,
         status_filter=TaskStatus.ASSIGNED,
+        current_actor_id=tester.id,
     )
 
     assert listed_tasks.total == 1
@@ -208,7 +219,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
         developer.id,
     )
 
-    detail_before_drift = get_task(task.id)
+    detail_before_drift = get_task(task.id, developer.id)
     assert detail_before_drift.qualification_context is not None
     assert detail_before_drift.qualification_context.device_profile_id == device_profile.id
     assert detail_before_drift.qualification_context.device_profile_name == device_profile.name
@@ -224,7 +235,7 @@ def test_task_service_detail_includes_qualification_context_and_drift_warning() 
         developer.id,
     )
 
-    detail_after_drift = get_task(task.id)
+    detail_after_drift = get_task(task.id, developer.id)
     assert detail_after_drift.qualification_context is not None
     assert detail_after_drift.qualification_context.qualification_status == "not_qualified"
     assert detail_after_drift.qualification_context.matched_rule_id is None
@@ -290,6 +301,83 @@ def test_task_service_detail_includes_participation_request_context_when_linked(
         tester.display_name
     )
     assert detail.participation_request_context.assignment_created_at is not None
+
+
+def test_task_timeline_records_bridge_creation_and_resolution() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    create_eligibility_rule(
+        campaign.id,
+        EligibilityRuleCreate(
+            platform=EligibilityRulePlatform.IOS,
+            os_name="iOS",
+            install_channel="testflight",
+        ),
+        developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+            install_channel="testflight",
+            os_version="17.4",
+        ),
+        tester.id,
+    )
+    participation_request = create_participation_request(
+        campaign.id,
+        ParticipationRequestCreate(device_profile_id=device_profile.id),
+        tester.id,
+    )
+    update_participation_request(
+        participation_request.id,
+        ParticipationRequestUpdate(status="accepted"),
+        developer.id,
+    )
+    created_task = create_task_from_participation_request(
+        participation_request.id,
+        ParticipationRequestTaskCreate(
+            title="Validate accepted request",
+            status=TaskStatus.ASSIGNED,
+        ),
+        developer.id,
+    )
+    update_task(
+        created_task.id,
+        TaskUpdate(
+            status=TaskStatus.CLOSED,
+            resolution_outcome=TaskResolutionOutcome.CONFIRMED_ISSUE,
+            resolution_note="Verified and logged for follow-up.",
+        ),
+        developer.id,
+    )
+
+    timeline = list_task_timeline(created_task.id, developer.id)
+
+    assert timeline.total == 2
+    assert [item.event_type.value for item in timeline.items] == [
+        "task_resolved",
+        "task_created_from_participation_request",
+    ]
+    assert timeline.items[0].summary == "記錄任務處理結果：確認問題。"
 
 
 def test_task_service_detail_requires_actor_for_linked_participation_request() -> None:
@@ -682,6 +770,126 @@ def test_task_service_writes_submitted_at_when_entering_submitted() -> None:
     assert in_progress_task.submitted_at is None
     assert submitted_task.status == TaskStatus.SUBMITTED
     assert submitted_task.submitted_at is not None
+
+
+def test_task_service_resolution_closes_task_and_records_outcome() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        tester.id,
+    )
+    submitted_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+        developer.id,
+    )
+
+    resolved_task = update_task(
+        submitted_task.id,
+        TaskUpdate(
+            status=TaskStatus.CLOSED,
+            resolution_outcome=TaskResolutionOutcome.CONFIRMED_ISSUE,
+            resolution_note="已確認 onboarding 首次開啟會 crash。",
+        ),
+        developer.id,
+    )
+
+    assert resolved_task.status == TaskStatus.CLOSED
+    assert resolved_task.resolution_context is not None
+    assert (
+        resolved_task.resolution_context.resolution_outcome
+        == TaskResolutionOutcome.CONFIRMED_ISSUE
+    )
+    assert resolved_task.resolution_context.resolution_note == "已確認 onboarding 首次開啟會 crash。"
+    assert resolved_task.resolution_context.resolved_by_account_id == developer.id
+    assert resolved_task.resolution_context.resolved_by_account_display_name == (
+        developer.display_name
+    )
+    assert resolved_task.resolution_context.resolved_at is not None
+
+
+def test_task_service_rejects_resolution_before_task_is_closed() -> None:
+    developer = create_account(
+        AccountCreate(display_name="Dev Owner", role=AccountRole.DEVELOPER)
+    )
+    tester = create_account(
+        AccountCreate(display_name="QA Tester", role=AccountRole.TESTER)
+    )
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+    device_profile = create_device_profile(
+        DeviceProfileCreate(
+            name="QA iPhone 15",
+            platform=DeviceProfilePlatform.IOS,
+            device_model="iPhone 15 Pro",
+            os_name="iOS",
+        ),
+        tester.id,
+    )
+    submitted_task = create_task(
+        campaign.id,
+        TaskCreate(
+            title="Validate onboarding flow",
+            device_profile_id=device_profile.id,
+            status=TaskStatus.SUBMITTED,
+        ),
+        developer.id,
+    )
+
+    with pytest.raises(AppError) as exc_info:
+        update_task(
+            submitted_task.id,
+            TaskUpdate(
+                resolution_outcome=TaskResolutionOutcome.NOT_REPRODUCIBLE,
+            ),
+            developer.id,
+        )
+
+    error = exc_info.value
+    assert error.status_code == status.HTTP_409_CONFLICT
+    assert error.code == "invalid_task_resolution_state"
+    assert error.details == {
+        "resource": "task",
+        "task_id": submitted_task.id,
+        "status": "submitted",
+        "required_status": "closed",
+    }
 
 
 def test_task_service_delete_removes_the_resource() -> None:

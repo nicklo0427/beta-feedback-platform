@@ -31,7 +31,7 @@ def get_current_actor_id_dep(
         if session_actor_id is not None:
             return session_actor_id
 
-    if not settings.auth_dev_actor_header_fallback_enabled:
+    if not settings.auth_header_fallback_enabled:
         return None
 
     if x_actor_id is None:

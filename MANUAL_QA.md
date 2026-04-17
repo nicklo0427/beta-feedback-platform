@@ -36,9 +36,11 @@ set +a
 
 - 若你要跑 `session-only beta smoke`，請確認：
   - `BFP_DATABASE_URL` 已設定
-  - `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=false`
+  - `BFP_AUTH_MODE=session_only`
+  - `NUXT_PUBLIC_AUTH_MODE=session_only`
 - 若你要跑完整 seed fixture regression，建議改用本地 QA 環境，並允許：
-  - `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=true`
+  - `BFP_AUTH_MODE=session_with_header_fallback`
+  - `NUXT_PUBLIC_AUTH_MODE=session_with_header_fallback`
 
 ### 2.2 啟動 backend
 
@@ -130,7 +132,7 @@ script 也會同時提供兩條 participation 驗證線：
 - `Role-Aware Developer <label>`
 - `Role-Aware Tester <label>`
 
-並透過首頁的 `Current Actor` selector 切換。
+並透過 `/dashboard` 或其他 app 內頁 top bar 的 `Current Actor` selector 切換。
 
 若你在 `session-only` beta 模式下驗收，請另外用：
 
@@ -140,6 +142,44 @@ script 也會同時提供兩條 participation 驗證線：
 建立一組 developer / tester 帳號做 auth 流程驗證。
 
 ## 3. 測試案例清單
+
+### TC-00B Public shell、App shell 與主題切換
+
+測試步驟
+1. 開啟 `http://127.0.0.1:3000/`
+2. 觀察 public header、品牌區、locale/theme controls 與 auth CTA
+3. 點擊主題切換按鈕
+4. 重新整理頁面
+5. 登入後開啟 `http://127.0.0.1:3000/dashboard`
+6. 觀察 app shell 的 side navigation、top bar 與 session/account 區塊
+7. 依序點擊：
+   - `Dashboard`
+   - `我的專案`
+   - `我的任務`
+   - `回饋審查`
+   - `帳號`
+
+預期結果
+- public shell 與 app shell 都能正常載入，沒有 layout 崩壞
+- public shell 不顯示 app sidebar
+- 登入後的 app shell 可見 side navigation，top bar 可見頁面標題、theme toggle、session/account 區塊
+- light / dark 主題可切換，重新整理後仍保留最後選擇
+- 導覽可在既有 route 間正常切換，不會改變 URL contract
+
+### TC-00C Responsive mobile smoke
+
+測試步驟
+1. 將瀏覽器寬度調整到約 `390px`
+2. 開啟首頁、`/login`、`/dashboard`、`/my/tasks`、`/projects`
+3. 點開 mobile navigation drawer
+4. 進入一個 detail 頁與一個 form 頁
+
+預期結果
+- public header 在手機寬度下仍可操作，auth CTA 不爆版
+- mobile navigation 可正常開關
+- 主要頁面不爆版、不出現不可操作的橫向溢出
+- detail 頁 context 區會合理下移
+- form 頁仍可完成主要輸入與送出流程
 
 ### TC-00 Public beta health 與 smoke
 
@@ -172,33 +212,49 @@ script 也會同時提供兩條 participation 驗證線：
 - logout 成功後，受保護的 session flow 會要求重新登入或顯示 unauthenticated 對應提示
 - session cookie 可驅動至少一筆 create flow
 
-### TC-01 首頁載入與主要導航
+### TC-01 Public 首頁載入與 auth 入口
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/`
-2. 觀察首頁文案與主要入口
-3. 點擊 `Accounts`、`Projects`、`Campaigns`、`Device Profiles`、`Tasks`
+2. 觀察首頁文案、品牌視覺與主要 CTA
+3. 點擊 `登入工作區`、`建立帳號`、`了解如何運作`
 
 預期結果
 - 首頁正常載入，沒有 runtime crash
-- 首頁顯示繁體中文產品定位文案
-- 可看見 `Current Actor` selector
-- 主要入口都可正常進入對應列表頁
+- 首頁顯示繁體中文 public landing 文案與品牌視覺
+- 可看見 public header、locale/theme controls 與 auth CTA
+- 看不到 app sidebar 或內部資源入口卡
+- auth CTA 與頁內入口可正常導到對應流程
 
-### TC-02 首頁 role-aware 切換
+### TC-02 Dashboard role-aware 工作區切換
 
 測試步驟
-1. 開啟 `http://127.0.0.1:3000/`
-2. 不選 actor，先觀察首頁
-3. 選擇 seeded developer account
+1. 開啟 `http://127.0.0.1:3000/dashboard`
+2. 不選 actor 或未登入時，先觀察頁面
+3. 進入 app shell 後選擇 seeded developer account
 4. 再切換成 seeded tester account
 
 預期結果
-- 未選 actor 時，首頁顯示需先選擇 current actor 的提示
-- 切到 developer 後，首頁顯示 developer summary cards
-- developer 可看到 `Open my projects`、`Open review queue`、`Open campaigns`
-- 切到 tester 後，首頁顯示 tester summary cards
-- tester 可看到 `Open my tasks`、`Open my device profiles`、`Open accounts`
+- 未登入時，`/dashboard` 會要求登入或導向登入流程
+- 進入 app shell 後，developer 會看到 developer dashboard summary / queues / CTA
+- developer 可看到 `我的專案`、`我的活動`、審查相關入口
+- 切到 tester 後，會看到 tester dashboard summary / queues / CTA
+- tester 可看到 `我的任務`、`符合資格的活動`、`我的 participation requests`
+
+### TC-02A Login / Register 視覺與流程
+
+測試步驟
+1. 開啟 `http://127.0.0.1:3000/login`
+2. 再開啟 `http://127.0.0.1:3000/register`
+3. 觀察品牌區塊、表單結構與 helper text
+4. 實際完成一輪 register / login / logout
+
+預期結果
+- login / register 會使用一致的品牌語言與 auth shell
+- 表單分段清楚，沒有舊式獨立 landing page 的割裂感
+- register / login 成功後都會進 `/dashboard`
+- 已登入時再進 `/login` 或 `/register`，會被導回 `/dashboard`
+- logout 後才會回到未登入的 public / auth 節奏
 
 ### TC-03 帳號列表、建立、詳情、編輯
 

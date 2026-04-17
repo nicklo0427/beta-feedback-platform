@@ -280,6 +280,20 @@ def list_eligibility_rules(campaign_id: str) -> EligibilityRuleListResponse:
     return EligibilityRuleListResponse.model_validate(build_list_response(items))
 
 
+def list_eligibility_rules_for_actor(
+    campaign_id: str,
+    current_actor_id: str | None,
+) -> EligibilityRuleListResponse:
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
+
+    ensure_campaign_owned_by_actor(
+        campaign_id,
+        current_actor_id,
+        resource="eligibility_rule",
+    )
+    return list_eligibility_rules(campaign_id)
+
+
 def list_campaign_qualification_results(
     campaign_id: str,
     current_actor_id: str,
@@ -362,6 +376,21 @@ def ensure_device_profile_assignment_is_eligible(
 
 def get_eligibility_rule(eligibility_rule_id: str) -> EligibilityRuleDetail:
     return _to_eligibility_rule_detail(ensure_eligibility_rule_exists(eligibility_rule_id))
+
+
+def get_eligibility_rule_for_actor(
+    eligibility_rule_id: str,
+    current_actor_id: str | None,
+) -> EligibilityRuleDetail:
+    from app.modules.campaigns.service import ensure_campaign_owned_by_actor
+
+    record = ensure_eligibility_rule_exists(eligibility_rule_id)
+    ensure_campaign_owned_by_actor(
+        record.campaign_id,
+        current_actor_id,
+        resource="eligibility_rule",
+    )
+    return _to_eligibility_rule_detail(record)
 
 
 def create_eligibility_rule(

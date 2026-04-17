@@ -5,8 +5,8 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -35,10 +35,10 @@ const {
   refresh: refreshTask
 } = useAsyncData(
   () => `task-edit-${taskId.value}`,
-  () => fetchTaskDetail(taskId.value),
+  () => fetchTaskDetail(taskId.value, currentActorId.value),
   {
     server: false,
-    watch: [taskId],
+    watch: [taskId, currentActorId],
     default: () => null
   }
 )
@@ -121,12 +121,16 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         <p class="resource-shell__description">
           更新單一任務的最小欄位、指派目標與狀態，並讓後端驗證狀態流轉是否合法。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="任務操作帳號"
-        description="選擇目前正在操作的開發者帳號。更新任務時，系統會驗證這個任務是否屬於你。"
-      />
 
       <section
         v-if="taskPending || deviceProfilesPending"
@@ -147,9 +151,10 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         <h2 class="resource-state__title">無法載入任務編輯表單</h2>
         <p class="resource-state__description">
           {{
-            taskError?.message
-              || deviceProfilesError?.message
-              || '目前無法載入任務編輯表單。'
+            getActorAwareReadErrorMessage(
+              taskError,
+              deviceProfilesError?.message || '目前無法載入任務編輯表單。'
+            )
           }}
         </p>
         <div class="resource-state__actions">

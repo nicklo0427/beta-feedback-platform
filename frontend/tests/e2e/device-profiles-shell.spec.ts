@@ -50,7 +50,7 @@ const deviceProfileReputation = {
 }
 
 test.describe('device profiles shell flows', () => {
-  test('navigates from home to device profiles list and detail', async ({ page }) => {
+  test('navigates from the device profiles list to detail', async ({ page }) => {
     await mockApiJson(page, '/accounts', {
       items: [testerAccount],
       total: 1
@@ -62,8 +62,7 @@ test.describe('device profiles shell flows', () => {
     await mockApiJson(page, '/device-profiles/dp_123', deviceProfileDetail)
     await mockApiJson(page, '/device-profiles/dp_123/reputation', deviceProfileReputation)
 
-    await page.goto('/')
-    await page.getByTestId('home-device-profiles-link').click()
+    await page.goto('/device-profiles')
 
     await expect(page).toHaveURL(/\/device-profiles$/)
     await expect(page.getByTestId('device-profiles-list')).toBeVisible()
@@ -156,7 +155,7 @@ test.describe('device profiles shell flows', () => {
     await page.getByTestId('device-profile-create-link').click()
 
     await expect(page).toHaveURL(/\/device-profiles\/new$/)
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     await expect(page.getByTestId('device-profile-form')).toBeVisible()
     await page.waitForLoadState('networkidle')
 
@@ -231,7 +230,7 @@ test.describe('device profiles shell flows', () => {
     })
 
     await page.goto('/device-profiles/new')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     await expect(page.getByTestId('device-profile-form')).toBeVisible()
     await page.getByTestId('device-profile-submit').click()
 

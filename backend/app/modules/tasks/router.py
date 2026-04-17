@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import get_current_actor_id_dep, require_current_actor_id
+from app.modules.activity_events.schemas import ActivityTimelineResponse
 from app.modules.tasks.schemas import (
     TaskCreate,
     TaskDetail,
@@ -12,6 +13,7 @@ from app.modules.tasks.schemas import (
     TaskStatus,
     TaskUpdate,
 )
+from app.modules.activity_events.service import list_task_timeline
 from app.modules.tasks.service import (
     create_task,
     delete_task,
@@ -72,6 +74,18 @@ def get_task_route(
     current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> TaskDetail:
     return get_task(task_id, current_actor_id)
+
+
+@router.get(
+    "/tasks/{task_id}/timeline",
+    response_model=ActivityTimelineResponse,
+    response_model_exclude_unset=True,
+)
+def get_task_timeline_route(
+    task_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> ActivityTimelineResponse:
+    return list_task_timeline(task_id, current_actor_id)
 
 
 @router.patch(

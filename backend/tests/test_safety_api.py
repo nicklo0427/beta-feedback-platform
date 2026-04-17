@@ -64,7 +64,10 @@ def test_campaign_safety_crud_flow_returns_expected_shapes(client: TestClient) -
     assert created_safety["created_at"]
     assert created_safety["updated_at"]
 
-    get_response = client.get(f"/api/v1/campaigns/{campaign_id}/safety")
+    get_response = client.get(
+        f"/api/v1/campaigns/{campaign_id}/safety",
+        headers=_actor_headers(developer.id),
+    )
 
     assert get_response.status_code == 200
     assert get_response.json() == created_safety
@@ -91,7 +94,10 @@ def test_campaign_safety_crud_flow_returns_expected_shapes(client: TestClient) -
     assert delete_response.status_code == 204
     assert delete_response.content == b""
 
-    missing_response = client.get(f"/api/v1/campaigns/{campaign_id}/safety")
+    missing_response = client.get(
+        f"/api/v1/campaigns/{campaign_id}/safety",
+        headers=_actor_headers(developer.id),
+    )
     assert missing_response.status_code == 404
     assert missing_response.json() == {
         "code": "resource_not_found",
@@ -112,6 +118,43 @@ def test_campaign_safety_create_requires_current_actor(client: TestClient) -> No
             "risk_level": "low",
         },
     )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_campaign_safety_read_requires_current_actor(client: TestClient) -> None:
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+
+    client.post(
+        f"/api/v1/campaigns/{campaign.id}/safety",
+        json={
+            "distribution_channel": "testflight",
+            "source_label": "TestFlight",
+            "risk_level": "low",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.get(f"/api/v1/campaigns/{campaign.id}/safety")
 
     assert response.status_code == 400
     assert response.json() == {

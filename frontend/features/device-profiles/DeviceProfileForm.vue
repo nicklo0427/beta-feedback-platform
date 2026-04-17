@@ -93,137 +93,166 @@ function handleSubmit(): void {
       {{ validationMessage || errorMessage }}
     </div>
 
-    <div class="resource-form__grid">
-      <label class="resource-field">
-        <span class="resource-field__label">名稱</span>
-        <input
-          v-model="values.name"
-          class="resource-input"
-          data-testid="device-profile-name-input"
-          name="name"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">裝置識別</h2>
+        <p class="resource-form__section-description">
+          定義這個測試裝置的主平台、型號與 install channel，後續資格判斷會直接依這些欄位運作。
+        </p>
+      </div>
 
-      <label class="resource-field">
-        <span class="resource-field__label">平台</span>
-        <select
-          v-model="values.platform"
-          class="resource-select"
-          data-testid="device-profile-platform-select"
-          name="platform"
-          :disabled="pending"
-        >
-          <option value="">請選擇平台</option>
-          <option
-            v-for="platform in platformOptions"
-            :key="platform"
-            :value="platform"
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">名稱</span>
+          <input
+            v-model="values.name"
+            class="resource-input"
+            data-testid="device-profile-name-input"
+            name="name"
+            type="text"
+            :disabled="pending"
           >
-            {{ formatPlatformLabel(platform) }}
-          </option>
-        </select>
-      </label>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">平台</span>
+          <select
+            v-model="values.platform"
+            class="resource-select"
+            data-testid="device-profile-platform-select"
+            name="platform"
+            :disabled="pending"
+          >
+            <option value="">請選擇平台</option>
+            <option
+              v-for="platform in platformOptions"
+              :key="platform"
+              :value="platform"
+            >
+              {{ formatPlatformLabel(platform) }}
+            </option>
+          </select>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">裝置型號</span>
+          <input
+            v-model="values.device_model"
+            class="resource-input"
+            data-testid="device-profile-device-model-input"
+            name="device_model"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">安裝來源 / 發佈渠道</span>
+          <input
+            v-model="values.install_channel"
+            class="resource-input"
+            data-testid="device-profile-install-channel-input"
+            name="install_channel"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+      </div>
+    </section>
+
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">系統與瀏覽器</h2>
+        <p class="resource-form__section-description">
+          填入作業系統、瀏覽器與語系，讓 qualification 與回饋上下文更完整。
+        </p>
+      </div>
+
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">作業系統名稱</span>
+          <input
+            v-model="values.os_name"
+            class="resource-input"
+            data-testid="device-profile-os-name-input"
+            name="os_name"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">作業系統版本</span>
+          <input
+            v-model="values.os_version"
+            class="resource-input"
+            data-testid="device-profile-os-version-input"
+            name="os_version"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">瀏覽器名稱</span>
+          <input
+            v-model="values.browser_name"
+            class="resource-input"
+            data-testid="device-profile-browser-name-input"
+            name="browser_name"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">瀏覽器版本</span>
+          <input
+            v-model="values.browser_version"
+            class="resource-input"
+            data-testid="device-profile-browser-version-input"
+            name="browser_version"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">語系</span>
+          <input
+            v-model="values.locale"
+            class="resource-input"
+            data-testid="device-profile-locale-input"
+            name="locale"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+      </div>
+    </section>
+
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">備註</h2>
+        <p class="resource-form__section-description">
+          補充這台裝置的使用背景、限制或測試偏好，方便後續任務指派。
+        </p>
+      </div>
 
       <label class="resource-field">
-        <span class="resource-field__label">裝置型號</span>
-        <input
-          v-model="values.device_model"
-          class="resource-input"
-          data-testid="device-profile-device-model-input"
-          name="device_model"
-          type="text"
+        <span class="resource-field__label">備註</span>
+        <textarea
+          v-model="values.notes"
+          class="resource-textarea"
+          data-testid="device-profile-notes-input"
+          name="notes"
+          rows="5"
           :disabled="pending"
-        >
+        />
       </label>
+    </section>
 
-      <label class="resource-field">
-        <span class="resource-field__label">作業系統名稱</span>
-        <input
-          v-model="values.os_name"
-          class="resource-input"
-          data-testid="device-profile-os-name-input"
-          name="os_name"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-
-      <label class="resource-field">
-        <span class="resource-field__label">安裝來源 / 發佈渠道</span>
-        <input
-          v-model="values.install_channel"
-          class="resource-input"
-          data-testid="device-profile-install-channel-input"
-          name="install_channel"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-
-      <label class="resource-field">
-        <span class="resource-field__label">作業系統版本</span>
-        <input
-          v-model="values.os_version"
-          class="resource-input"
-          data-testid="device-profile-os-version-input"
-          name="os_version"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-
-      <label class="resource-field">
-        <span class="resource-field__label">瀏覽器名稱</span>
-        <input
-          v-model="values.browser_name"
-          class="resource-input"
-          data-testid="device-profile-browser-name-input"
-          name="browser_name"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-
-      <label class="resource-field">
-        <span class="resource-field__label">瀏覽器版本</span>
-        <input
-          v-model="values.browser_version"
-          class="resource-input"
-          data-testid="device-profile-browser-version-input"
-          name="browser_version"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-
-      <label class="resource-field">
-        <span class="resource-field__label">語系</span>
-        <input
-          v-model="values.locale"
-          class="resource-input"
-          data-testid="device-profile-locale-input"
-          name="locale"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
-    </div>
-
-    <label class="resource-field">
-      <span class="resource-field__label">備註</span>
-      <textarea
-        v-model="values.notes"
-        class="resource-textarea"
-        data-testid="device-profile-notes-input"
-        name="notes"
-        rows="5"
-        :disabled="pending"
-      />
-    </label>
-
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         data-testid="device-profile-submit"

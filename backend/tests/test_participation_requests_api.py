@@ -235,6 +235,20 @@ def test_participation_request_api_can_create_task_from_accepted_request(
     assert detail_payload["assignment_created_at"] is not None
     assert detail_payload["assignment_status"] == "task_created"
 
+    timeline_response = client.get(
+        f"/api/v1/participation-requests/{request_id}/timeline",
+        headers=_actor_headers(developer.id),
+    )
+
+    assert timeline_response.status_code == 200
+    timeline_payload = timeline_response.json()
+    assert timeline_payload["total"] == 3
+    assert [item["event_type"] for item in timeline_payload["items"]] == [
+        "task_created_from_participation_request",
+        "participation_request_accepted",
+        "participation_request_created",
+    ]
+
 
 def test_participation_request_task_bridge_rejects_non_accepted_request(
     client: TestClient,

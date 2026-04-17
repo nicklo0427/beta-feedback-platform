@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   useCurrentActorId,
   useCurrentActorPersistence
@@ -75,13 +74,13 @@ const campaigns = computed(() => campaignResponse.value.items)
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
         <h1 class="resource-shell__title">我的活動</h1>
         <p class="resource-shell__description">
           這個頁面提供開發者端最小的活動工作區，讓你可以集中查看由自己專案推導出的活動，並快速回到專案或活動詳情。
         </p>
-        <div class="resource-state__actions">
+        <div class="resource-state__actions app-page-actions">
           <NuxtLink class="resource-action" to="/campaigns">
             查看所有活動
           </NuxtLink>
@@ -93,12 +92,6 @@ const campaigns = computed(() => campaignResponse.value.items)
           </NuxtLink>
         </div>
       </header>
-
-      <CurrentActorSelector
-        title="開發者活動工作區"
-        description="選擇目前正在操作的開發者帳號，系統會依據這位開發者擁有的專案推導我的活動清單。"
-      />
-
       <section
         v-if="accountsError"
         class="resource-state"
@@ -162,13 +155,17 @@ const campaigns = computed(() => campaignResponse.value.items)
       <template v-else>
         <section class="resource-section" data-testid="my-campaigns-summary">
           <h2 class="resource-section__title">我的活動總覽</h2>
-          <div class="resource-shell__meta">
-            <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              我的活動 {{ campaignResponse.total }}
-            </span>
+          <div class="app-page-summary-grid">
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">目前帳號</span>
+              <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
+              <span class="app-page-summary-card__description">這裡聚焦你目前擁有專案所延伸出的活動集合。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">我的活動</span>
+              <strong class="app-page-summary-card__value">{{ campaignResponse.total }}</strong>
+              <span class="app-page-summary-card__description">可直接延伸到參與意圖審查與回饋審查流程。</span>
+            </article>
           </div>
         </section>
 
@@ -217,7 +214,7 @@ const campaigns = computed(() => campaignResponse.value.items)
 
         <section
           v-else
-          class="resource-section__body"
+          class="resource-section__body app-page-card-grid"
           data-testid="my-campaigns-list"
         >
           <article

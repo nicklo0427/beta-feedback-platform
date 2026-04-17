@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.modules.activity_events.repository import clear_activity_events
 from app.modules.accounts.repository import clear_accounts
 from app.modules.auth.repository import clear_sessions
 from app.modules.campaigns.repository import clear_campaigns
@@ -21,6 +22,7 @@ from app.modules.tasks.repository import clear_tasks
 @pytest.fixture(autouse=True)
 def clear_in_memory_state() -> Generator[None, None, None]:
     # Keep the in-memory repositories isolated between tests.
+    clear_activity_events()
     clear_accounts()
     clear_sessions()
     clear_campaigns()
@@ -32,6 +34,7 @@ def clear_in_memory_state() -> Generator[None, None, None]:
     clear_campaign_safety_profiles()
     clear_tasks()
     yield
+    clear_activity_events()
     clear_accounts()
     clear_sessions()
     clear_campaigns()

@@ -5,7 +5,6 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
@@ -122,12 +121,16 @@ async function handleSubmit(values: FeedbackFormValues): Promise<void> {
         <p class="resource-shell__description">
           更新既有回饋的最小結構化欄位，保持任務情境與既有回饋內容一致。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="回饋操作帳號"
-        description="選擇目前正在操作的測試者帳號。更新回饋與重新提交時，系統會驗證這筆回饋是否屬於你的任務指派。"
-      />
 
       <section
         v-if="!currentActorId"

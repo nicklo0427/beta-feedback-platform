@@ -212,7 +212,7 @@ test.describe('eligibility shell flows', () => {
     await page
       .getByTestId('eligibility-rule-install-channel-input')
       .fill('google-play-testing')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('eligibility-rule-submit').click()
 
     expect(createRequestActorId).toBe(developerAccount.id)
@@ -274,7 +274,7 @@ test.describe('eligibility shell flows', () => {
       '建立資格條件規則前，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('eligibility-rule-submit').click()
 
     await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
@@ -330,7 +330,7 @@ test.describe('eligibility shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/eligibility-rules\/er_123\/edit$/)
     await expect(page.getByTestId('eligibility-rule-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page.getByTestId('eligibility-rule-os-version-max-input').fill('18.4')
     await page
@@ -395,7 +395,7 @@ test.describe('eligibility shell flows', () => {
 
     await page.goto('/campaigns/camp_123/eligibility-rules/er_123/edit')
     await expect(page.getByTestId('eligibility-rule-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('eligibility-rule-os-version-max-input').fill('18.4')
     await page.getByTestId('eligibility-rule-submit').click()
 

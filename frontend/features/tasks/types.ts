@@ -1,3 +1,5 @@
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
+
 export type TaskStatus =
   | 'draft'
   | 'open'
@@ -5,6 +7,12 @@ export type TaskStatus =
   | 'in_progress'
   | 'submitted'
   | 'closed'
+
+export type TaskResolutionOutcome =
+  | 'confirmed_issue'
+  | 'needs_follow_up'
+  | 'not_reproducible'
+  | 'cancelled'
 
 export const TASK_STATUSES: TaskStatus[] = [
   'draft',
@@ -15,21 +23,66 @@ export const TASK_STATUSES: TaskStatus[] = [
   'closed'
 ]
 
-const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  draft: '草稿',
-  open: '開放中',
-  assigned: '已指派',
-  in_progress: '進行中',
-  submitted: '已提交',
-  closed: '已關閉'
+const TASK_STATUS_LABELS: Record<AppLocale, Record<TaskStatus, string>> = {
+  'zh-TW': {
+    draft: '草稿',
+    open: '開放中',
+    assigned: '已指派',
+    in_progress: '進行中',
+    submitted: '已提交',
+    closed: '已關閉'
+  },
+  en: {
+    draft: 'Draft',
+    open: 'Open',
+    assigned: 'Assigned',
+    in_progress: 'In progress',
+    submitted: 'Submitted',
+    closed: 'Closed'
+  }
+}
+
+export const TASK_RESOLUTION_OUTCOMES: TaskResolutionOutcome[] = [
+  'confirmed_issue',
+  'needs_follow_up',
+  'not_reproducible',
+  'cancelled'
+]
+
+const TASK_RESOLUTION_OUTCOME_LABELS: Record<
+  AppLocale,
+  Record<TaskResolutionOutcome, string>
+> = {
+  'zh-TW': {
+    confirmed_issue: '確認問題',
+    needs_follow_up: '需要後續追蹤',
+    not_reproducible: '無法重現',
+    cancelled: '取消處理'
+  },
+  en: {
+    confirmed_issue: 'Confirmed issue',
+    needs_follow_up: 'Needs follow-up',
+    not_reproducible: 'Not reproducible',
+    cancelled: 'Cancelled'
+  }
 }
 
 export function isTaskStatus(value: unknown): value is TaskStatus {
   return typeof value === 'string' && TASK_STATUSES.includes(value as TaskStatus)
 }
 
-export function formatTaskStatusLabel(value: TaskStatus): string {
-  return TASK_STATUS_LABELS[value]
+export function formatTaskStatusLabel(
+  value: TaskStatus,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return TASK_STATUS_LABELS[locale][value]
+}
+
+export function formatTaskResolutionOutcomeLabel(
+  value: TaskResolutionOutcome,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return TASK_RESOLUTION_OUTCOME_LABELS[locale][value]
 }
 
 export interface TaskListItem {
@@ -40,6 +93,7 @@ export interface TaskListItem {
   status: TaskStatus
   updated_at: string
   qualification_context?: TaskQualificationContext
+  resolution_context?: TaskResolutionContext
 }
 
 export interface TaskDetail {
@@ -54,6 +108,7 @@ export interface TaskDetail {
   updated_at: string
   qualification_context?: TaskQualificationContext
   participation_request_context?: TaskParticipationRequestContext
+  resolution_context?: TaskResolutionContext
 }
 
 export interface TaskQualificationContext {
@@ -71,6 +126,14 @@ export interface TaskParticipationRequestContext {
   tester_account_id: string
   tester_account_display_name: string
   assignment_created_at: string | null
+}
+
+export interface TaskResolutionContext {
+  resolution_outcome: TaskResolutionOutcome
+  resolution_note: string | null
+  resolved_at: string
+  resolved_by_account_id: string
+  resolved_by_account_display_name: string
 }
 
 export interface TaskFormValues {
@@ -92,6 +155,8 @@ export interface TaskUpdatePayload {
   instruction_summary?: string | null
   device_profile_id?: string | null
   status?: TaskStatus
+  resolution_outcome?: TaskResolutionOutcome | null
+  resolution_note?: string | null
 }
 
 export interface TaskAssignmentQualificationPreview {

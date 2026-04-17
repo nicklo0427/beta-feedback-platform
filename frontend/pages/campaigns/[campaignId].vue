@@ -2,8 +2,8 @@
 import { computed, ref, watch } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -62,11 +62,11 @@ const {
   error: eligibilityError,
   refresh: refreshEligibility
 } = useAsyncData(
-  () => `campaign-eligibility-${campaignId.value}`,
-  () => fetchCampaignEligibilityRules(campaignId.value),
+  () => `campaign-eligibility-${campaignId.value}-${currentActorId.value ?? 'none'}`,
+  () => fetchCampaignEligibilityRules(campaignId.value, currentActorId.value),
   {
     server: false,
-    watch: [campaignId],
+    watch: [campaignId, currentActorId],
     default: () => ({
       items: [],
       total: 0
@@ -162,11 +162,11 @@ const {
   error: safetyError,
   refresh: refreshSafety
 } = useAsyncData(
-  () => `campaign-safety-${campaignId.value}`,
-  () => fetchCampaignSafety(campaignId.value),
+  () => `campaign-safety-${campaignId.value}-${currentActorId.value ?? 'none'}`,
+  () => fetchCampaignSafety(campaignId.value, currentActorId.value),
   {
     server: false,
-    watch: [campaignId],
+    watch: [campaignId, currentActorId],
     default: () => null
   }
 )
@@ -177,14 +177,15 @@ const {
   error: tasksError,
   refresh: refreshTasks
 } = useAsyncData(
-  () => `campaign-tasks-${campaignId.value}`,
+  () => `campaign-tasks-${campaignId.value}-${currentActorId.value ?? 'none'}`,
   () =>
     fetchTasks({
-      campaignId: campaignId.value
+      campaignId: campaignId.value,
+      actorId: currentActorId.value
     }),
   {
     server: false,
-    watch: [campaignId],
+    watch: [campaignId, currentActorId],
     default: () => ({
       items: [],
       total: 0
@@ -200,11 +201,11 @@ const {
   error: reputationError,
   refresh: refreshReputation
 } = useAsyncData(
-  () => `campaign-reputation-${campaignId.value}`,
-  () => fetchCampaignReputation(campaignId.value),
+  () => `campaign-reputation-${campaignId.value}-${currentActorId.value ?? 'none'}`,
+  () => fetchCampaignReputation(campaignId.value, currentActorId.value),
   {
     server: false,
-    watch: [campaignId],
+    watch: [campaignId, currentActorId],
     default: () => null
   }
 )
@@ -388,7 +389,7 @@ watch([campaignId, currentActorId], () => {
         >
           <h3 class="resource-state__title">無法載入協作摘要</h3>
           <p class="resource-state__description">
-            {{ reputationError.message }}
+            {{ getActorAwareReadErrorMessage(reputationError, '目前無法載入活動協作摘要。') }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshReputation()">
@@ -480,7 +481,7 @@ watch([campaignId, currentActorId], () => {
         >
           <h3 class="resource-state__title">無法載入活動安全資訊</h3>
           <p class="resource-state__description">
-            {{ safetyError.message }}
+            {{ getActorAwareReadErrorMessage(safetyError, '目前無法載入活動安全資訊。') }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshSafety()">
@@ -609,7 +610,7 @@ watch([campaignId, currentActorId], () => {
         >
           <h3 class="resource-state__title">無法載入資格條件規則</h3>
           <p class="resource-state__description">
-            {{ eligibilityError.message }}
+            {{ getActorAwareReadErrorMessage(eligibilityError, '目前無法載入資格條件規則。') }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshEligibility()">
@@ -683,11 +684,6 @@ watch([campaignId, currentActorId], () => {
         data-testid="campaign-qualification-section"
       >
         <h2 class="resource-section__title">目前測試者資格檢查</h2>
-
-        <CurrentActorSelector
-          title="目前測試者"
-          description="切換目前正在查看的測試者帳號，系統會依據這位測試者擁有的裝置設定檔，判斷是否符合這個活動的資格條件。"
-        />
 
         <section
           v-if="accountsError"
@@ -1022,7 +1018,7 @@ watch([campaignId, currentActorId], () => {
         >
           <h3 class="resource-state__title">無法載入任務</h3>
           <p class="resource-state__description">
-            {{ tasksError.message }}
+            {{ getActorAwareReadErrorMessage(tasksError, '目前無法載入這個活動底下的任務。') }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshTasks()">

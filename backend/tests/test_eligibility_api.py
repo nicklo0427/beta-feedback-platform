@@ -85,7 +85,10 @@ def test_eligibility_rules_crud_flow_returns_expected_shapes(client: TestClient)
     assert created_rule["created_at"]
     assert created_rule["updated_at"]
 
-    list_response = client.get(f"/api/v1/campaigns/{campaign_id}/eligibility-rules")
+    list_response = client.get(
+        f"/api/v1/campaigns/{campaign_id}/eligibility-rules",
+        headers=_actor_headers(developer.id),
+    )
 
     assert list_response.status_code == 200
     assert list_response.json() == {
@@ -103,7 +106,10 @@ def test_eligibility_rules_crud_flow_returns_expected_shapes(client: TestClient)
         "total": 1,
     }
 
-    detail_response = client.get(f"/api/v1/eligibility-rules/{eligibility_rule_id}")
+    detail_response = client.get(
+        f"/api/v1/eligibility-rules/{eligibility_rule_id}",
+        headers=_actor_headers(developer.id),
+    )
 
     assert detail_response.status_code == 200
     assert detail_response.json() == created_rule
@@ -129,7 +135,10 @@ def test_eligibility_rules_crud_flow_returns_expected_shapes(client: TestClient)
     assert delete_response.status_code == 204
     assert delete_response.content == b""
 
-    missing_response = client.get(f"/api/v1/eligibility-rules/{eligibility_rule_id}")
+    missing_response = client.get(
+        f"/api/v1/eligibility-rules/{eligibility_rule_id}",
+        headers=_actor_headers(developer.id),
+    )
 
     assert missing_response.status_code == 404
     assert missing_response.json() == {
@@ -150,6 +159,39 @@ def test_eligibility_create_requires_current_actor(client: TestClient) -> None:
             "os_name": "iOS",
         },
     )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "code": "missing_actor_context",
+        "message": "Current actor is required.",
+        "details": {
+            "header": "X-Actor-Id",
+        },
+    }
+
+
+def test_eligibility_read_requires_current_actor(client: TestClient) -> None:
+    developer = _create_developer_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign = create_campaign(
+        CampaignCreate(
+            project_id=project.id,
+            name="Closed Beta Round 1",
+            target_platforms=["ios"],
+        ),
+        current_actor_id=developer.id,
+    )
+
+    client.post(
+        f"/api/v1/campaigns/{campaign.id}/eligibility-rules",
+        json={"platform": "ios"},
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.get(f"/api/v1/campaigns/{campaign.id}/eligibility-rules")
 
     assert response.status_code == 400
     assert response.json() == {

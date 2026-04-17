@@ -1,5 +1,6 @@
 import type { CampaignStatus } from '~/features/campaigns/types'
 import type { FeedbackReviewStatus } from '~/features/feedback/types'
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
 import type { PlatformDisplayValue } from '~/features/platform-display'
 import type { TaskStatus } from '~/features/tasks/types'
 
@@ -7,14 +8,25 @@ export type AccountRole = 'developer' | 'tester'
 
 export const ACCOUNT_ROLE_OPTIONS: AccountRole[] = ['developer', 'tester']
 
-const ACCOUNT_ROLE_LABELS: Record<AccountRole, string> = {
-  developer: '開發者',
-  tester: '測試者'
+const ACCOUNT_ROLE_LABELS: Record<AppLocale, Record<AccountRole, string>> = {
+  'zh-TW': {
+    developer: '開發者',
+    tester: '測試者'
+  },
+  en: {
+    developer: 'Developer',
+    tester: 'Tester'
+  }
 }
 
-export function formatAccountRoleLabel(role: string): string {
-  if (role in ACCOUNT_ROLE_LABELS) {
-    return ACCOUNT_ROLE_LABELS[role as AccountRole]
+export function formatAccountRoleLabel(
+  role: string,
+  locale: AppLocale = 'zh-TW'
+): string {
+  const labels = ACCOUNT_ROLE_LABELS[locale]
+
+  if (role in labels) {
+    return labels[role as AccountRole]
   }
 
   return role

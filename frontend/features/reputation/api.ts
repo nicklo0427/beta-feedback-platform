@@ -1,3 +1,4 @@
+import { buildCurrentActorHeaders } from '~/features/accounts/current-actor'
 import { useApiClient } from '~/services/api/client'
 
 import type {
@@ -6,17 +7,24 @@ import type {
 } from './types'
 
 export async function fetchDeviceProfileReputation(
-  deviceProfileId: string
+  deviceProfileId: string,
+  actorId?: string | null
 ): Promise<DeviceProfileReputationSummary> {
   const { request } = useApiClient()
   return request<DeviceProfileReputationSummary>(
-    `/device-profiles/${deviceProfileId}/reputation`
+    `/device-profiles/${deviceProfileId}/reputation`,
+    {
+      headers: buildCurrentActorHeaders(actorId)
+    }
   )
 }
 
 export async function fetchCampaignReputation(
-  campaignId: string
+  campaignId: string,
+  actorId?: string | null
 ): Promise<CampaignReputationSummary> {
   const { request } = useApiClient()
-  return request<CampaignReputationSummary>(`/campaigns/${campaignId}/reputation`)
+  return request<CampaignReputationSummary>(`/campaigns/${campaignId}/reputation`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }

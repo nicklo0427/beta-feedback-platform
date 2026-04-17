@@ -16,9 +16,17 @@
 
 - `Project -> Campaign -> Device Profile -> Eligibility -> Task -> Feedback`
 
+目前前端入口也已正式分層為：
+
+- `/` 作為 public landing
+- `/login`、`/register` 作為 public auth pages
+- `/dashboard` 作為登入後首頁
+
 並已進入 role-aware collaboration baseline 階段，包含：
 
 - shell-level 頁面
+- 全域 app shell / navigation foundation
+- light / dark 雙主題
 - create / edit form
 - safety metadata
 - feedback review baseline
@@ -38,12 +46,17 @@
 - request-to-task traceability / linked task status
 - developer participation funnel overview
 - actor-aware read visibility guards for participation-linked detail routes
+- 全站 UI/UX refresh baseline
+- workspace/dashboard refresh
+- detail context rail
+- form UX refresh
+- desktop-first responsive pass
 
 ### 1.1 目前階段判斷
 
 截至目前為止，repo 可以視為已完成：
 
-- `T011` 到 `T068`
+- `T011` 到 `T090`
 - MVP 主流程閉環
 - 第一輪產品化補強
 - role-aware collaboration baseline
@@ -52,6 +65,8 @@
 - 前端繁體中文文案整理
 - account collaboration summary 與 owned resource panels
 - participation-aware demo seed 與 manual QA 文件
+- 全站 UI/UX refresh phase
+- public home / auth / dashboard / app shell separation phase
 
 目前最重要的判斷是：
 
@@ -73,18 +88,27 @@
 - backend 已有 env-gated persistence baseline
 - public beta 的 env / health / smoke / ops runbook 已補上
 - public beta 的 manual QA / known limitations / launch checklist 已補上
+- public beta rollout verification / evidence pack baseline 已補上
+- global navigation shell、雙主題與桌機優先 responsive baseline 已補上
+- public layout 與 app layout 已正式分層
+- public homepage、auth entry flow 與登入後 `/dashboard` 已分開
+- 主要 workspace / dashboard 已切到新的產品化資訊架構
+- detail 頁已朝 `主欄 + context rail` 收斂
+- create / edit forms 已收斂成一致的 sectioned form UX
+- 高頻 workspace / queue / list 頁已套進一致的 app template 節奏
 
-這代表 qualification、participation、以及 participation-to-assignment baseline 都已完成，下一步不應回頭補同一批基礎能力，而應轉往：
+這代表 qualification、participation、participation-to-assignment、Alembic schema lifecycle、以及 UI/UX refresh baseline 都已完成，下一步不應回頭補同一批基礎能力，而應轉往：
 
-- schema lifecycle 與 migration hardening
-- session-only environment hardening
-- actor-aware read visibility 擴張到更多 summary / detail
-- assignment 後續 lifecycle、resolution 與 audit trail
+- target environment rehearsal
+- public beta launch decision
+- post-beta hardening
+- 更完整的 access / support / lifecycle 補強
 
 換句話說：
 
 - **功能型 MVP 已完成**
-- **可對外公開的 beta MVP 還沒完成**
+- **repo 內的 public beta rollout verification baseline 已完成**
+- **是否正式 go-live 仍取決於目標環境 rehearsal 結果**
 
 ## 2. 第一階段平台範圍
 
@@ -151,8 +175,13 @@
 
 目前 frontend 已完成：
 
-- homepage role-aware overview shell
+- public homepage landing
+- global app shell with top bar / side navigation / mobile drawer
+- public layout + app layout split
+- light / dark theme toggle with persistence
 - `login` / `register` session auth flow
+- auth success redirect -> `/dashboard`
+- `/dashboard` signed-in home
 - `accounts` list / detail / create / edit
 - account collaboration summary / owned resource panels
 - homepage IA / overview shell
@@ -182,6 +211,12 @@
 - request-to-task traceability
 - developer participation funnel overview
 - actor-aware read visibility guard for participation-linked task detail
+- workspace/dashboard refresh
+- app shell redesign
+- core app template harmonization for high-frequency workspace / queue / list pages
+- detail context rail baseline
+- sectioned form UX baseline
+- responsive navigation / mobile smoke baseline
 
 ### 4.3 測試
 
@@ -215,7 +250,7 @@
 
 - backend 目前已有 `BFP_DATABASE_URL` 驅動的 persistence mode
 - session/auth 已有 HttpOnly cookie baseline
-- migration 目前仍是 SQLAlchemy `create_all` baseline，尚未導入完整 Alembic
+- schema lifecycle 已升級為 Alembic versioned migration baseline
 
 ## 6. 目錄結構
 
@@ -279,6 +314,7 @@ beta-feedback-platform/
 - `T066` Persistence Baseline
 - `T067` Public Beta Ops Baseline
 - `T068` Public Beta QA and Launch Checklist
+- `T069` Alembic Migration and Schema Lifecycle Baseline
 
 這代表 `Eligibility -> Assignment -> Tester 參與 -> Developer Review -> Request-to-Task Bridge` 這段現在已具備：
 
@@ -301,6 +337,7 @@ beta-feedback-platform/
 
 ```bash
 cd /Users/lowhaijer/projects/beta-feedback-platform/backend
+./.venv/bin/alembic -c alembic.ini upgrade head
 ./.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
@@ -309,6 +346,12 @@ cd /Users/lowhaijer/projects/beta-feedback-platform/backend
 - API base: `http://127.0.0.1:8000/api/v1`
 - Swagger docs: `http://127.0.0.1:8000/docs`
 - Health check: `http://127.0.0.1:8000/api/v1/health`
+
+補充：
+
+- database mode 現在以 Alembic migration 為 schema source of truth
+- backend startup 也會自動嘗試補齊到 `head`
+- 但對 beta / staging / production，仍建議把 `alembic upgrade head` 當成明確 deploy step
 
 ### 7.2 啟動 frontend
 
@@ -346,6 +389,13 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 ```bash
 cd /Users/lowhaijer/projects/beta-feedback-platform
 ./backend/.venv/bin/python scripts/public_beta_smoke.py --require-database-configured --require-session-only
+```
+
+若你要直接產生 rollout evidence pack，請執行：
+
+```bash
+cd /Users/lowhaijer/projects/beta-feedback-platform
+./backend/.venv/bin/python scripts/beta_rollout_verification.py --environment-label local-rehearsal --require-database-configured --require-session-only
 ```
 
 ## 8. 常用驗證指令
@@ -416,6 +466,7 @@ npx playwright test --reporter=list --workers=1
 
 - 功能型 MVP：已完成
 - public beta readiness 文件與驗收 baseline：已完成
+- rollout verification / evidence pack baseline：已完成
 - 是否正式對外開放：仍取決於你是否在目標環境跑完 launch checklist
 
 以目前「逐張 ticket 推進、邊做邊驗收」的節奏估算，較合理的公開 beta 目標窗是：
@@ -423,26 +474,25 @@ npx playwright test --reporter=list --workers=1
 - **2026 年 5 月 8 日**
 - **到 2026 年 5 月 22 日前**
 
-目前距離真正「可安心對外公開」還剩的主要現實差距是：
-
-- actor-aware read visibility 仍只收斂了一部分
-- persistence 雖然已可用，但 migration 還不是完整 Alembic baseline
-- 仍需要在目標 beta 環境真正跑完 launch checklist，而不是只在本地完成文件
-
 目前 public beta readiness 這一輪已完成：
 
 - `T064` Actor-Aware Read Visibility Expansion
 - `T065` Session/Auth Baseline
 - `T066` Persistence Baseline
 - `T067` Public Beta Ops Baseline
+- `T068` Public Beta QA and Launch Checklist
+- `T069` Alembic Migration and Schema Lifecycle Baseline
+- `T070` Session-Only Environment Mode and Header Fallback Decommission
+- `T071` Global Actor-Aware Read Visibility Hardening
+- `T072` Task Resolution and Outcome Workflow Baseline
+- `T073` Audit Trail and Activity Timeline Baseline
+- `T074` Beta Environment Rollout Verification and Evidence Pack
 
 接下來最值得優先補的方向：
 
-1. 把 persistence baseline 從 `create_all` 收斂到完整 migration story
-2. 把 session-only 與 `X-Actor-Id` fallback 的環境邊界正式切開
-3. 進一步收斂 actor-aware read visibility 與 post-launch access policy
-4. 補 task resolution、outcome 與 audit trail
-5. 在目標 beta 環境留下真正的 rollout evidence
+1. 在真正的 beta target environment 跑一次完整 rehearsal，並保存產出的 evidence pack
+2. 把 rollout rehearsal 暴露出的 blocker 收斂成 post-beta hardening ticket
+3. 視需要再擴 auth / access hardening、task lifecycle、support tooling
 
 這一輪公開 beta readiness 的收斂文件，請看：
 
@@ -450,20 +500,12 @@ npx playwright test --reporter=list --workers=1
 - [OPS_RUNBOOK.md](/Users/lowhaijer/projects/beta-feedback-platform/OPS_RUNBOOK.md)
 - [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)
 - [MANUAL_QA.md](/Users/lowhaijer/projects/beta-feedback-platform/MANUAL_QA.md)
-
-下一輪建議 tickets：
-
-- [tickets/T069-alembic-migration-and-schema-lifecycle-baseline.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T069-alembic-migration-and-schema-lifecycle-baseline.md)
-- [tickets/T070-session-only-environment-mode-and-header-fallback-decommission.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T070-session-only-environment-mode-and-header-fallback-decommission.md)
-- [tickets/T071-global-actor-aware-read-visibility-hardening.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T071-global-actor-aware-read-visibility-hardening.md)
-- [tickets/T072-task-resolution-and-outcome-workflow-baseline.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T072-task-resolution-and-outcome-workflow-baseline.md)
-- [tickets/T073-audit-trail-and-activity-timeline-baseline.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T073-audit-trail-and-activity-timeline-baseline.md)
 - [tickets/T074-beta-environment-rollout-verification-and-evidence-pack.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T074-beta-environment-rollout-verification-and-evidence-pack.md)
 
 ## 12. 目前已知限制
 
 - 若未設定 `BFP_DATABASE_URL`，backend 仍會 fallback 到 in-memory mode
-- migration 目前仍是 SQLAlchemy `create_all` baseline，不是完整 Alembic
+- database mode 現在依賴 Alembic migration；deploy 前應先執行 `upgrade head`
 - `X-Actor-Id` 仍保留作為 local dev / seed fallback，不是正式 production identity model
 - role-aware `mine=true` filters 只覆蓋目前已落地的 ownership baseline
 - 目前不做 notification、search、Steam / Desktop / Extension

@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_current_actor_id_dep, require_current_actor_id
+from app.modules.activity_events.schemas import ActivityTimelineResponse
 from app.modules.participation_requests.schemas import (
     ParticipationRequestCreate,
     ParticipationRequestDetail,
@@ -20,6 +21,7 @@ from app.modules.participation_requests.service import (
     list_participation_requests,
     update_participation_request,
 )
+from app.modules.activity_events.service import list_participation_request_timeline
 from app.modules.tasks.schemas import TaskDetail
 
 router = APIRouter(tags=["participation_requests"])
@@ -52,6 +54,21 @@ def get_participation_request_route(
     current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
 ) -> ParticipationRequestEnrichedDetail:
     return get_participation_request(
+        request_id,
+        require_current_actor_id(current_actor_id),
+    )
+
+
+@router.get(
+    "/participation-requests/{request_id}/timeline",
+    response_model=ActivityTimelineResponse,
+    response_model_exclude_unset=True,
+)
+def get_participation_request_timeline_route(
+    request_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> ActivityTimelineResponse:
+    return list_participation_request_timeline(
         request_id,
         require_current_actor_id(current_actor_id),
     )

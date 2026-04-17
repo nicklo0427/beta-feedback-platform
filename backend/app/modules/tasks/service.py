@@ -11,6 +11,8 @@ from app.common.exceptions import AppError
 from app.common.responses import build_list_response
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
+from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
+from app.modules.activity_events.service import record_activity_event
 from app.modules.tasks import repository
 from app.modules.tasks.models import TaskRecord
 from app.modules.tasks.schemas import (
@@ -20,6 +22,8 @@ from app.modules.tasks.schemas import (
     TaskListResponse,
     TaskParticipationRequestContext,
     TaskQualificationContext,
+    TaskResolutionContext,
+    TaskResolutionOutcome,
     TaskStatus,
     TaskUpdate,
 )
@@ -52,6 +56,13 @@ _TESTER_MUTATION_ALLOWED_STATUSES = {
     TaskStatus.IN_PROGRESS.value,
 }
 
+_TASK_RESOLUTION_OUTCOME_SUMMARIES: dict[str, str] = {
+    TaskResolutionOutcome.CONFIRMED_ISSUE.value: "確認問題",
+    TaskResolutionOutcome.NEEDS_FOLLOW_UP.value: "需要後續追蹤",
+    TaskResolutionOutcome.NOT_REPRODUCIBLE.value: "無法重現",
+    TaskResolutionOutcome.CANCELLED.value: "取消處理",
+}
+
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace(
@@ -62,6 +73,12 @@ def _utc_now_iso() -> str:
 
 def _generate_task_id() -> str:
     return f"task_{uuid4().hex[:12]}"
+
+
+def _summarize_task_resolution_outcome(outcome: str | None) -> str:
+    if outcome is None:
+        return "記錄任務處理結果。"
+    return f"記錄任務處理結果：{_TASK_RESOLUTION_OUTCOME_SUMMARIES.get(outcome, outcome)}。"
 
 
 def _build_task_qualification_context(
@@ -130,14 +147,30 @@ def _build_task_participation_request_context(
     )
 
 
+def _build_task_resolution_context(
+    record: TaskRecord,
+) -> TaskResolutionContext | None:
+    from app.modules.accounts.service import get_account
+
+    if record.resolution_outcome is None or record.resolved_at is None or record.resolved_by_account_id is None:
+        return None
+
+    resolved_by_account = get_account(record.resolved_by_account_id)
+    return TaskResolutionContext.model_validate(
+        {
+            "resolution_outcome": record.resolution_outcome,
+            "resolution_note": record.resolution_note,
+            "resolved_at": record.resolved_at,
+            "resolved_by_account_id": record.resolved_by_account_id,
+            "resolved_by_account_display_name": resolved_by_account.display_name,
+        }
+    )
+
+
 def _ensure_task_read_visibility(
     task: TaskRecord,
     current_actor_id: str | None,
 ) -> TaskRecord:
-    participation_request_context = _build_task_participation_request_context(task)
-    if participation_request_context is None:
-        return task
-
     if current_actor_id is None:
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -180,6 +213,9 @@ def _to_task_detail(record: TaskRecord) -> TaskDetail:
     participation_request_context = _build_task_participation_request_context(record)
     if participation_request_context is not None:
         payload["participation_request_context"] = participation_request_context.model_dump()
+    resolution_context = _build_task_resolution_context(record)
+    if resolution_context is not None:
+        payload["resolution_context"] = resolution_context.model_dump()
     return TaskDetail.model_validate(payload)
 
 
@@ -188,6 +224,9 @@ def _to_task_list_item(record: TaskRecord) -> TaskListItem:
     qualification_context = _build_task_qualification_context(record)
     if qualification_context is not None:
         payload["qualification_context"] = qualification_context.model_dump()
+    resolution_context = _build_task_resolution_context(record)
+    if resolution_context is not None:
+        payload["resolution_context"] = resolution_context.model_dump()
     return TaskListItem.model_validate(payload)
 
 
@@ -280,6 +319,110 @@ def _ensure_assignment_requirements(
         )
 
 
+def _ensure_resolution_payload_allowed(
+    *,
+    current: TaskRecord,
+    payload: TaskUpdate,
+    next_status: str,
+    current_actor_id: str | None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    resolution_fields_touched = bool(
+        {"resolution_outcome", "resolution_note"} & payload.model_fields_set
+    )
+    next_resolution_outcome = (
+        payload.resolution_outcome.value
+        if "resolution_outcome" in payload.model_fields_set and payload.resolution_outcome is not None
+        else (
+            None
+            if "resolution_outcome" in payload.model_fields_set
+            else current.resolution_outcome
+        )
+    )
+    next_resolution_note = (
+        payload.resolution_note
+        if "resolution_note" in payload.model_fields_set
+        else current.resolution_note
+    )
+    resolved_at = current.resolved_at
+    resolved_by_account_id = current.resolved_by_account_id
+
+    if not resolution_fields_touched:
+        return (
+            next_resolution_outcome,
+            next_resolution_note,
+            resolved_at,
+            resolved_by_account_id,
+        )
+
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role != AccountRole.DEVELOPER.value:
+        _raise_forbidden_actor_role(
+            actor_id=actor.id,
+            actor_role=actor.role,
+            required_role=AccountRole.DEVELOPER.value,
+            message="Developer role is required to resolve a task.",
+        )
+
+    ensure_task_owned_by_developer(
+        current.id,
+        current_actor_id,
+        resource="task_resolution",
+    )
+
+    if next_status != TaskStatus.CLOSED.value:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="invalid_task_resolution_state",
+            message="Task resolution can only be recorded when the task is closed.",
+            details={
+                "resource": "task",
+                "task_id": current.id,
+                "status": next_status,
+                "required_status": TaskStatus.CLOSED.value,
+            },
+        )
+
+    if next_resolution_outcome is None and current.resolution_outcome is None:
+        raise AppError(
+            status_code=status.HTTP_409_CONFLICT,
+            code="resolution_outcome_required",
+            message="Resolution outcome is required before saving task resolution.",
+            details={
+                "resource": "task",
+                "task_id": current.id,
+            },
+        )
+
+    resolution_changed = (
+        next_resolution_outcome != current.resolution_outcome
+        or next_resolution_note != current.resolution_note
+    )
+    if resolution_changed:
+        if next_resolution_outcome is None:
+            resolved_at = None
+            resolved_by_account_id = None
+        else:
+            resolved_at = _utc_now_iso()
+            resolved_by_account_id = actor.id
+
+    return (
+        next_resolution_outcome,
+        next_resolution_note,
+        resolved_at,
+        resolved_by_account_id,
+    )
+
+
 def ensure_task_exists(task_id: str) -> TaskRecord:
     record = repository.get_task(task_id)
     if record is None:
@@ -314,6 +457,74 @@ def _resolve_owned_device_profile_ids_for_actor(current_actor_id: str) -> set[st
         for record in device_profiles_repository.list_device_profiles()
         if record.owner_account_id == current_actor_id
     }
+
+
+def _resolve_owned_campaign_ids_for_actor(current_actor_id: str) -> set[str]:
+    from app.modules.campaigns import repository as campaigns_repository
+    from app.modules.projects import repository as projects_repository
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role != AccountRole.DEVELOPER.value:
+        _raise_forbidden_actor_role(
+            actor_id=actor.id,
+            actor_role=actor.role,
+            required_role=AccountRole.DEVELOPER.value,
+            message="Developer role is required to read owned tasks.",
+        )
+
+    owned_project_ids = {
+        record.id
+        for record in projects_repository.list_projects()
+        if record.owner_account_id == current_actor_id
+    }
+
+    return {
+        record.id
+        for record in campaigns_repository.list_campaigns()
+        if record.project_id in owned_project_ids
+    }
+
+
+def _filter_task_records_for_actor(
+    records: list[TaskRecord],
+    current_actor_id: str | None,
+) -> list[TaskRecord]:
+    if current_actor_id is None:
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="missing_actor_context",
+            message="Current actor is required.",
+            details={
+                "header": "X-Actor-Id",
+            },
+        )
+
+    actor = ensure_account_exists(current_actor_id)
+    if actor.role == AccountRole.DEVELOPER.value:
+        owned_campaign_ids = _resolve_owned_campaign_ids_for_actor(current_actor_id)
+        return [
+            record
+            for record in records
+            if record.campaign_id in owned_campaign_ids
+        ]
+
+    if actor.role == AccountRole.TESTER.value:
+        owned_device_profile_ids = _resolve_owned_device_profile_ids_for_actor(
+            current_actor_id
+        )
+        return [
+            record
+            for record in records
+            if record.device_profile_id in owned_device_profile_ids
+        ]
+
+    _raise_forbidden_actor_role(
+        actor_id=actor.id,
+        actor_role=actor.role,
+        required_role=AccountRole.DEVELOPER.value,
+        message="Developer or tester role is required to read tasks.",
+    )
+    return records
 
 
 def ensure_task_owned_by_developer(
@@ -434,25 +645,8 @@ def list_tasks(
         status=status_filter.value if status_filter is not None else None,
     )
 
-    if mine:
-        if current_actor_id is None:
-            raise AppError(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                code="missing_actor_context",
-                message="Current actor is required.",
-                details={
-                    "header": "X-Actor-Id",
-                },
-            )
-
-        owned_device_profile_ids = _resolve_owned_device_profile_ids_for_actor(
-            current_actor_id
-        )
-        records = [
-            record
-            for record in records
-            if record.device_profile_id in owned_device_profile_ids
-        ]
+    _ = mine
+    records = _filter_task_records_for_actor(records, current_actor_id)
 
     items = [
         _to_task_list_item(record)
@@ -471,6 +665,8 @@ def create_task(
     campaign_id: str,
     payload: TaskCreate,
     current_actor_id: str | None = None,
+    *,
+    origin_participation_request_id: str | None = None,
 ) -> TaskDetail:
     from app.modules.campaigns.service import ensure_campaign_owned_by_actor
     from app.modules.device_profiles.service import ensure_device_profile_exists
@@ -504,10 +700,29 @@ def create_task(
         instruction_summary=payload.instruction_summary,
         status=next_status,
         submitted_at=timestamp if next_status == TaskStatus.SUBMITTED.value else None,
+        resolution_outcome=None,
+        resolution_note=None,
+        resolved_at=None,
+        resolved_by_account_id=None,
         created_at=timestamp,
         updated_at=timestamp,
     )
     repository.create_task(record)
+    record_activity_event(
+        entity_type=ActivityEntityType.TASK,
+        entity_id=record.id,
+        event_type=(
+            ActivityEventType.TASK_CREATED_FROM_PARTICIPATION_REQUEST
+            if origin_participation_request_id is not None
+            else ActivityEventType.TASK_CREATED
+        ),
+        actor_account_id=current_actor_id,
+        summary=(
+            "從參與意圖建立任務。"
+            if origin_participation_request_id is not None
+            else "建立任務。"
+        ),
+    )
     return _to_task_detail(record)
 
 
@@ -564,6 +779,18 @@ def update_task(
         device_profile_id=next_device_profile_id,
     )
 
+    (
+        next_resolution_outcome,
+        next_resolution_note,
+        resolved_at,
+        resolved_by_account_id,
+    ) = _ensure_resolution_payload_allowed(
+        current=current,
+        payload=payload,
+        next_status=next_status,
+        current_actor_id=current_actor_id,
+    )
+
     submitted_at = current.submitted_at
     if current.status != TaskStatus.SUBMITTED.value and next_status == TaskStatus.SUBMITTED.value:
         submitted_at = _utc_now_iso()
@@ -575,9 +802,25 @@ def update_task(
         instruction_summary=next_instruction_summary,
         status=next_status,
         submitted_at=submitted_at,
+        resolution_outcome=next_resolution_outcome,
+        resolution_note=next_resolution_note,
+        resolved_at=resolved_at,
+        resolved_by_account_id=resolved_by_account_id,
         updated_at=_utc_now_iso(),
     )
     repository.update_task(updated)
+    if updated.resolution_outcome is not None and (
+        updated.resolution_outcome != current.resolution_outcome
+        or updated.resolution_note != current.resolution_note
+        or updated.resolved_at != current.resolved_at
+    ):
+        record_activity_event(
+            entity_type=ActivityEntityType.TASK,
+            entity_id=updated.id,
+            event_type=ActivityEventType.TASK_RESOLVED,
+            actor_account_id=updated.resolved_by_account_id,
+            summary=_summarize_task_resolution_outcome(updated.resolution_outcome),
+        )
     return _to_task_detail(updated)
 
 

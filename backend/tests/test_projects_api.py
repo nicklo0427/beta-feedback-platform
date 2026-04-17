@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.core.config import clear_settings_cache
+from app.main import app
+
 
 def test_projects_crud_flow_returns_expected_shapes(client: TestClient) -> None:
     create_response = client.post(
@@ -182,3 +185,62 @@ def test_project_create_rejects_non_developer_actor(client: TestClient) -> None:
             "actual_role": "tester",
         },
     }
+
+
+def test_project_create_ignores_actor_header_in_session_only_mode(monkeypatch) -> None:
+    monkeypatch.setenv("BFP_APP_ENV", "beta")
+    monkeypatch.delenv("BFP_AUTH_MODE", raising=False)
+    monkeypatch.delenv("BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED", raising=False)
+    clear_settings_cache()
+
+    try:
+        with TestClient(app) as client:
+            account_response = client.post(
+                "/api/v1/accounts",
+                json={
+                    "display_name": "Dev Lead",
+                    "role": "developer",
+                },
+            )
+            account_id = account_response.json()["id"]
+
+            response = client.post(
+                "/api/v1/projects",
+                headers={"X-Actor-Id": account_id},
+                json={"name": "Session Only Project"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["name"] == "Session Only Project"
+        assert "owner_account_id" not in response.json()
+    finally:
+        clear_settings_cache()
+
+
+def test_project_create_allows_explicit_fallback_override_in_qa(monkeypatch) -> None:
+    monkeypatch.setenv("BFP_APP_ENV", "qa")
+    monkeypatch.setenv("BFP_AUTH_MODE", "session_with_header_fallback")
+    monkeypatch.delenv("BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED", raising=False)
+    clear_settings_cache()
+
+    try:
+        with TestClient(app) as client:
+            account_response = client.post(
+                "/api/v1/accounts",
+                json={
+                    "display_name": "Dev Lead",
+                    "role": "developer",
+                },
+            )
+            account_id = account_response.json()["id"]
+
+            response = client.post(
+                "/api/v1/projects",
+                headers={"X-Actor-Id": account_id},
+                json={"name": "QA Fallback Project"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["owner_account_id"] == account_id
+    finally:
+        clear_settings_cache()

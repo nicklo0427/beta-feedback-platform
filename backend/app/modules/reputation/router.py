@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from typing import Optional
+
+from fastapi import APIRouter, Depends
+
+from app.api.deps import get_current_actor_id_dep, require_current_actor_id
 
 from app.modules.reputation.schemas import (
     CampaignReputationSummary,
@@ -8,6 +12,7 @@ from app.modules.reputation.schemas import (
 )
 from app.modules.reputation.service import (
     get_campaign_reputation,
+    get_campaign_reputation_for_actor,
     get_device_profile_reputation,
 )
 
@@ -28,5 +33,11 @@ def get_device_profile_reputation_route(
     "/campaigns/{campaign_id}/reputation",
     response_model=CampaignReputationSummary,
 )
-def get_campaign_reputation_route(campaign_id: str) -> CampaignReputationSummary:
-    return get_campaign_reputation(campaign_id)
+def get_campaign_reputation_route(
+    campaign_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> CampaignReputationSummary:
+    return get_campaign_reputation_for_actor(
+        campaign_id,
+        require_current_actor_id(current_actor_id),
+    )

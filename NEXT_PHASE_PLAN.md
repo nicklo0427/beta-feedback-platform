@@ -4,113 +4,138 @@
 
 目前 repo 已完成：
 
-- `T011` 到 `T068`
+- `T011` 到 `T090`
 - MVP 主流程閉環
 - role-aware collaboration baseline
 - qualification / assignment clarity baseline
 - participation-to-assignment bridge baseline
-- participation-aware demo seed 與 manual QA 文件
-- public beta ops baseline
-- public beta QA / launch checklist baseline
+- Alembic schema lifecycle baseline
+- public beta ops / QA / rollout evidence baseline
+- 全站 UI/UX refresh baseline
+- `T082` 首頁登入前 / 登入後入口節奏調整
+- `T083` 首頁品牌視覺與 supporting visual panels
+- `T084` public / app layout split foundation
+- `T085` public homepage redesign
+- `T086` auth page 與 dashboard entry flow alignment
+- `T087` role-aware dashboard home
+- `T088` app shell redesign
+- `T089` high-frequency app template harmonization
+- `T090` responsive / docs / QA refresh baseline
 
 這代表：
 
 - **功能型 MVP 已完成**
 - **repo 內的 public beta readiness baseline 已完成**
-- **下一步不再是補同一批基礎能力，而是進入 post-beta hardening 與運營期能力**
+- **public home、auth pages、登入後 `/dashboard` 與 app shell 已完成分層**
+- **下一步最值得先做的是把 dashboard/home/auth/shell 的回歸驗收集中收斂**
 
 ## 1. 現在先做哪一件事
 
-如果你的目標是「這週就要對外開 beta」：
+如果你的目標是：
 
-- 先執行 [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)
-- 不要先開新功能票
+- 確認 public home、auth、dashboard、app shell 的 handoff 沒有漏網回歸
+- 把 `T088` / `T089` 之後的 shell 與 page template regression 一次收斂
+- 把 desktop / mobile / locale / theme / session-only 的驗收補完整
 
-如果你的目標是「在 beta 前後繼續把產品做穩」：
+那下一張最合理的票應改為：
 
-- 下一個 phase 建議直接切到：
-  - `Post-Beta Hardening and Lifecycle`
+- `T091 - Dashboard Entry Flow and Shell Regression Pass`
 
-## 2. 下一階段主題
+這張票仍以前端驗收為主，不改 backend API，只做：
 
-下一階段建議聚焦：
+- regression 收斂
+- responsive smoke 補驗
+- locale / theme persistence 補驗
+- public/app shell handoff 補驗
 
-- schema lifecycle hardening
-- session-only environment hardening
-- global actor-aware read visibility
-- assignment 後的 task resolution 與 outcome
-- audit trail / timeline
-- 目標 beta 環境的 rollout evidence
+## 2. 剛完成的 Phase
 
-## 3. 建議 Tickets
+剛完成的 phase 為：
 
-### T069 - Alembic Migration and Schema Lifecycle Baseline
+- public layout 與 app layout 分離
+- public landing / auth pages 重設計
+- 新增登入後 `/dashboard`
+- app shell 比例、導覽層級、page frame 重設計
+- 高頻 app page template 對齊
+- responsive / QA / docs refresh
 
-- 把目前 `SQLAlchemy create_all` 的 persistence baseline 升級成 versioned migration baseline
-- 導入 Alembic 與初始 migration
-- 收斂 local / beta 的 schema upgrade 流程
+## 3. 已完成 Tickets
 
-### T070 - Session-Only Environment Mode and Header Fallback Decommission
+### T084 - Public/App Layout Split Foundation
 
-- 把 `X-Actor-Id` fallback 正式隔離到 local QA / seed 環境
-- 讓 beta / staging / production 預設走 session-only
-- 收斂 auth / seed / docs 的環境切換策略
+- 建立 `public layout` 與 `app layout`
+- `/`、`/login`、`/register` 掛到 public layout
+- 其他 app 內頁掛到 app layout
+- 保留既有 sidebar + topbar app shell 作為登入後基線
 
-### T071 - Global Actor-Aware Read Visibility Hardening
+### T085 - Public Homepage Redesign
 
-- 把目前只做一部分的 read guard 擴到更多 summary / detail / queue
-- 定義哪些資料是 public、哪些是 related-actor-only、哪些是 owner-only
-- 補齊一致的 read-side error semantics
+- 把 `/` 重做成純 public landing
+- 保留 `T083` 視覺資產
+- 移除首頁上的內部模組入口卡
+- 聚焦產品介紹、角色價值、流程與 auth CTA
 
-### T072 - Task Resolution and Outcome Workflow Baseline
+### T086 - Auth Page and Entry Flow Alignment
 
-- 在 assignment / feedback review 之後補 developer resolution workflow
-- 讓 task 有明確 outcome、resolution note、resolved timestamp
-- 讓 tester 也能看見任務的最終處理結果
+- `/login`、`/register` 對齊 public brand language
+- auth success redirect 統一進 `/dashboard`
+- 已登入進 auth 頁時自動導回 `/dashboard`
 
-### T073 - Audit Trail and Activity Timeline Baseline
+### T087 - Dashboard Home Build
 
-- 為 participation request、task bridge、feedback review / resubmission、task resolution 補 activity events
-- 在 detail 頁顯示最小 timeline / history
-- 讓運營期與 beta support 有可追蹤上下文
+- 新增 `/dashboard`
+- 成為登入後首頁
+- developer / tester 顯示不同 summary、queue、CTA
 
-### T074 - Beta Environment Rollout Verification and Evidence Pack
+### T088 - App Shell Redesign
 
-- 以目標 beta 環境為準，真正執行一次 rollout rehearsal
-- 留下 health、smoke、manual QA、已知限制、go/no-go 結果
-- 產出可交接的驗證證據包
+- 重新設計登入後 app shell
+- `Dashboard` 成為第一個主導航入口
+- sidebar、topbar、page frame 比例與密度收斂
+
+### T089 - Core App Template Harmonization
+
+- 高頻 app 頁面對齊新的 template 節奏
+- 聚焦 `/my/*`、`/review/*`、`/projects`、`/campaigns`、`/tasks`
+- 收斂 list / detail / workspace / context rail 結構
+
+### T090 - Layout Responsive, QA, and Docs Refresh
+
+- 做 desktop-first responsive pass
+- 更新 README / MANUAL_QA / Playwright 驗收
+- 驗 public/home/auth/dashboard/app shell 路徑
+
+### T091 - Dashboard Entry Flow and Shell Regression Pass
+
+- 等 `T087` 到 `T090` 穩定後，集中補 dashboard / auth / shell 的 regression
+- 收斂 public home → auth → dashboard → app shell 的端到端驗收
+- 補 locale / theme persistence 與 responsive smoke
 
 ## 4. 建議順序
 
-1. `T069`
-2. `T070`
-3. `T071`
-4. `T072`
-5. `T073`
-6. `T074`
+1. `T091`
 
 ## 5. 為什麼這樣排
 
-- `T069` 先做，因為 persistence 已經進產品路徑，但 schema lifecycle 還沒正式版本化
-- `T070` 接著做，因為 session-only 是 public beta / beta 後營運的真實模式
-- `T071` 再把 read visibility 補完整，避免越做越多 feature、越難補讀取邊界
-- `T072` 之後補 task resolution，讓 beta 期間的任務真正有收尾
-- `T073` 再把 history 補上，支撐 support / review / dispute handling
-- `T074` 最後在目標環境留下真正可驗證、可交接的 evidence
+- `T084` 到 `T090` 已把 layout phase 的實作面收完
+- 現在最需要的是把新的 public/app 邊界、dashboard 入口與 shell/page template 變更集中回歸
+- `T091` 應該在 UI 結構相對穩定後做，這樣測試才不會一直被重寫
 
 ## 6. 這一輪先不要做的事
 
-以下項目暫不建議在這一輪啟動：
+以下項目仍暫不建議在這個 phase 啟動：
 
+- backend auth redesign
+- RBAC framework 擴張
 - notification system
-- 搜尋系統 overhaul
+- 搜尋 overhaul
 - auto matching
-- developer candidate recommendation ranking
+- developer candidate ranking
 - organization / team model
-- 完整 OAuth 套件
-- RBAC framework 大擴張
-- Steam / Desktop / Extension
+- locale-prefixed i18n routing
+- 全站插畫系統 overhaul
+- landing 頁以外的大型 marketing site 擴張
 
 ## 7. 一句話結論
 
-public beta readiness 這一輪已完成；接下來最合理的方向，是把資料生命周期、session-only 模式、read visibility、task resolution、audit trail 和真正的 beta rollout evidence 補齊。
+`T084` 到 `T090` 已把 public landing、auth pages、登入後 `/dashboard`、app shell 與高頻頁模板拆清楚；下一步最合理的是直接進 `T091`，把這整條入口與 shell regression 一次驗完整。

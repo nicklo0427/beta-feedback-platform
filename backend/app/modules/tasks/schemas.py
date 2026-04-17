@@ -15,6 +15,13 @@ class TaskStatus(str, Enum):
     CLOSED = "closed"
 
 
+class TaskResolutionOutcome(str, Enum):
+    CONFIRMED_ISSUE = "confirmed_issue"
+    NEEDS_FOLLOW_UP = "needs_follow_up"
+    NOT_REPRODUCIBLE = "not_reproducible"
+    CANCELLED = "cancelled"
+
+
 class TaskCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -59,6 +66,8 @@ class TaskUpdate(BaseModel):
     instruction_summary: Optional[str] = None
     device_profile_id: Optional[str] = None
     status: Optional[TaskStatus] = None
+    resolution_outcome: Optional[TaskResolutionOutcome] = None
+    resolution_note: Optional[str] = None
 
     @field_validator("title")
     @classmethod
@@ -91,6 +100,15 @@ class TaskUpdate(BaseModel):
             raise ValueError("Device profile ID cannot be blank.")
         return normalized
 
+    @field_validator("resolution_note")
+    @classmethod
+    def normalize_resolution_note(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+
+        normalized = value.strip()
+        return normalized or None
+
     @model_validator(mode="after")
     def validate_not_empty(self) -> "TaskUpdate":
         if not self.model_fields_set:
@@ -115,6 +133,14 @@ class TaskParticipationRequestContext(BaseModel):
     assignment_created_at: Optional[str] = None
 
 
+class TaskResolutionContext(BaseModel):
+    resolution_outcome: TaskResolutionOutcome
+    resolution_note: Optional[str] = None
+    resolved_at: str
+    resolved_by_account_id: str
+    resolved_by_account_display_name: str
+
+
 class TaskListItem(BaseModel):
     id: str
     campaign_id: str
@@ -123,6 +149,7 @@ class TaskListItem(BaseModel):
     status: TaskStatus
     updated_at: str
     qualification_context: Optional[TaskQualificationContext] = None
+    resolution_context: Optional[TaskResolutionContext] = None
 
 
 class TaskDetail(BaseModel):
@@ -137,6 +164,7 @@ class TaskDetail(BaseModel):
     updated_at: str
     qualification_context: Optional[TaskQualificationContext] = None
     participation_request_context: Optional[TaskParticipationRequestContext] = None
+    resolution_context: Optional[TaskResolutionContext] = None
 
 
 class TaskListResponse(BaseModel):

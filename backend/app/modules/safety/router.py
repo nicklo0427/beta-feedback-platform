@@ -14,6 +14,7 @@ from app.modules.safety.service import (
     create_campaign_safety,
     delete_campaign_safety,
     get_campaign_safety,
+    get_campaign_safety_for_actor,
     update_campaign_safety,
 )
 
@@ -21,8 +22,12 @@ router = APIRouter(tags=["safety"])
 
 
 @router.get("/campaigns/{campaign_id}/safety", response_model=CampaignSafetyDetail)
-def get_campaign_safety_route(campaign_id: str) -> CampaignSafetyDetail:
-    return get_campaign_safety(campaign_id)
+def get_campaign_safety_route(
+    campaign_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> CampaignSafetyDetail:
+    actor_id = require_current_actor_id(current_actor_id)
+    return get_campaign_safety_for_actor(campaign_id, actor_id)
 
 
 @router.post(

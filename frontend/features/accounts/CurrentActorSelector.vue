@@ -6,40 +6,54 @@ import { fetchAccounts } from '~/features/accounts/api'
 import {
   clearAuthenticatedSession,
   getActorAwareMutationErrorMessage,
+  useAuthRuntimeMode,
   useAuthSession,
   useAuthSessionPending,
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
 import { formatAccountRoleLabel } from '~/features/accounts/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 
 const props = withDefaults(
   defineProps<{
     title?: string
     description?: string
+    variant?: 'panel' | 'compact'
   }>(),
   {
-    title: '目前操作帳號',
-    description:
-      '切換目前正在操作的帳號，讓新建立的專案或裝置設定檔可以自動帶入擁有者資訊。'
+    variant: 'panel'
   }
 )
 
 useCurrentActorPersistence()
 
 const router = useRouter()
+const { locale, t } = useAppI18n()
 const currentActorId = useCurrentActorId()
+const authRuntimeMode = useAuthRuntimeMode()
 const authSession = useAuthSession()
 const authSessionPending = useAuthSessionPending()
 const logoutPending = ref(false)
 const logoutError = ref<string | null>(null)
+const sessionOnlyMode = computed(() => authRuntimeMode.value === 'session_only')
+const compactVariant = computed(() => props.variant === 'compact')
 
 const {
   data: accountResponse,
   pending,
   error,
   refresh
-} = useAsyncData('current-actor-accounts', () => fetchAccounts(), {
+} = useAsyncData('current-actor-accounts', async () => {
+  if (sessionOnlyMode.value) {
+    return {
+      items: [],
+      total: 0
+    }
+  }
+
+  return fetchAccounts()
+}, {
   server: false,
   default: () => ({
     items: [],
@@ -59,6 +73,23 @@ const selectedAccount = computed(
 )
 const sessionAccount = computed(() => authSession.value?.account ?? null)
 const isAuthenticated = computed(() => sessionAccount.value !== null)
+const resolvedTitle = computed(() => props.title ?? t('actor.defaultTitle'))
+const resolvedDescription = computed(() =>
+  props.description ?? t('actor.defaultDescription')
+)
+const compactLabel = computed(() => {
+  if (isAuthenticated.value && sessionAccount.value) {
+    return `${sessionAccount.value.display_name} · ${formatAccountRoleLabel(sessionAccount.value.role, locale.value)}`
+  }
+
+  if (selectedAccount.value) {
+    return `${selectedAccount.value.display_name} · ${formatAccountRoleLabel(selectedAccount.value.role, locale.value)}`
+  }
+
+  return sessionOnlyMode.value
+    ? t('actor.compact.notSignedIn')
+    : t('actor.compact.noActorSelected')
+})
 
 watch(
   accounts,
@@ -91,7 +122,7 @@ async function handleLogout(): Promise<void> {
   } catch (error) {
     logoutError.value = getActorAwareMutationErrorMessage(
       error,
-      '目前無法登出。'
+      locale.value === 'en' ? 'Unable to sign out right now.' : '目前無法登出。'
     )
   } finally {
     logoutPending.value = false
@@ -100,10 +131,129 @@ async function handleLogout(): Promise<void> {
 </script>
 
 <template>
-  <section class="resource-section" data-testid="current-actor-panel">
-    <h2 class="resource-section__title">{{ title }}</h2>
+  <section
+    v-if="compactVariant"
+    class="actor-compact"
+    data-testid="current-actor-compact"
+  >
+    <div class="actor-compact__summary">
+      <span class="actor-compact__eyebrow">{{ t('actor.compact.eyebrow') }}</span>
+      <span
+        v-if="authSessionPending"
+        class="actor-compact__value"
+        data-testid="current-actor-compact-loading"
+      >
+        {{ t('actor.compact.loading') }}
+      </span>
+      <span
+        v-else
+        class="actor-compact__value"
+        data-testid="current-actor-compact-label"
+      >
+        {{ compactLabel }}
+      </span>
+    </div>
+
+    <div
+      v-if="logoutError"
+      class="resource-form__error"
+      data-testid="current-session-logout-error"
+    >
+      {{ logoutError }}
+    </div>
+
+    <template v-if="isAuthenticated && sessionAccount">
+      <div class="actor-compact__actions">
+        <NuxtLink
+          class="resource-action resource-action--quiet"
+          data-testid="current-session-account-link"
+          :to="`/accounts/${sessionAccount.id}`"
+        >
+          {{ t('actor.compact.myAccount') }}
+        </NuxtLink>
+        <button
+          class="resource-action resource-action--quiet"
+          data-testid="current-session-logout"
+          type="button"
+          :disabled="logoutPending"
+          @click="handleLogout"
+        >
+          {{ logoutPending ? t('actor.compact.loggingOut') : t('actor.compact.logout') }}
+        </button>
+      </div>
+    </template>
+
+    <template v-else-if="sessionOnlyMode">
+      <div class="actor-compact__actions">
+        <NuxtLink
+          class="resource-action resource-action--quiet"
+          data-testid="current-actor-compact-login"
+          to="/login"
+        >
+          {{ t('common.login') }}
+        </NuxtLink>
+        <NuxtLink
+          class="resource-action resource-action--quiet"
+          data-testid="current-actor-compact-register"
+          to="/register"
+        >
+          {{ t('common.register') }}
+        </NuxtLink>
+      </div>
+    </template>
+
+    <template v-else-if="pending">
+      <span class="actor-compact__hint">{{ t('actor.compact.loadingAccounts') }}</span>
+    </template>
+
+    <template v-else-if="error">
+      <div class="actor-compact__actions">
+        <span class="actor-compact__hint">{{ t('actor.compact.unavailable') }}</span>
+        <button class="resource-action resource-action--quiet" type="button" @click="refresh()">
+          {{ t('common.retry') }}
+        </button>
+      </div>
+    </template>
+
+    <template v-else-if="accounts.length === 0">
+      <div class="actor-compact__actions">
+        <NuxtLink class="resource-action resource-action--quiet" to="/register">
+          {{ t('common.createAccount') }}
+        </NuxtLink>
+      </div>
+    </template>
+
+    <template v-else>
+      <label class="actor-compact__select-wrap">
+        <span class="actor-compact__hint">{{ t('actor.compact.fallbackActor') }}</span>
+        <select
+          v-model="selectedActorId"
+          class="resource-select"
+          data-testid="current-actor-select"
+          :aria-label="t('actor.compact.selectAria')"
+          name="current_actor_id"
+        >
+          <option value="">{{ t('actor.compact.placeholder') }}</option>
+          <option
+            v-for="account in accounts"
+            :key="account.id"
+            :value="account.id"
+          >
+            {{ account.display_name }} · {{ formatAccountRoleLabel(account.role, locale) }}
+          </option>
+        </select>
+      </label>
+    </template>
+  </section>
+
+  <section
+    v-else
+    class="resource-section"
+    data-testid="current-actor-panel"
+  >
+    <h2 class="resource-section__title">{{ resolvedTitle }}</h2>
     <p class="resource-state__description">
-      {{ description }}
+      {{ resolvedDescription }}
     </p>
 
     <div
@@ -111,9 +261,9 @@ async function handleLogout(): Promise<void> {
       class="resource-state"
       data-testid="current-session-loading"
     >
-      <h3 class="resource-state__title">正在確認登入狀態</h3>
+      <h3 class="resource-state__title">{{ t('actor.panel.loadingTitle') }}</h3>
       <p class="resource-state__description">
-        正在同步目前登入中的帳號 session。
+        {{ t('actor.panel.loadingDescription') }}
       </p>
     </div>
 
@@ -124,7 +274,7 @@ async function handleLogout(): Promise<void> {
     >
       <div class="resource-state__actions">
         <NuxtLink class="resource-action" data-testid="current-session-account-link" :to="`/accounts/${sessionAccount.id}`">
-          查看我的帳號
+          {{ t('actor.panel.viewMyAccount') }}
         </NuxtLink>
         <button
           class="resource-action"
@@ -133,7 +283,7 @@ async function handleLogout(): Promise<void> {
           :disabled="logoutPending"
           @click="handleLogout"
         >
-          {{ logoutPending ? '登出中...' : '登出' }}
+          {{ logoutPending ? t('actor.compact.loggingOut') : t('actor.compact.logout') }}
         </button>
       </div>
 
@@ -147,27 +297,46 @@ async function handleLogout(): Promise<void> {
 
       <div class="resource-key-value" data-testid="current-session-summary">
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">登入帳號</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.signedInAccount') }}</span>
           <span class="resource-key-value__value">
             {{ sessionAccount.display_name }}
           </span>
         </div>
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">角色</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.role') }}</span>
           <span class="resource-key-value__value">
-            {{ formatAccountRoleLabel(sessionAccount.role) }}
+            {{ formatAccountRoleLabel(sessionAccount.role, locale) }}
           </span>
         </div>
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">Email</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.email') }}</span>
           <span class="resource-key-value__value">
             {{ sessionAccount.email }}
           </span>
         </div>
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">Session 狀態</span>
-          <span class="resource-key-value__value">已登入，可直接使用 role-aware workflow。</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.sessionStatus') }}</span>
+          <span class="resource-key-value__value">{{ t('actor.panel.sessionReady') }}</span>
         </div>
+      </div>
+    </div>
+
+    <div
+      v-else-if="sessionOnlyMode"
+      class="resource-state"
+      data-testid="current-actor-session-only"
+    >
+      <h3 class="resource-state__title">{{ t('actor.panel.sessionOnlyTitle') }}</h3>
+      <p class="resource-state__description">
+        {{ t('actor.panel.sessionOnlyDescription') }}
+      </p>
+      <div class="resource-state__actions">
+        <NuxtLink class="resource-action" to="/login">
+          {{ t('actor.panel.goLogin') }}
+        </NuxtLink>
+        <NuxtLink class="resource-action" to="/register">
+          {{ t('actor.panel.registerAccount') }}
+        </NuxtLink>
       </div>
     </div>
 
@@ -176,9 +345,9 @@ async function handleLogout(): Promise<void> {
       class="resource-state"
       data-testid="current-actor-loading"
     >
-      <h3 class="resource-state__title">正在載入帳號</h3>
+      <h3 class="resource-state__title">{{ t('actor.panel.loadingTitleAccounts') }}</h3>
       <p class="resource-state__description">
-        正在載入可切換的目前操作帳號。
+        {{ t('actor.panel.loadingDescriptionAccounts') }}
       </p>
     </div>
 
@@ -187,13 +356,13 @@ async function handleLogout(): Promise<void> {
       class="resource-state"
       data-testid="current-actor-error"
     >
-      <h3 class="resource-state__title">帳號切換器暫時無法使用</h3>
+      <h3 class="resource-state__title">{{ t('actor.panel.errorTitle') }}</h3>
       <p class="resource-state__description">
         {{ error.message }}
       </p>
       <div class="resource-state__actions">
         <button class="resource-action" type="button" @click="refresh()">
-          重試
+          {{ t('common.retry') }}
         </button>
       </div>
     </div>
@@ -203,16 +372,16 @@ async function handleLogout(): Promise<void> {
       class="resource-state"
       data-testid="current-actor-empty"
     >
-      <h3 class="resource-state__title">尚無帳號</h3>
+      <h3 class="resource-state__title">{{ t('actor.panel.emptyTitle') }}</h3>
       <p class="resource-state__description">
-        先建立至少一筆開發者或測試者帳號，才能切換目前操作帳號。
+        {{ t('actor.panel.emptyDescription') }}
       </p>
       <div class="resource-state__actions">
         <NuxtLink class="resource-action" to="/register">
-          註冊帳號
+          {{ t('actor.panel.registerAccount') }}
         </NuxtLink>
         <NuxtLink class="resource-action" to="/login">
-          前往登入
+          {{ t('actor.panel.goLogin') }}
         </NuxtLink>
       </div>
     </div>
@@ -224,46 +393,46 @@ async function handleLogout(): Promise<void> {
     >
       <div class="resource-state__actions">
         <NuxtLink class="resource-action" to="/register">
-          註冊帳號
+          {{ t('common.register') }}
         </NuxtLink>
         <NuxtLink class="resource-action" to="/login">
-          登入
+          {{ t('common.login') }}
         </NuxtLink>
       </div>
 
       <label class="resource-field">
-        <span class="resource-field__label">已選取帳號（開發 / 驗收 fallback）</span>
+        <span class="resource-field__label">{{ t('actor.panel.selectedAccountLabel') }}</span>
         <select
           v-model="selectedActorId"
           class="resource-select"
           data-testid="current-actor-select"
           name="current_actor_id"
         >
-          <option value="">未選擇目前操作帳號</option>
+          <option value="">{{ t('actor.compact.placeholder') }}</option>
           <option
             v-for="account in accounts"
             :key="account.id"
             :value="account.id"
           >
-            {{ account.display_name }} · {{ formatAccountRoleLabel(account.role) }}
+            {{ account.display_name }} · {{ formatAccountRoleLabel(account.role, locale) }}
           </option>
         </select>
       </label>
 
       <div class="resource-key-value" data-testid="current-actor-summary">
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">帳號 ID</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.accountIdLabel') }}</span>
           <span class="resource-key-value__value">
-            {{ selectedAccount?.id || '尚未選擇目前操作帳號。' }}
+            {{ selectedAccount?.id || t('actor.panel.noActorSelected') }}
           </span>
         </div>
         <div class="resource-key-value__row">
-          <span class="resource-key-value__label">角色</span>
+          <span class="resource-key-value__label">{{ t('actor.panel.role') }}</span>
           <span class="resource-key-value__value">
             {{
               selectedAccount
-                ? formatAccountRoleLabel(selectedAccount.role)
-                : '若尚未登入，仍可在本機驗收模式下手動切換帳號。'
+                ? formatAccountRoleLabel(selectedAccount.role, locale)
+                : t('actor.panel.roleFallback')
             }}
           </span>
         </div>

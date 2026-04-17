@@ -123,7 +123,7 @@ const testerZeroStateSummary = {
 }
 
 test.describe('accounts shell flows', () => {
-  test('navigates from home to accounts list and account detail', async ({ page }) => {
+  test('navigates from accounts list to account detail', async ({ page }) => {
     await mockApiJson(page, '/accounts', {
       items: [accountListItem],
       total: 1
@@ -131,10 +131,10 @@ test.describe('accounts shell flows', () => {
     await mockApiJson(page, '/accounts/acct_123', accountDetail)
     await mockApiJson(page, '/accounts/acct_123/summary', testerAccountSummary)
 
-    await page.goto('/')
-    await page.getByTestId('home-accounts-link').click()
+    await page.goto('/accounts')
 
     await expect(page).toHaveURL(/\/accounts$/)
+    await page.waitForLoadState('networkidle')
     await expect(page.getByTestId('accounts-list')).toBeVisible()
 
     const accountCard = page.getByTestId('account-card-acct_123')
@@ -382,7 +382,7 @@ test.describe('accounts shell flows', () => {
 
     await page.goto('/accounts/acct_dev_123')
     await page
-      .getByTestId('current-actor-select')
+      .getByTestId('current-actor-select').first()
       .first()
       .selectOption(developerAccountDetail.id)
 
@@ -413,7 +413,7 @@ test.describe('accounts shell flows', () => {
 
     await page.goto('/accounts/acct_zero_123')
     await page
-      .getByTestId('current-actor-select')
+      .getByTestId('current-actor-select').first()
       .first()
       .selectOption(testerZeroStateDetail.id)
 

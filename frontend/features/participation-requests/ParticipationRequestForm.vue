@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import type {
   ParticipationRequestFormValues,
   ParticipationRequestQualifiedDeviceProfileOption
@@ -20,7 +21,7 @@ const props = withDefaults(
     pending: false,
     errorMessage: null,
     successMessage: null,
-    submitLabel: '送出參與意圖',
+    submitLabel: undefined,
     testIdPrefix: 'participation-request'
   }
 )
@@ -29,8 +30,10 @@ const emit = defineEmits<{
   submit: [values: ParticipationRequestFormValues]
 }>()
 
+const { t } = useAppI18n()
 const validationMessage = ref<string | null>(null)
 const resolvedTestIdPrefix = computed(() => props.testIdPrefix)
+const resolvedSubmitLabel = computed(() => props.submitLabel || t('common.submitParticipationRequest'))
 const values = reactive<ParticipationRequestFormValues>({
   ...props.initialValues
 })
@@ -48,7 +51,7 @@ watch(
 
 function validateForm(): boolean {
   if (!values.device_profile_id.trim()) {
-    validationMessage.value = '請先選擇要送出參與意圖的裝置設定檔。'
+    validationMessage.value = t('participationForm.validationDeviceProfileRequired')
     return false
   }
 
@@ -89,48 +92,57 @@ function handleSubmit(): void {
       </p>
     </div>
 
-    <div class="resource-form__grid">
-      <label class="resource-field">
-        <span class="resource-field__label">使用的裝置設定檔</span>
-        <select
-          v-model="values.device_profile_id"
-          class="resource-select"
-          :data-testid="`${resolvedTestIdPrefix}-device-profile-select`"
-          name="device_profile_id"
-          :disabled="pending"
-        >
-          <option value="">請選擇裝置設定檔</option>
-          <option
-            v-for="deviceProfile in qualifiedDeviceProfiles"
-            :key="deviceProfile.id"
-            :value="deviceProfile.id"
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">{{ t('participationForm.title') }}</h2>
+        <p class="resource-form__section-description">
+          {{ t('participationForm.description') }}
+        </p>
+      </div>
+
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">{{ t('participationForm.deviceProfileLabel') }}</span>
+          <select
+            v-model="values.device_profile_id"
+            class="resource-select"
+            :data-testid="`${resolvedTestIdPrefix}-device-profile-select`"
+            name="device_profile_id"
+            :disabled="pending"
           >
-            {{ deviceProfile.name }}
-          </option>
-        </select>
+            <option value="">{{ t('participationForm.deviceProfilePlaceholder') }}</option>
+            <option
+              v-for="deviceProfile in qualifiedDeviceProfiles"
+              :key="deviceProfile.id"
+              :value="deviceProfile.id"
+            >
+              {{ deviceProfile.name }}
+            </option>
+          </select>
+        </label>
+      </div>
+
+      <label class="resource-field">
+        <span class="resource-field__label">{{ t('participationForm.noteLabel') }}</span>
+        <textarea
+          v-model="values.note"
+          class="resource-textarea"
+          :data-testid="`${resolvedTestIdPrefix}-note-input`"
+          name="note"
+          rows="4"
+          :disabled="pending"
+        />
       </label>
-    </div>
+    </section>
 
-    <label class="resource-field">
-      <span class="resource-field__label">想補充給開發者的說明</span>
-      <textarea
-        v-model="values.note"
-        class="resource-textarea"
-        :data-testid="`${resolvedTestIdPrefix}-note-input`"
-        name="note"
-        rows="4"
-        :disabled="pending"
-      />
-    </label>
-
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         :data-testid="`${resolvedTestIdPrefix}-submit`"
         type="submit"
         :disabled="pending"
       >
-        {{ pending ? '送出中...' : submitLabel }}
+        {{ pending ? t('participationForm.submitting') : resolvedSubmitLabel }}
       </button>
     </div>
   </form>

@@ -44,7 +44,8 @@
 若你要成功建立這份 role-aware fixture，建議 QA 環境設定：
 
 - `BFP_DATABASE_URL` 已設定
-- `BFP_AUTH_DEV_ACTOR_HEADER_FALLBACK_ENABLED=true`
+- `BFP_AUTH_MODE=session_with_header_fallback`
+- `NUXT_PUBLIC_AUTH_MODE=session_with_header_fallback`
 
 原因：
 

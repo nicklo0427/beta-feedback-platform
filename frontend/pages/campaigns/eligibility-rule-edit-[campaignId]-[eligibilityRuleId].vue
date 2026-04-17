@@ -5,8 +5,8 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -42,10 +42,10 @@ const {
   refresh
 } = useAsyncData(
   () => `eligibility-rule-edit-${eligibilityRuleId.value}`,
-  () => fetchEligibilityRuleDetail(eligibilityRuleId.value),
+  () => fetchEligibilityRuleDetail(eligibilityRuleId.value, currentActorId.value),
   {
     server: false,
-    watch: [eligibilityRuleId],
+    watch: [eligibilityRuleId, currentActorId],
     default: () => null
   }
 )
@@ -120,12 +120,16 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
         <p class="resource-shell__description">
           更新活動的最小資格條件，維持裝置平台、版本與安裝渠道限制的一致性。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="資格條件操作帳號"
-        description="選擇目前正在操作的開發者帳號。更新資格條件規則時，系統會驗證活動擁有權。"
-      />
 
       <section
         v-if="pending"
@@ -145,7 +149,7 @@ async function handleSubmit(values: EligibilityRuleFormValues): Promise<void> {
       >
         <h2 class="resource-state__title">無法載入資格條件規則編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的資格條件規則。' }}
+          {{ getActorAwareReadErrorMessage(error, '找不到指定的資格條件規則。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">

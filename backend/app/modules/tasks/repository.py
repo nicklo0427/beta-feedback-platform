@@ -20,6 +20,10 @@ def _to_record(entity: TaskEntity) -> TaskRecord:
         instruction_summary=entity.instruction_summary,
         status=entity.status,
         submitted_at=entity.submitted_at,
+        resolution_outcome=entity.resolution_outcome,
+        resolution_note=entity.resolution_note,
+        resolved_at=entity.resolved_at,
+        resolved_by_account_id=entity.resolved_by_account_id,
         created_at=entity.created_at,
         updated_at=entity.updated_at,
     )
@@ -34,6 +38,10 @@ def _to_entity(record: TaskRecord) -> TaskEntity:
         instruction_summary=record.instruction_summary,
         status=record.status,
         submitted_at=record.submitted_at,
+        resolution_outcome=record.resolution_outcome,
+        resolution_note=record.resolution_note,
+        resolved_at=record.resolved_at,
+        resolved_by_account_id=record.resolved_by_account_id,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )

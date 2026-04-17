@@ -10,6 +10,6 @@ test('loads without an uncaught runtime crash', async ({ page }) => {
   const response = await page.goto('/')
 
   expect(response?.ok()).toBeTruthy()
-  await expect(page.locator('main')).toBeVisible()
+  await expect(page.getByTestId('public-shell-root')).toBeVisible()
   expect(pageErrors).toEqual([])
 })

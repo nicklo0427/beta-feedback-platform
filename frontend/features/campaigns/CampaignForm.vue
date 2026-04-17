@@ -107,100 +107,116 @@ function handleSubmit(): void {
       {{ validationMessage || errorMessage }}
     </div>
 
-    <div class="resource-form__grid">
-      <label class="resource-field">
-        <span class="resource-field__label">名稱</span>
-        <input
-          v-model="values.name"
-          class="resource-input"
-          data-testid="campaign-name-input"
-          name="name"
-          type="text"
-          :disabled="pending"
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">活動基本資料</h2>
+        <p class="resource-form__section-description">
+          先建立活動名稱、版本標籤與描述，讓後續資格規則與任務指派有清楚的產品上下文。
+        </p>
+      </div>
+
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">名稱</span>
+          <input
+            v-model="values.name"
+            class="resource-input"
+            data-testid="campaign-name-input"
+            name="name"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">版本標籤</span>
+          <input
+            v-model="values.version_label"
+            class="resource-input"
+            data-testid="campaign-version-label-input"
+            name="version_label"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+
+        <label
+          v-if="allowStatusEdit"
+          class="resource-field"
         >
-      </label>
+          <span class="resource-field__label">狀態</span>
+          <select
+            v-model="values.status"
+            class="resource-select"
+            data-testid="campaign-status-field"
+            name="status"
+            :disabled="pending"
+          >
+            <option
+              v-for="status in CAMPAIGN_STATUSES"
+              :key="status"
+              :value="status"
+            >
+              {{ formatCampaignStatusLabel(status) }}
+            </option>
+          </select>
+        </label>
+      </div>
 
       <label class="resource-field">
-        <span class="resource-field__label">版本標籤</span>
-        <input
-          v-model="values.version_label"
-          class="resource-input"
-          data-testid="campaign-version-label-input"
-          name="version_label"
-          type="text"
+        <span class="resource-field__label">說明</span>
+        <textarea
+          v-model="values.description"
+          class="resource-textarea"
+          data-testid="campaign-description-input"
+          name="description"
+          rows="4"
           :disabled="pending"
-        >
+        />
       </label>
+    </section>
+
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">目標平台</h2>
+        <p class="resource-form__section-description">
+          選擇這個活動預計覆蓋的平台，資格規則與裝置設定檔會以這裡為第一層篩選。
+        </p>
+      </div>
+
+      <div class="resource-choice-grid">
+        <label
+          v-for="platform in CAMPAIGN_TARGET_PLATFORM_OPTIONS"
+          :key="platform"
+          class="resource-choice-card"
+        >
+          <input
+            :checked="hasTargetPlatform(platform)"
+            :disabled="pending"
+            :data-testid="`campaign-platform-checkbox-${platform}`"
+            :name="`target_platforms_${platform}`"
+            type="checkbox"
+            @change="toggleTargetPlatform(platform)"
+          >
+          <span class="resource-choice-card__content">
+            <span class="resource-choice-card__label">{{ formatPlatformLabel(platform) }}</span>
+            <span class="resource-choice-card__hint">納入活動資格與任務分派範圍。</span>
+          </span>
+        </label>
+      </div>
 
       <label
-        v-if="allowStatusEdit"
+        v-if="!allowStatusEdit"
         class="resource-field"
       >
-        <span class="resource-field__label">狀態</span>
-        <select
-          v-model="values.status"
-          class="resource-select"
-          data-testid="campaign-status-field"
-          name="status"
-          :disabled="pending"
-        >
-          <option
-            v-for="status in CAMPAIGN_STATUSES"
-            :key="status"
-            :value="status"
-          >
-            {{ formatCampaignStatusLabel(status) }}
-          </option>
-        </select>
+        <span class="resource-field__label">初始狀態</span>
+        <span class="resource-key-value__value" data-testid="campaign-status-default-note">
+          新建立的活動預設會以 <strong>草稿</strong> 狀態開始。
+        </span>
       </label>
-    </div>
+    </section>
 
-    <label class="resource-field">
-      <span class="resource-field__label">說明</span>
-      <textarea
-        v-model="values.description"
-        class="resource-textarea"
-        data-testid="campaign-description-input"
-        name="description"
-        rows="4"
-        :disabled="pending"
-      />
-    </label>
-
-    <label class="resource-field">
-      <span class="resource-field__label">目標平台</span>
-      <div class="resource-state">
-        <div class="resource-state__actions">
-          <label
-            v-for="platform in CAMPAIGN_TARGET_PLATFORM_OPTIONS"
-            :key="platform"
-            class="resource-key-value__value"
-          >
-            <input
-              :checked="hasTargetPlatform(platform)"
-              :disabled="pending"
-              :data-testid="`campaign-platform-checkbox-${platform}`"
-              :name="`target_platforms_${platform}`"
-              type="checkbox"
-              @change="toggleTargetPlatform(platform)"
-            >
-            {{ formatPlatformLabel(platform) }}
-          </label>
-        </div>
-      </div>
-    </label>
-
-    <label
-      v-if="!allowStatusEdit"
-      class="resource-field"
-    >
-      <span class="resource-field__label">初始狀態</span>
-      <span class="resource-key-value__value" data-testid="campaign-status-default-note">
-        新建立的活動預設會以 <strong>草稿</strong> 狀態開始。
-      </span>
-    </label>
-
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         data-testid="campaign-submit"

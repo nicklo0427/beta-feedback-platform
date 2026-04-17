@@ -97,7 +97,7 @@ test.describe('participation requests flows', () => {
     })
 
     await page.goto('/my/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const card = page.getByTestId('participation-request-card-pr_123')
     await expect(card).toContainText('Closed Beta Round 1')
@@ -153,7 +153,7 @@ test.describe('participation requests flows', () => {
     })
 
     await page.goto('/my/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const card = page.getByTestId('participation-request-card-pr_456')
     await expect(card).toContainText('任務橋接 已建立任務')
@@ -179,7 +179,7 @@ test.describe('participation requests flows', () => {
     })
 
     await page.goto('/my/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-participation-requests-role-mismatch')).toBeVisible()
   })

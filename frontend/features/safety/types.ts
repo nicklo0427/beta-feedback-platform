@@ -1,3 +1,5 @@
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
+
 export type DistributionChannel =
   | 'web_url'
   | 'pwa_url'
@@ -71,35 +73,71 @@ export interface CampaignSafetyUpdatePayload {
   risk_note?: string | null
 }
 
-const DISTRIBUTION_CHANNEL_LABELS: Record<DistributionChannel, string> = {
-  web_url: '網頁連結',
-  pwa_url: 'PWA 連結',
-  testflight: 'TestFlight',
-  google_play_testing: 'Google Play 測試',
-  manual_invite: '手動邀請',
-  other: '其他'
+const DISTRIBUTION_CHANNEL_LABELS: Record<
+  AppLocale,
+  Record<DistributionChannel, string>
+> = {
+  'zh-TW': {
+    web_url: '網頁連結',
+    pwa_url: 'PWA 連結',
+    testflight: 'TestFlight',
+    google_play_testing: 'Google Play 測試',
+    manual_invite: '手動邀請',
+    other: '其他'
+  },
+  en: {
+    web_url: 'Web URL',
+    pwa_url: 'PWA URL',
+    testflight: 'TestFlight',
+    google_play_testing: 'Google Play testing',
+    manual_invite: 'Manual invite',
+    other: 'Other'
+  }
 }
 
-const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
-  low: '低',
-  medium: '中',
-  high: '高'
+const RISK_LEVEL_LABELS: Record<AppLocale, Record<RiskLevel, string>> = {
+  'zh-TW': {
+    low: '低',
+    medium: '中',
+    high: '高'
+  },
+  en: {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High'
+  }
 }
 
-const REVIEW_STATUS_LABELS: Record<ReviewStatus, string> = {
-  pending: '待審核',
-  approved: '已核准',
-  rejected: '已拒絕'
+const REVIEW_STATUS_LABELS: Record<AppLocale, Record<ReviewStatus, string>> = {
+  'zh-TW': {
+    pending: '待審核',
+    approved: '已核准',
+    rejected: '已拒絕'
+  },
+  en: {
+    pending: 'Pending',
+    approved: 'Approved',
+    rejected: 'Rejected'
+  }
 }
 
-export function formatDistributionChannelLabel(value: DistributionChannel): string {
-  return DISTRIBUTION_CHANNEL_LABELS[value]
+export function formatDistributionChannelLabel(
+  value: DistributionChannel,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return DISTRIBUTION_CHANNEL_LABELS[locale][value]
 }
 
-export function formatRiskLevelLabel(value: RiskLevel): string {
-  return RISK_LEVEL_LABELS[value]
+export function formatRiskLevelLabel(
+  value: RiskLevel,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return RISK_LEVEL_LABELS[locale][value]
 }
 
-export function formatReviewStatusLabel(value: ReviewStatus): string {
-  return REVIEW_STATUS_LABELS[value]
+export function formatReviewStatusLabel(
+  value: ReviewStatus,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return REVIEW_STATUS_LABELS[locale][value]
 }

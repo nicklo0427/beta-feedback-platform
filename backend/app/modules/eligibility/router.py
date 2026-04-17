@@ -18,9 +18,11 @@ from app.modules.eligibility.service import (
     create_eligibility_rule,
     delete_eligibility_rule,
     get_eligibility_rule,
+    get_eligibility_rule_for_actor,
     get_campaign_qualification_check,
     list_campaign_qualification_results,
     list_eligibility_rules,
+    list_eligibility_rules_for_actor,
     update_eligibility_rule,
 )
 
@@ -31,8 +33,12 @@ router = APIRouter(tags=["eligibility"])
     "/campaigns/{campaign_id}/eligibility-rules",
     response_model=EligibilityRuleListResponse,
 )
-def list_eligibility_rules_route(campaign_id: str) -> EligibilityRuleListResponse:
-    return list_eligibility_rules(campaign_id)
+def list_eligibility_rules_route(
+    campaign_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> EligibilityRuleListResponse:
+    actor_id = require_current_actor_id(current_actor_id)
+    return list_eligibility_rules_for_actor(campaign_id, actor_id)
 
 
 @router.get(
@@ -81,8 +87,12 @@ def create_eligibility_rule_route(
 
 
 @router.get("/eligibility-rules/{eligibility_rule_id}", response_model=EligibilityRuleDetail)
-def get_eligibility_rule_route(eligibility_rule_id: str) -> EligibilityRuleDetail:
-    return get_eligibility_rule(eligibility_rule_id)
+def get_eligibility_rule_route(
+    eligibility_rule_id: str,
+    current_actor_id: Optional[str] = Depends(get_current_actor_id_dep),
+) -> EligibilityRuleDetail:
+    actor_id = require_current_actor_id(current_actor_id)
+    return get_eligibility_rule_for_actor(eligibility_rule_id, actor_id)
 
 
 @router.patch(

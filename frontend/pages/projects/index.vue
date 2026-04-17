@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   useCurrentActorId,
   useCurrentActorPersistence
@@ -35,6 +34,13 @@ const {
 )
 
 const projects = computed(() => projectResponse.value.items)
+const scopeLabel = computed(() => {
+  if (mineOnly.value) {
+    return '目前顯示我的專案'
+  }
+
+  return '目前顯示全部專案'
+})
 
 watch(currentActorId, (nextActorId) => {
   if (!nextActorId) {
@@ -46,13 +52,13 @@ watch(currentActorId, (nextActorId) => {
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
         <h1 class="resource-shell__title">專案列表</h1>
         <p class="resource-shell__description">
-          這個頁面對齊後端的專案列表與詳情契約，提供最小可承接資料流的專案頁面。
+          在新的產品化 shell 裡，這裡會承接專案清單、mine filter 與後續活動建立流程。
         </p>
-        <div class="resource-state__actions">
+        <div class="resource-state__actions app-page-actions">
           <NuxtLink
             class="resource-action"
             data-testid="project-create-link"
@@ -70,9 +76,27 @@ watch(currentActorId, (nextActorId) => {
             {{ mineOnly ? '顯示全部專案' : '只顯示我的專案' }}
           </button>
         </div>
+        <div class="app-page-summary-grid">
+          <article class="app-page-summary-card">
+            <span class="app-page-summary-card__label">顯示範圍</span>
+            <strong class="app-page-summary-card__value">{{ scopeLabel }}</strong>
+            <span class="app-page-summary-card__description">切換 mine filter 後，列表仍保留同一套 list page 節奏。</span>
+          </article>
+          <article class="app-page-summary-card">
+            <span class="app-page-summary-card__label">專案數</span>
+            <strong class="app-page-summary-card__value">{{ projects.length }}</strong>
+            <span class="app-page-summary-card__description">由這裡直接往詳情與建立活動流程延伸。</span>
+          </article>
+          <article
+            v-if="mineOnly && currentActorId"
+            class="app-page-summary-card"
+          >
+            <span class="app-page-summary-card__label">目前 actor</span>
+            <strong class="app-page-summary-card__value">{{ currentActorId }}</strong>
+            <span class="app-page-summary-card__description">mine view 會沿用目前登入或 fallback actor 的 ownership context。</span>
+          </article>
+        </div>
       </header>
-
-      <CurrentActorSelector />
 
       <section
         v-if="pending"
@@ -123,7 +147,7 @@ watch(currentActorId, (nextActorId) => {
 
       <section
         v-else
-        class="resource-shell__grid"
+        class="resource-shell__grid app-page-card-grid"
         data-testid="projects-list"
       >
         <NuxtLink

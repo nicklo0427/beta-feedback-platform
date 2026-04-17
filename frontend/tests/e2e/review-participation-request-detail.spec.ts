@@ -113,6 +113,56 @@ test.describe('participation request detail flows', () => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
     })
+
+    await page.route(/\/api\/v1\/participation-requests\/[^/]+\/timeline$/, async (route) => {
+      const url = route.request().url()
+      const body = url.includes('/pr_123/timeline')
+        ? {
+            items: [
+              {
+                id: 'evt_003',
+                entity_type: 'participation_request',
+                entity_id: 'pr_123',
+                event_type: 'task_created_from_participation_request',
+                actor_account_id: developerAccount.id,
+                actor_account_display_name: developerAccount.display_name,
+                summary: '從參與意圖建立任務。',
+                created_at: '2026-04-09T10:10:00Z'
+              },
+              {
+                id: 'evt_002',
+                entity_type: 'participation_request',
+                entity_id: 'pr_123',
+                event_type: 'participation_request_accepted',
+                actor_account_id: developerAccount.id,
+                actor_account_display_name: developerAccount.display_name,
+                summary: '接受參與意圖。',
+                created_at: '2026-04-09T10:00:00Z'
+              },
+              {
+                id: 'evt_001',
+                entity_type: 'participation_request',
+                entity_id: 'pr_123',
+                event_type: 'participation_request_created',
+                actor_account_id: testerAccount.id,
+                actor_account_display_name: testerAccount.display_name,
+                summary: '送出參與意圖。',
+                created_at: '2026-04-09T09:30:00Z'
+              }
+            ],
+            total: 3
+          }
+        : {
+            items: [],
+            total: 0
+          }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(body)
+      })
+    })
   })
 
   test('navigates from the review queue to the detail page and renders candidate snapshots', async ({
@@ -169,7 +219,7 @@ test.describe('participation request detail flows', () => {
     })
 
     await page.goto('/review/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('review-participation-detail-link-pr_123').click()
 
     await expect(page).toHaveURL(/\/review\/participation-requests\/pr_123$/)
@@ -188,6 +238,12 @@ test.describe('participation request detail flows', () => {
     await expect(page.getByTestId('participation-request-create-task-link')).toBeVisible()
     await expect(page.getByTestId('participation-request-detail-panel')).toContainText(
       '任務橋接 尚未建立任務'
+    )
+    await expect(page.getByTestId('participation-request-timeline-panel')).toContainText(
+      '從參與意圖建立任務。'
+    )
+    await expect(page.getByTestId('participation-request-timeline-panel')).toContainText(
+      'Release Owner'
     )
     await expect(page.getByTestId('participation-request-campaign-panel')).toContainText(
       '0.50'
@@ -224,7 +280,7 @@ test.describe('participation request detail flows', () => {
     })
 
     await page.goto('/review/participation-requests/pr_missing')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('participation-request-detail-error')).toBeVisible()
   })
@@ -264,7 +320,7 @@ test.describe('participation request detail flows', () => {
     })
 
     await page.goto('/review/participation-requests/pr_123')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('participation-request-detail-error')).toContainText(
       '你不能查看不屬於自己工作範圍的資料。'

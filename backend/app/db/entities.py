@@ -117,6 +117,14 @@ class TaskEntity(Base):
     instruction_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, index=True)
     submitted_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolution_outcome: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolution_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    resolved_by_account_id: Mapped[Optional[str]] = mapped_column(
+        String,
+        nullable=True,
+        index=True,
+    )
     created_at: Mapped[str] = mapped_column(String, nullable=False)
     updated_at: Mapped[str] = mapped_column(String, nullable=False)
 
@@ -158,3 +166,15 @@ class ParticipationRequestEntity(Base):
     decided_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     linked_task_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, index=True)
     assignment_created_at: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
+
+class ActivityEventEntity(Base):
+    __tablename__ = "activity_events"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    entity_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String, nullable=False)
+    actor_account_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[str] = mapped_column(String, nullable=False, index=True)

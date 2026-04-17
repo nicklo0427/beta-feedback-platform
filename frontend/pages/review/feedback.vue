@@ -2,7 +2,6 @@
 import { computed, ref } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareReadErrorMessage,
   useCurrentActorId,
@@ -17,9 +16,11 @@ import {
   formatFeedbackSeverityLabel,
   type FeedbackReviewStatus
 } from '~/features/feedback/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 
 useCurrentActorPersistence()
 
+const { locale, t } = useAppI18n()
 const currentActorId = useCurrentActorId()
 const activeReviewStatus = ref<FeedbackReviewStatus>('submitted')
 
@@ -80,31 +81,25 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
-        <h1 class="resource-shell__title">回饋審閱佇列</h1>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
+        <h1 class="resource-shell__title">{{ t('reviewFeedback.title') }}</h1>
         <p class="resource-shell__description">
-          這個頁面提供開發者端的最小回饋審閱佇列，讓你可以依審閱狀態篩選屬於自己專案 / 活動的回饋，並快速進入詳情進行審閱。
+          {{ t('reviewFeedback.description') }}
         </p>
       </header>
-
-      <CurrentActorSelector
-        title="開發者情境"
-        description="選擇目前正在操作的開發者帳號，佇列會依它擁有的 projects / campaigns 推導可審閱的回饋。"
-      />
-
       <section
         v-if="accountsError"
         class="resource-state"
         data-testid="feedback-review-actor-error"
       >
-        <h2 class="resource-state__title">無法取得操作情境</h2>
+        <h2 class="resource-state__title">{{ t('reviewFeedback.actorErrorTitle') }}</h2>
         <p class="resource-state__description">
           {{ accountsError.message }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshAccounts()">
-            重試
+            {{ t('common.retry') }}
           </button>
         </div>
       </section>
@@ -114,9 +109,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="feedback-review-actor-loading"
       >
-        <h2 class="resource-state__title">載入開發者情境中</h2>
+        <h2 class="resource-state__title">{{ t('reviewFeedback.actorLoadingTitle') }}</h2>
         <p class="resource-state__description">
-          正在確認目前操作帳號與可用的開發者情境。
+          {{ t('reviewFeedback.actorLoadingDescription') }}
         </p>
       </section>
 
@@ -125,9 +120,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="feedback-review-select-actor"
       >
-        <h2 class="resource-state__title">請選擇開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewFeedback.selectActorTitle') }}</h2>
         <p class="resource-state__description">
-          先選擇目前操作帳號，系統才知道要推導哪一位開發者的回饋審閱佇列。
+          {{ t('reviewFeedback.selectActorDescription') }}
         </p>
       </section>
 
@@ -136,9 +131,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="feedback-review-actor-missing"
       >
-        <h2 class="resource-state__title">找不到已選擇的帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewFeedback.actorMissingTitle') }}</h2>
         <p class="resource-state__description">
-          目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。
+          {{ t('reviewFeedback.actorMissingDescription') }}
         </p>
       </section>
 
@@ -147,16 +142,20 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         class="resource-state"
         data-testid="feedback-review-role-mismatch"
       >
-        <h2 class="resource-state__title">回饋審閱需要開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewFeedback.roleMismatchTitle') }}</h2>
         <p class="resource-state__description">
-          目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到開發者帳號，再查看回饋審閱佇列。
+          {{
+            t('reviewFeedback.roleMismatchDescription', {
+              role: formatAccountRoleLabel(currentActor.role, locale)
+            })
+          }}
         </p>
       </section>
 
       <template v-else>
         <section class="resource-section" data-testid="feedback-review-filters">
-          <h2 class="resource-section__title">審閱狀態篩選</h2>
-          <div class="resource-state__actions">
+          <h2 class="resource-section__title">{{ t('reviewFeedback.filtersTitle') }}</h2>
+          <div class="resource-state__actions app-page-actions">
             <button
               v-for="statusOption in FEEDBACK_REVIEW_STATUS_OPTIONS"
               :key="statusOption"
@@ -165,16 +164,20 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
               type="button"
               @click="activeReviewStatus = statusOption"
             >
-              {{ formatFeedbackReviewStatusLabel(statusOption) }}
+              {{ formatFeedbackReviewStatusLabel(statusOption, locale) }}
             </button>
           </div>
-          <div class="resource-shell__meta">
-            <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              審閱 {{ formatFeedbackReviewStatusLabel(activeReviewStatus) }}
-            </span>
+          <div class="app-page-summary-grid">
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewFeedback.currentAccount') }}</span>
+              <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
+              <span class="app-page-summary-card__description">這個 queue 只呈現目前開發者需要處理的 feedback review 工作。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewFeedback.reviewLabel') }}</span>
+              <strong class="app-page-summary-card__value">{{ formatFeedbackReviewStatusLabel(activeReviewStatus, locale) }}</strong>
+              <span class="app-page-summary-card__description">切換 review 狀態後，列表維持相同的 queue card 節奏。</span>
+            </article>
           </div>
         </section>
 
@@ -183,9 +186,9 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="feedback-review-loading"
         >
-          <h2 class="resource-state__title">載入審閱佇列中</h2>
+          <h2 class="resource-state__title">{{ t('reviewFeedback.loadingTitle') }}</h2>
           <p class="resource-state__description">
-            正在根據目前操作帳號與其擁有的專案 / 活動推導回饋審閱佇列。
+            {{ t('reviewFeedback.loadingDescription') }}
           </p>
         </section>
 
@@ -194,18 +197,18 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="feedback-review-error"
         >
-          <h2 class="resource-state__title">無法載入回饋審閱佇列</h2>
+          <h2 class="resource-state__title">{{ t('reviewFeedback.errorTitle') }}</h2>
           <p class="resource-state__description">
             {{
               getActorAwareReadErrorMessage(
                 queueError,
-                '目前無法載入回饋審閱佇列。'
+                t('reviewFeedback.errorTitle')
               )
             }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshQueue()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </section>
@@ -215,15 +218,15 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
           class="resource-state"
           data-testid="feedback-review-empty"
         >
-          <h2 class="resource-state__title">這個審閱狀態下沒有回饋</h2>
+          <h2 class="resource-state__title">{{ t('reviewFeedback.emptyTitle') }}</h2>
           <p class="resource-state__description">
-            目前這位開發者在 {{ formatFeedbackReviewStatusLabel(activeReviewStatus) }} 狀態下沒有任何回饋。
+            {{ t('reviewFeedback.emptyDescription', { status: formatFeedbackReviewStatusLabel(activeReviewStatus, locale) }) }}
           </p>
         </section>
 
         <section
           v-else
-          class="resource-section__body"
+          class="resource-section__body app-page-card-grid"
           data-testid="feedback-review-list"
         >
           <article
@@ -232,18 +235,18 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             class="resource-card"
             :data-testid="`review-feedback-card-${feedback.id}`"
           >
-            <span class="resource-shell__breadcrumb">回饋審閱</span>
+            <span class="resource-shell__breadcrumb">{{ t('reviewFeedback.breadcrumb') }}</span>
             <h2 class="resource-card__title">{{ feedback.summary }}</h2>
             <p class="resource-card__description">
-              任務 {{ feedback.task_id }} · 活動 {{ feedback.campaign_id }}
+              {{ t('reviewFeedback.taskCampaignSummary', { taskId: feedback.task_id, campaignId: feedback.campaign_id }) }}
             </p>
             <div class="resource-card__meta">
               <span class="resource-card__chip">
-                審閱 {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+                {{ t('reviewFeedback.reviewLabel') }} {{ formatFeedbackReviewStatusLabel(feedback.review_status, locale) }}
               </span>
-              <span class="resource-card__chip">嚴重程度 {{ formatFeedbackSeverityLabel(feedback.severity) }}</span>
-              <span class="resource-card__chip">分類 {{ formatFeedbackCategoryLabel(feedback.category) }}</span>
-              <span class="resource-card__chip">提交於 {{ feedback.submitted_at }}</span>
+              <span class="resource-card__chip">{{ t('reviewFeedback.severityLabel') }} {{ formatFeedbackSeverityLabel(feedback.severity, locale) }}</span>
+              <span class="resource-card__chip">{{ t('reviewFeedback.categoryLabel') }} {{ formatFeedbackCategoryLabel(feedback.category, locale) }}</span>
+              <span class="resource-card__chip">{{ t('reviewFeedback.submittedAtLabel') }} {{ feedback.submitted_at }}</span>
             </div>
             <div class="resource-state__actions">
               <NuxtLink
@@ -251,7 +254,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
                 :data-testid="`review-feedback-link-${feedback.id}`"
                 :to="`/tasks/${feedback.task_id}/feedback/${feedback.id}`"
               >
-                開啟回饋詳情
+                {{ t('reviewFeedback.openFeedbackDetail') }}
               </NuxtLink>
             </div>
           </article>

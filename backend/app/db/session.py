@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
+from app.db.migrations import upgrade_database_schema
 
 
 @lru_cache
@@ -73,10 +74,7 @@ def ensure_database_ready() -> bool:
     if engine is None:
         return False
 
-    from app.db.base import Base
-    from app.db import entities  # noqa: F401
-
-    Base.metadata.create_all(bind=engine)
+    upgrade_database_schema("head")
     return True
 
 

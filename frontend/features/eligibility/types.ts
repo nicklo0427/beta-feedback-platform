@@ -1,3 +1,5 @@
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
+
 export type EligibilityRulePlatform = 'web' | 'h5' | 'pwa' | 'ios' | 'android'
 export type QualificationStatus = 'qualified' | 'not_qualified'
 
@@ -68,11 +70,23 @@ export interface CampaignQualificationResultItem {
   reason_summary: string | null
 }
 
-export const QUALIFICATION_STATUS_LABELS: Record<QualificationStatus, string> = {
-  qualified: '符合資格',
-  not_qualified: '不符合資格'
+export const QUALIFICATION_STATUS_LABELS: Record<
+  AppLocale,
+  Record<QualificationStatus, string>
+> = {
+  'zh-TW': {
+    qualified: '符合資格',
+    not_qualified: '不符合資格'
+  },
+  en: {
+    qualified: 'Qualified',
+    not_qualified: 'Not qualified'
+  }
 }
 
-export function formatQualificationStatusLabel(status: QualificationStatus): string {
-  return QUALIFICATION_STATUS_LABELS[status]
+export function formatQualificationStatusLabel(
+  status: QualificationStatus,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return QUALIFICATION_STATUS_LABELS[locale][status]
 }

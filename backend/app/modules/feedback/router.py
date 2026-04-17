@@ -5,6 +5,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Response, status
 
 from app.api.deps import get_current_actor_id_dep, require_current_actor_id
+from app.modules.activity_events.schemas import ActivityTimelineResponse
 from app.modules.feedback.schemas import (
     FeedbackCreate,
     FeedbackDetail,
@@ -13,11 +14,12 @@ from app.modules.feedback.schemas import (
     FeedbackReviewStatus,
     FeedbackUpdate,
 )
+from app.modules.activity_events.service import list_feedback_timeline
 from app.modules.feedback.service import (
     create_feedback,
     delete_feedback,
     get_feedback_for_actor,
-    list_feedback,
+    list_feedback_for_actor,
     list_feedback_queue,
     update_feedback,
 )
@@ -26,8 +28,14 @@ router = APIRouter(tags=["feedback"])
 
 
 @router.get("/tasks/{task_id}/feedback", response_model=FeedbackListResponse)
-def list_feedback_route(task_id: str) -> FeedbackListResponse:
-    return list_feedback(task_id)
+def list_feedback_route(
+    task_id: str,
+    current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
+) -> FeedbackListResponse:
+    return list_feedback_for_actor(
+        task_id,
+        require_current_actor_id(current_actor_id),
+    )
 
 
 @router.post(
@@ -66,6 +74,17 @@ def get_feedback_route(
     current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
 ) -> FeedbackDetail:
     return get_feedback_for_actor(feedback_id, current_actor_id)
+
+
+@router.get("/feedback/{feedback_id}/timeline", response_model=ActivityTimelineResponse)
+def get_feedback_timeline_route(
+    feedback_id: str,
+    current_actor_id: Annotated[Optional[str], Depends(get_current_actor_id_dep)] = None,
+) -> ActivityTimelineResponse:
+    return list_feedback_timeline(
+        feedback_id,
+        require_current_actor_id(current_actor_id),
+    )
 
 
 @router.patch("/feedback/{feedback_id}", response_model=FeedbackDetail)

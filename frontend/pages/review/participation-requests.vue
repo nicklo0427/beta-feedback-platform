@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
@@ -18,9 +17,11 @@ import {
   formatParticipationAssignmentStatusLabel,
   formatParticipationRequestStatusLabel
 } from '~/features/participation-requests/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 
 useCurrentActorPersistence()
 
+const { locale, t } = useAppI18n()
 const currentActorId = useCurrentActorId()
 const actionError = ref<string | null>(null)
 const decidingRequestId = ref<string | null>(null)
@@ -102,7 +103,7 @@ async function handleDecision(
 
   try {
     if (!currentActorId.value) {
-      actionError.value = '送出審查決策前，請先選擇目前操作帳號。'
+      actionError.value = t('errors.mutation.missingActorContext')
       return
     }
 
@@ -118,7 +119,7 @@ async function handleDecision(
   } catch (decisionFailure) {
     actionError.value = getActorAwareMutationErrorMessage(
       decisionFailure,
-      '目前無法更新這筆參與意圖的審查決策。'
+      t('reviewParticipation.actionErrorTitle')
     )
   } finally {
     decidingRequestId.value = null
@@ -145,31 +146,25 @@ watch([currentActorId, currentActor], () => {
 <template>
   <main class="app-shell">
     <section class="resource-shell">
-      <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
-        <h1 class="resource-shell__title">參與意圖審查佇列</h1>
+      <header class="resource-shell__header app-page-header">
+        <NuxtLink class="resource-shell__breadcrumb" to="/dashboard">Dashboard</NuxtLink>
+        <h1 class="resource-shell__title">{{ t('reviewParticipation.title') }}</h1>
         <p class="resource-shell__description">
-          這個頁面提供開發者端最小的 participation request 審查佇列，讓你可以查看自己擁有活動底下待處理的參與意圖，並直接接受或婉拒。
+          {{ t('reviewParticipation.description') }}
         </p>
       </header>
-
-      <CurrentActorSelector
-        title="開發者情境"
-        description="選擇目前正在操作的開發者帳號，系統會依據它擁有的活動推導待處理的 participation requests。"
-      />
-
       <section
         v-if="accountsError"
         class="resource-state"
         data-testid="participation-review-actor-error"
       >
-        <h2 class="resource-state__title">無法取得操作情境</h2>
+        <h2 class="resource-state__title">{{ t('reviewParticipation.actorErrorTitle') }}</h2>
         <p class="resource-state__description">
           {{ accountsError.message }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshAccounts()">
-            重試
+            {{ t('common.retry') }}
           </button>
         </div>
       </section>
@@ -179,9 +174,9 @@ watch([currentActorId, currentActor], () => {
         class="resource-state"
         data-testid="participation-review-actor-loading"
       >
-        <h2 class="resource-state__title">載入開發者情境中</h2>
+        <h2 class="resource-state__title">{{ t('reviewParticipation.actorLoadingTitle') }}</h2>
         <p class="resource-state__description">
-          正在確認目前操作帳號與可用的參與意圖審查佇列。
+          {{ t('reviewParticipation.actorLoadingDescription') }}
         </p>
       </section>
 
@@ -190,9 +185,9 @@ watch([currentActorId, currentActor], () => {
         class="resource-state"
         data-testid="participation-review-select-actor"
       >
-        <h2 class="resource-state__title">請選擇開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewParticipation.selectActorTitle') }}</h2>
         <p class="resource-state__description">
-          先選擇目前操作帳號，系統才知道要列出哪一位開發者擁有活動底下的 participation requests。
+          {{ t('reviewParticipation.selectActorDescription') }}
         </p>
       </section>
 
@@ -201,9 +196,9 @@ watch([currentActorId, currentActor], () => {
         class="resource-state"
         data-testid="participation-review-actor-missing"
       >
-        <h2 class="resource-state__title">找不到已選擇的帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewParticipation.actorMissingTitle') }}</h2>
         <p class="resource-state__description">
-          目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。
+          {{ t('reviewParticipation.actorMissingDescription') }}
         </p>
       </section>
 
@@ -212,31 +207,45 @@ watch([currentActorId, currentActor], () => {
         class="resource-state"
         data-testid="participation-review-role-mismatch"
       >
-        <h2 class="resource-state__title">參與意圖審查需要開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('reviewParticipation.roleMismatchTitle') }}</h2>
         <p class="resource-state__description">
-          目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到開發者帳號，再查看 participation request 審查佇列。
+          {{
+            t('reviewParticipation.roleMismatchDescription', {
+              role: formatAccountRoleLabel(currentActor.role, locale)
+            })
+          }}
         </p>
       </section>
 
       <template v-else>
         <section class="resource-section" data-testid="participation-review-summary">
-          <h2 class="resource-section__title">待處理參與意圖總覽</h2>
-          <div class="resource-shell__meta">
-            <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              需處理 / 建立任務 {{ queueResponse.total }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              待處理 {{ pendingRequestsCount }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              已接受待建任務 {{ acceptedRequestsCount }}
-            </span>
-            <span class="resource-shell__meta-chip">
-              涉及活動 {{ involvedCampaignCount }}
-            </span>
+          <h2 class="resource-section__title">{{ t('reviewParticipation.summaryTitle') }}</h2>
+          <div class="app-page-summary-grid">
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewParticipation.currentAccount') }}</span>
+              <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
+              <span class="app-page-summary-card__description">這位開發者目前要處理的 participation queue 會集中在這裡。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewParticipation.queueCount') }}</span>
+              <strong class="app-page-summary-card__value">{{ queueResponse.total }}</strong>
+              <span class="app-page-summary-card__description">總覽目前 queue 規模與同一套審查卡片節奏。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewParticipation.pendingCount') }}</span>
+              <strong class="app-page-summary-card__value">{{ pendingRequestsCount }}</strong>
+              <span class="app-page-summary-card__description">可立即做 accept / decline 決策的待處理項目。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewParticipation.acceptedCount') }}</span>
+              <strong class="app-page-summary-card__value">{{ acceptedRequestsCount }}</strong>
+              <span class="app-page-summary-card__description">已接受但還沒 bridge 成任務的候選人。</span>
+            </article>
+            <article class="app-page-summary-card">
+              <span class="app-page-summary-card__label">{{ t('reviewParticipation.campaignCount') }}</span>
+              <strong class="app-page-summary-card__value">{{ involvedCampaignCount }}</strong>
+              <span class="app-page-summary-card__description">目前 queue 涵蓋的活動數量。</span>
+            </article>
           </div>
         </section>
 
@@ -245,9 +254,9 @@ watch([currentActorId, currentActor], () => {
           class="resource-state"
           data-testid="participation-review-loading"
         >
-          <h2 class="resource-state__title">載入參與意圖審查佇列中</h2>
+          <h2 class="resource-state__title">{{ t('reviewParticipation.loadingTitle') }}</h2>
           <p class="resource-state__description">
-            正在根據目前操作帳號與其擁有的活動整理待處理 participation requests。
+            {{ t('reviewParticipation.loadingDescription') }}
           </p>
         </section>
 
@@ -256,13 +265,13 @@ watch([currentActorId, currentActor], () => {
           class="resource-state"
           data-testid="participation-review-error"
         >
-          <h2 class="resource-state__title">無法載入參與意圖審查佇列</h2>
+          <h2 class="resource-state__title">{{ t('reviewParticipation.errorTitle') }}</h2>
           <p class="resource-state__description">
             {{ queueErrorMessage }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshQueue()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </section>
@@ -272,15 +281,15 @@ watch([currentActorId, currentActor], () => {
           class="resource-state"
           data-testid="participation-review-empty"
         >
-          <h2 class="resource-state__title">目前沒有待處理或待建立任務的參與意圖</h2>
+          <h2 class="resource-state__title">{{ t('reviewParticipation.emptyTitle') }}</h2>
           <p class="resource-state__description">
-            目前這位開發者擁有的活動底下沒有任何待處理 participation requests，也沒有已接受但尚未建立任務的 request。
+            {{ t('reviewParticipation.emptyDescription') }}
           </p>
         </section>
 
         <section
           v-else
-          class="resource-section__body"
+          class="resource-section__body app-page-card-grid"
           data-testid="participation-review-list"
         >
           <div
@@ -288,7 +297,7 @@ watch([currentActorId, currentActor], () => {
             class="resource-state"
             data-testid="participation-review-action-error"
           >
-            <h2 class="resource-state__title">無法更新參與意圖</h2>
+            <h2 class="resource-state__title">{{ t('reviewParticipation.actionErrorTitle') }}</h2>
             <p class="resource-state__description">
               {{ actionError }}
             </p>
@@ -300,51 +309,51 @@ watch([currentActorId, currentActor], () => {
             class="resource-card"
             :data-testid="`review-participation-request-card-${request.id}`"
           >
-            <span class="resource-shell__breadcrumb">參與意圖審查</span>
+            <span class="resource-shell__breadcrumb">{{ t('reviewParticipation.breadcrumb') }}</span>
             <h2 class="resource-card__title">{{ request.campaign_name }}</h2>
             <p class="resource-card__description">
-              測試者 {{ request.tester_account_id }} · 裝置 {{ request.device_profile_name }}
+              {{ t('reviewParticipation.testerSummary', { testerId: request.tester_account_id, deviceName: request.device_profile_name }) }}
             </p>
             <div class="resource-card__meta">
               <span class="resource-card__chip">
-                狀態 {{ formatParticipationRequestStatusLabel(request.status) }}
+                {{ t('myParticipationRequests.statusLabel') }} {{ formatParticipationRequestStatusLabel(request.status, locale) }}
               </span>
               <span class="resource-card__chip">
-                任務橋接 {{ formatParticipationAssignmentStatusLabel(request.assignment_status) }}
+                {{ t('myParticipationRequests.taskBridgeLabel') }} {{ formatParticipationAssignmentStatusLabel(request.assignment_status, locale) }}
               </span>
-              <span class="resource-card__chip">建立時間 {{ request.created_at }}</span>
+              <span class="resource-card__chip">{{ t('myParticipationRequests.createdAtLabel') }} {{ request.created_at }}</span>
               <span
                 v-if="request.assignment_created_at"
                 class="resource-card__chip"
               >
-                已建立任務 {{ request.assignment_created_at }}
+                {{ t('myParticipationRequests.assignmentCreatedAtLabel') }} {{ request.assignment_created_at }}
               </span>
             </div>
             <p
               v-if="request.note"
               class="resource-card__description"
             >
-              測試者備註：{{ request.note }}
+              {{ t('reviewParticipation.testerNote', { note: request.note }) }}
             </p>
             <p
               v-if="request.decision_note"
               class="resource-card__description"
             >
-              處理備註：{{ request.decision_note }}
+              {{ t('reviewParticipation.decisionNote', { note: request.decision_note }) }}
             </p>
             <label
               v-if="request.status === 'pending'"
               class="resource-field"
               :for="`participation-review-note-${request.id}`"
             >
-              <span class="resource-field__label">處理備註</span>
+              <span class="resource-field__label">{{ t('reviewParticipation.decisionNoteLabel') }}</span>
               <textarea
                 :id="`participation-review-note-${request.id}`"
                 v-model="decisionNoteDrafts[request.id]"
                 class="resource-textarea"
                 rows="3"
                 :data-testid="`review-participation-decision-note-${request.id}`"
-                placeholder="選填，說明接受或婉拒的原因。"
+                :placeholder="t('reviewParticipation.decisionNotePlaceholder')"
               />
             </label>
             <div class="resource-state__actions">
@@ -353,14 +362,14 @@ watch([currentActorId, currentActor], () => {
                 :data-testid="`review-participation-detail-link-${request.id}`"
                 :to="`/review/participation-requests/${request.id}`"
               >
-                查看參與意圖詳情
+                {{ t('reviewParticipation.viewDetail') }}
               </NuxtLink>
               <NuxtLink
                 class="resource-action"
                 :data-testid="`review-participation-campaign-link-${request.id}`"
                 :to="`/campaigns/${request.campaign_id}`"
               >
-                查看活動
+                {{ t('reviewParticipation.viewCampaign') }}
               </NuxtLink>
               <template v-if="request.status === 'pending'">
                 <button
@@ -370,7 +379,7 @@ watch([currentActorId, currentActor], () => {
                   :data-testid="`review-participation-accept-${request.id}`"
                   @click="handleDecision(request.id, 'accepted')"
                 >
-                  {{ decidingRequestId === request.id ? '處理中...' : '接受參與意圖' }}
+                  {{ decidingRequestId === request.id ? t('reviewParticipation.processing') : t('reviewParticipation.accept') }}
                 </button>
                 <button
                   class="resource-action"
@@ -379,7 +388,7 @@ watch([currentActorId, currentActor], () => {
                   :data-testid="`review-participation-decline-${request.id}`"
                   @click="handleDecision(request.id, 'declined')"
                 >
-                  {{ decidingRequestId === request.id ? '處理中...' : '婉拒參與意圖' }}
+                  {{ decidingRequestId === request.id ? t('reviewParticipation.processing') : t('reviewParticipation.decline') }}
                 </button>
               </template>
               <NuxtLink
@@ -388,7 +397,7 @@ watch([currentActorId, currentActor], () => {
                 :data-testid="`review-participation-create-task-${request.id}`"
                 :to="`/review/participation-requests/${request.id}/tasks/new`"
               >
-                從 request 建立任務
+                {{ t('reviewParticipation.createTask') }}
               </NuxtLink>
               <NuxtLink
                 v-else-if="request.linked_task_id"
@@ -396,7 +405,7 @@ watch([currentActorId, currentActor], () => {
                 :data-testid="`review-participation-linked-task-${request.id}`"
                 :to="`/tasks/${request.linked_task_id}`"
               >
-                查看對應任務
+                {{ t('reviewParticipation.viewLinkedTask') }}
               </NuxtLink>
             </div>
           </article>

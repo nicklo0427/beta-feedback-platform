@@ -10,6 +10,8 @@ from app.common.exceptions import AppError
 from app.common.responses import build_list_response
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
+from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
+from app.modules.activity_events.service import record_activity_event
 from app.modules.participation_requests import repository
 from app.modules.participation_requests.models import ParticipationRequestRecord
 from app.modules.participation_requests.schemas import (
@@ -468,6 +470,13 @@ def create_participation_request(
         assignment_created_at=None,
     )
     repository.create_participation_request(record)
+    record_activity_event(
+        entity_type=ActivityEntityType.PARTICIPATION_REQUEST,
+        entity_id=record.id,
+        event_type=ActivityEventType.PARTICIPATION_REQUEST_CREATED,
+        actor_account_id=tester_account_id,
+        summary="送出參與意圖。",
+    )
     return _to_participation_request_detail(record)
 
 
@@ -516,6 +525,13 @@ def update_participation_request(
             updated_at=_utc_now_iso(),
         )
         repository.update_participation_request(updated)
+        record_activity_event(
+            entity_type=ActivityEntityType.PARTICIPATION_REQUEST,
+            entity_id=updated.id,
+            event_type=ActivityEventType.PARTICIPATION_REQUEST_WITHDRAWN,
+            actor_account_id=actor.id,
+            summary="撤回參與意圖。",
+        )
         return _to_participation_request_detail(updated)
 
     if actor.role == AccountRole.DEVELOPER.value:
@@ -553,6 +569,21 @@ def update_participation_request(
             decided_at=timestamp,
         )
         repository.update_participation_request(updated)
+        record_activity_event(
+            entity_type=ActivityEntityType.PARTICIPATION_REQUEST,
+            entity_id=updated.id,
+            event_type=(
+                ActivityEventType.PARTICIPATION_REQUEST_ACCEPTED
+                if updated.status == ParticipationRequestStatus.ACCEPTED.value
+                else ActivityEventType.PARTICIPATION_REQUEST_DECLINED
+            ),
+            actor_account_id=actor.id,
+            summary=(
+                "接受參與意圖。"
+                if updated.status == ParticipationRequestStatus.ACCEPTED.value
+                else "婉拒參與意圖。"
+            ),
+        )
         return _to_participation_request_detail(updated)
 
     raise AppError(
@@ -605,6 +636,7 @@ def create_task_from_participation_request(
             status=payload.status,
         ),
         developer_account_id,
+        origin_participation_request_id=current.id,
     )
 
     timestamp = _utc_now_iso()
@@ -615,4 +647,11 @@ def create_task_from_participation_request(
         updated_at=timestamp,
     )
     repository.update_participation_request(updated)
+    record_activity_event(
+        entity_type=ActivityEntityType.PARTICIPATION_REQUEST,
+        entity_id=updated.id,
+        event_type=ActivityEventType.TASK_CREATED_FROM_PARTICIPATION_REQUEST,
+        actor_account_id=developer_account_id,
+        summary="從參與意圖建立任務。",
+    )
     return created_task

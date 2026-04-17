@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import { fetchDeviceProfiles } from '~/features/device-profiles/api'
 import { formatPlatformLabel } from '~/features/platform-display'
 
@@ -28,7 +27,7 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
         <NuxtLink class="resource-shell__breadcrumb" to="/">首頁</NuxtLink>
         <h1 class="resource-shell__title">裝置設定檔</h1>
         <p class="resource-shell__description">
-          這個頁面對齊 backend 的測試裝置設定檔 list / detail contract，先承接測試裝置資料的最小流程。
+          這裡集中管理測試裝置設定檔，承接資格判斷、任務指派與 participation workflow 會用到的裝置上下文。
         </p>
         <div class="resource-state__actions">
           <NuxtLink
@@ -39,12 +38,11 @@ const deviceProfiles = computed(() => deviceProfileResponse.value.items)
             建立裝置設定檔
           </NuxtLink>
         </div>
+        <div class="resource-shell__meta">
+          <span class="resource-shell__meta-chip">裝置數 {{ deviceProfiles.length }}</span>
+          <span class="resource-shell__meta-chip">桌機優先，手機可用</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="目前測試者"
-        description="切換目前正在操作的測試者帳號，後續建立裝置設定檔時會帶入擁有者基線。"
-      />
 
       <section
         v-if="pending"

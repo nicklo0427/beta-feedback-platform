@@ -10,6 +10,7 @@ import type {
   DeviceProfileReputationSummary
 } from '~/features/reputation/types'
 import type { TaskStatus } from '~/features/tasks/types'
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
 
 export type ParticipationRequestStatus =
   | 'pending'
@@ -20,33 +21,49 @@ export type ParticipationRequestStatus =
 export type ParticipationAssignmentStatus = 'not_assigned' | 'task_created'
 
 const PARTICIPATION_REQUEST_STATUS_LABELS: Record<
-  ParticipationRequestStatus,
-  string
+  AppLocale,
+  Record<ParticipationRequestStatus, string>
 > = {
-  pending: '待處理',
-  accepted: '已接受',
-  declined: '已婉拒',
-  withdrawn: '已撤回'
+  'zh-TW': {
+    pending: '待處理',
+    accepted: '已接受',
+    declined: '已婉拒',
+    withdrawn: '已撤回'
+  },
+  en: {
+    pending: 'Pending',
+    accepted: 'Accepted',
+    declined: 'Declined',
+    withdrawn: 'Withdrawn'
+  }
 }
 
 export function formatParticipationRequestStatusLabel(
-  value: ParticipationRequestStatus
+  value: ParticipationRequestStatus,
+  locale: AppLocale = 'zh-TW'
 ): string {
-  return PARTICIPATION_REQUEST_STATUS_LABELS[value]
+  return PARTICIPATION_REQUEST_STATUS_LABELS[locale][value]
 }
 
 const PARTICIPATION_ASSIGNMENT_STATUS_LABELS: Record<
-  ParticipationAssignmentStatus,
-  string
+  AppLocale,
+  Record<ParticipationAssignmentStatus, string>
 > = {
-  not_assigned: '尚未建立任務',
-  task_created: '已建立任務'
+  'zh-TW': {
+    not_assigned: '尚未建立任務',
+    task_created: '已建立任務'
+  },
+  en: {
+    not_assigned: 'Task not created',
+    task_created: 'Task created'
+  }
 }
 
 export function formatParticipationAssignmentStatusLabel(
-  value: ParticipationAssignmentStatus
+  value: ParticipationAssignmentStatus,
+  locale: AppLocale = 'zh-TW'
 ): string {
-  return PARTICIPATION_ASSIGNMENT_STATUS_LABELS[value]
+  return PARTICIPATION_ASSIGNMENT_STATUS_LABELS[locale][value]
 }
 
 export interface ParticipationRequestListItem {

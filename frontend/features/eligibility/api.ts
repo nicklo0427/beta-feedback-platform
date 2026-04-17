@@ -12,11 +12,15 @@ import type {
 } from './types'
 
 export async function fetchCampaignEligibilityRules(
-  campaignId: string
+  campaignId: string,
+  actorId?: string | null
 ): Promise<ListResponse<EligibilityRuleListItem>> {
   const { request } = useApiClient()
   return request<ListResponse<EligibilityRuleListItem>>(
-    `/campaigns/${campaignId}/eligibility-rules`
+    `/campaigns/${campaignId}/eligibility-rules`,
+    {
+      headers: buildCurrentActorHeaders(actorId)
+    }
   )
 }
 
@@ -34,10 +38,13 @@ export async function fetchCampaignQualificationResults(
 }
 
 export async function fetchEligibilityRuleDetail(
-  eligibilityRuleId: string
+  eligibilityRuleId: string,
+  actorId?: string | null
 ): Promise<EligibilityRuleDetail> {
   const { request } = useApiClient()
-  return request<EligibilityRuleDetail>(`/eligibility-rules/${eligibilityRuleId}`)
+  return request<EligibilityRuleDetail>(`/eligibility-rules/${eligibilityRuleId}`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function createEligibilityRule(

@@ -65,6 +65,28 @@ test.describe('feedback review queue flows', () => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
     })
+
+    await page.route(/\/api\/v1\/feedback\/[^/]+\/timeline$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: 'evt_feedback',
+              entity_type: 'feedback',
+              entity_id: 'fb_123',
+              event_type: 'feedback_submitted',
+              actor_account_id: testerAccount.id,
+              actor_account_display_name: testerAccount.display_name,
+              summary: '提交回饋。',
+              created_at: '2026-04-03T11:31:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
   })
 
   test('shows the developer review queue and navigates to feedback detail', async ({
@@ -100,7 +122,7 @@ test.describe('feedback review queue flows', () => {
     })
 
     await page.goto('/review/feedback')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('feedback-review-list')).toBeVisible()
     const feedbackCard = page.getByTestId('review-feedback-card-fb_123')
@@ -151,7 +173,7 @@ test.describe('feedback review queue flows', () => {
     )
 
     await page.goto('/review/feedback')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('review-feedback-card-fb_123')).toBeVisible()
 
@@ -181,7 +203,7 @@ test.describe('feedback review queue flows', () => {
     })
 
     await page.goto('/review/feedback')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('feedback-review-role-mismatch')).toBeVisible()
   })

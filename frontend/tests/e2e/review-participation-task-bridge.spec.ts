@@ -117,6 +117,50 @@ test.describe('participation request to task bridge', () => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
     })
+
+    await page.route(/\/api\/v1\/participation-requests\/[^/]+\/timeline$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: 'evt_request',
+              entity_type: 'participation_request',
+              entity_id: 'pr_accepted',
+              event_type: 'participation_request_accepted',
+              actor_account_id: developerAccount.id,
+              actor_account_display_name: developerAccount.display_name,
+              summary: '接受參與意圖。',
+              created_at: '2026-04-09T10:00:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
+
+    await page.route(/\/api\/v1\/tasks\/[^/]+\/timeline$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: 'evt_task',
+              entity_type: 'task',
+              entity_id: 'task_900',
+              event_type: 'task_created_from_participation_request',
+              actor_account_id: developerAccount.id,
+              actor_account_display_name: developerAccount.display_name,
+              summary: '從參與意圖建立任務。',
+              created_at: '2026-04-09T10:30:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
   })
 
   test('developer can create a task from an accepted participation request', async ({
@@ -241,7 +285,7 @@ test.describe('participation request to task bridge', () => {
     })
 
     await page.goto('/review/participation-requests')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('review-participation-create-task-pr_accepted').click()
 
     await expect(page).toHaveURL(/\/review\/participation-requests\/pr_accepted\/tasks\/new$/)

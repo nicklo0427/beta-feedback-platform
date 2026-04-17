@@ -5,7 +5,6 @@ definePageMeta({
 
 import { computed, ref } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
@@ -91,13 +90,14 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
                 : `活動 ${campaignId}`
             }}
           </span>
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
         </div>
       </header>
-
-      <CurrentActorSelector
-        title="安全設定操作帳號"
-        description="選擇目前正在操作的開發者帳號。建立安全設定時，系統會驗證這個活動是否屬於你。"
-      />
 
       <section
         v-if="pending"

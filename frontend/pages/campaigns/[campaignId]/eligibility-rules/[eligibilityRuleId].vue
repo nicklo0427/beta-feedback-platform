@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import {
+  getActorAwareReadErrorMessage,
+  useCurrentActorId,
+  useCurrentActorPersistence
+} from '~/features/accounts/current-actor'
 import { fetchEligibilityRuleDetail } from '~/features/eligibility/api'
 import { formatPlatformLabel } from '~/features/platform-display'
 
 const route = useRoute()
+useCurrentActorPersistence()
 const campaignId = computed(() => String(route.params.campaignId))
 const eligibilityRuleId = computed(() => String(route.params.eligibilityRuleId))
+const currentActorId = useCurrentActorId()
 
 const {
   data: eligibilityRule,
@@ -14,11 +21,11 @@ const {
   error,
   refresh
 } = useAsyncData(
-  () => `eligibility-rule-detail-${eligibilityRuleId.value}`,
-  () => fetchEligibilityRuleDetail(eligibilityRuleId.value),
+  () => `eligibility-rule-detail-${eligibilityRuleId.value}-${currentActorId.value ?? 'none'}`,
+  () => fetchEligibilityRuleDetail(eligibilityRuleId.value, currentActorId.value),
   {
     server: false,
-    watch: [eligibilityRuleId],
+    watch: [eligibilityRuleId, currentActorId],
     default: () => null
   }
 )
@@ -47,6 +54,15 @@ const {
             編輯資格條件規則
           </NuxtLink>
         </div>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">detail 依賴 shell 的 actor-aware context</span>
+        </div>
       </header>
 
       <section
@@ -67,7 +83,7 @@ const {
       >
         <h2 class="resource-state__title">無法載入資格條件規則詳情</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的資格條件規則。' }}
+          {{ getActorAwareReadErrorMessage(error, '找不到指定的資格條件規則。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">

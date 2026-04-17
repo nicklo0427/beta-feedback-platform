@@ -103,7 +103,7 @@ test.describe('developer workspace flows', () => {
     })
 
     await page.goto('/my/projects')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-projects-list')).toBeVisible()
     const projectCard = page.getByTestId('my-project-card-proj_123')
@@ -131,7 +131,7 @@ test.describe('developer workspace flows', () => {
     })
 
     await page.goto('/my/projects')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-projects-empty')).toBeVisible()
   })
@@ -142,7 +142,7 @@ test.describe('developer workspace flows', () => {
     await mockAccounts(page, [testerAccount])
 
     await page.goto('/my/projects')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-projects-role-mismatch')).toBeVisible()
   })
@@ -169,7 +169,7 @@ test.describe('developer workspace flows', () => {
     })
 
     await page.goto('/my/campaigns')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-campaigns-list')).toBeVisible()
     const campaignCard = page.getByTestId('my-campaign-card-camp_123')
@@ -193,7 +193,7 @@ test.describe('developer workspace flows', () => {
     await mockAccounts(page, [testerAccount])
 
     await page.goto('/my/campaigns')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-campaigns-role-mismatch')).toBeVisible()
   })

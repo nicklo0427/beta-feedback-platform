@@ -2,7 +2,11 @@ import { expect, test, type Page } from '@playwright/test'
 
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { formatParticipationRequestStatusLabel } from '~/features/participation-requests/types'
-import { formatTaskStatusLabel, type TaskStatus } from '~/features/tasks/types'
+import {
+  formatTaskResolutionOutcomeLabel,
+  formatTaskStatusLabel,
+  type TaskStatus
+} from '~/features/tasks/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
 
@@ -87,9 +91,32 @@ test.describe('tasks shell flows', () => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
     })
+
+    await page.route(/\/api\/v1\/tasks\/[^/]+\/timeline$/, async (route) => {
+      const taskId = route.request().url().match(/\/tasks\/([^/]+)\/timeline$/)?.[1] ?? 'task_unknown'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: `evt_${taskId}`,
+              entity_type: 'task',
+              entity_id: taskId,
+              event_type: 'task_created_from_participation_request',
+              actor_account_id: developerAccount.id,
+              actor_account_display_name: developerAccount.display_name,
+              summary: '從參與意圖建立任務。',
+              created_at: '2026-04-03T09:05:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
   })
 
-  test('navigates from home to tasks list and detail', async ({ page }) => {
+  test('navigates from the tasks list to detail', async ({ page }) => {
     await mockApiJson(page, '/tasks', {
       items: [taskListItem],
       total: 1
@@ -100,8 +127,7 @@ test.describe('tasks shell flows', () => {
       total: 0
     })
 
-    await page.goto('/')
-    await page.getByTestId('home-tasks-link').click()
+    await page.goto('/tasks')
 
     await expect(page).toHaveURL(/\/tasks$/)
     await expect(page.getByTestId('tasks-list')).toBeVisible()
@@ -134,6 +160,9 @@ test.describe('tasks shell flows', () => {
     )
     await expect(page.getByTestId('task-participation-request-context')).toContainText(
       'QA Tester'
+    )
+    await expect(page.getByTestId('task-timeline-panel')).toContainText(
+      '從參與意圖建立任務。'
     )
     await expect(page.getByTestId('task-feedback-empty')).toBeVisible()
   })
@@ -207,7 +236,7 @@ test.describe('tasks shell flows', () => {
       '這筆資料包含受保護的協作上下文，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('task-detail-panel')).toBeVisible()
     await expect(page.getByTestId('task-participation-request-context')).toContainText('QA Tester')
@@ -336,7 +365,7 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/tasks\/new$/)
     await expect(page.getByTestId('task-form')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page.getByTestId('task-title-input').fill('Validate paywall copy')
     await page
@@ -417,7 +446,7 @@ test.describe('tasks shell flows', () => {
       '建立任務前，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 
@@ -470,7 +499,7 @@ test.describe('tasks shell flows', () => {
     })
 
     await page.goto('/campaigns/camp_123/tasks/new')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('task-title-input').fill('Validate Android onboarding flow')
     await page.getByTestId('task-device-profile-field').selectOption('dp_456')
 
@@ -556,7 +585,7 @@ test.describe('tasks shell flows', () => {
 
     await expect(page).toHaveURL(/\/tasks\/task_123\/edit$/)
     await expect(page.getByTestId('task-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await expect(page.getByTestId('task-assignment-preview-panel')).toContainText(
       eligibleQualificationPreview.reason_summary
     )
@@ -578,6 +607,87 @@ test.describe('tasks shell flows', () => {
     await expect(page.getByTestId('task-detail-panel')).toContainText(updatedTask.title)
     await expect(page.getByTestId('task-detail-panel')).toContainText(
       formatTaskStatusLabel(updatedTask.status as TaskStatus)
+    )
+  })
+
+  test('supports resolving a submitted task from the detail page', async ({ page }) => {
+    const unresolvedTask = {
+      ...taskDetail
+    }
+    const resolvedTask = {
+      ...taskDetail,
+      status: 'closed',
+      resolution_context: {
+        resolution_outcome: 'confirmed_issue',
+        resolution_note: '已確認 onboarding 首次開啟會 crash。',
+        resolved_at: '2026-04-03T12:10:00Z',
+        resolved_by_account_id: developerAccount.id,
+        resolved_by_account_display_name: developerAccount.display_name
+      }
+    }
+
+    let taskResponse = unresolvedTask
+    let resolutionRequestBody: unknown = null
+
+    await mockAccounts(page)
+    await page.route(/\/api\/v1\/tasks\/task_123$/, async (route) => {
+      const method = route.request().method()
+
+      if (method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(taskResponse)
+        })
+        return
+      }
+
+      if (method === 'PATCH') {
+        expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
+        resolutionRequestBody = JSON.parse(route.request().postData() ?? '{}')
+        taskResponse = resolvedTask
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(resolvedTask)
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+    await mockApiJson(page, '/tasks/task_123/feedback', {
+      items: [],
+      total: 0
+    })
+
+    await page.goto('/tasks/task_123')
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
+
+    await expect(page.getByTestId('task-resolution-form')).toBeVisible()
+    await page.getByTestId('task-resolution-outcome-field').selectOption('confirmed_issue')
+    await page
+      .getByTestId('task-resolution-note-input')
+      .fill('已確認 onboarding 首次開啟會 crash。')
+    await page.getByTestId('task-resolution-submit').click()
+
+    expect(resolutionRequestBody).toEqual({
+      status: 'closed',
+      resolution_outcome: 'confirmed_issue',
+      resolution_note: '已確認 onboarding 首次開啟會 crash。'
+    })
+
+    await expect(page.getByTestId('task-detail-panel')).toContainText(
+      formatTaskStatusLabel('closed')
+    )
+    await expect(page.getByTestId('task-resolution-chip')).toContainText(
+      formatTaskResolutionOutcomeLabel('confirmed_issue')
+    )
+    await expect(page.getByTestId('task-resolution-context')).toContainText(
+      '已確認 onboarding 首次開啟會 crash。'
+    )
+    await expect(page.getByTestId('task-resolution-context')).toContainText(
+      developerAccount.display_name
     )
   })
 
@@ -645,7 +755,7 @@ test.describe('tasks shell flows', () => {
     })
 
     await page.goto('/tasks/task_123/edit')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('task-device-profile-field').selectOption('dp_456')
 
     const previewPanel = page.getByTestId('task-assignment-preview-panel')
@@ -710,7 +820,7 @@ test.describe('tasks shell flows', () => {
     )
 
     await page.goto('/tasks/task_123/edit')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 

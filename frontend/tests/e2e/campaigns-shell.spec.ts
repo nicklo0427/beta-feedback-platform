@@ -131,7 +131,7 @@ async function mockAccounts(page: Page): Promise<void> {
 }
 
 test.describe('campaigns shell flows', () => {
-  test('navigates from home to campaigns list and campaign detail, then links back to project detail', async ({
+  test('navigates from campaigns list to campaign detail, then links back to project detail', async ({
     page
   }) => {
     await mockApiJson(page, '/campaigns', {
@@ -155,8 +155,7 @@ test.describe('campaigns shell flows', () => {
       total: 1
     })
 
-    await page.goto('/')
-    await page.getByTestId('home-campaigns-link').click()
+    await page.goto('/campaigns')
 
     await expect(page).toHaveURL(/\/campaigns$/)
     await expect(page.getByTestId('campaigns-list')).toBeVisible()
@@ -249,7 +248,7 @@ test.describe('campaigns shell flows', () => {
     await page.goto('/campaigns/camp_123')
 
     await expect(page.getByTestId('campaign-qualification-select-actor')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     expect(await qualificationRequestActorIdPromise).toBe(testerAccount.id)
 
@@ -296,7 +295,7 @@ test.describe('campaigns shell flows', () => {
     })
 
     await page.goto('/campaigns/camp_123')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const emptyState = page.getByTestId('campaign-qualification-empty')
     await expect(emptyState).toBeVisible()
@@ -320,7 +319,7 @@ test.describe('campaigns shell flows', () => {
     })
 
     await page.goto('/campaigns/camp_123')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     const roleMismatch = page.getByTestId('campaign-qualification-role-mismatch')
     await expect(roleMismatch).toBeVisible()
@@ -382,7 +381,7 @@ test.describe('campaigns shell flows', () => {
     )
 
     await page.goto('/campaigns/camp_123')
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const participationPanel = page.getByTestId('campaign-participation-panel')
     await expect(participationPanel).toBeVisible()
@@ -488,7 +487,7 @@ test.describe('campaigns shell flows', () => {
       .getByTestId('campaign-description-input')
       .fill('Validate pricing copy on the Mobile Web beta experience.')
     await page.getByTestId('campaign-version-label-input').fill('0.9.1-beta.2')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('campaign-platform-checkbox-h5').check()
     await page.getByTestId('campaign-platform-checkbox-ios').check()
     await page.getByTestId('campaign-submit').click()
@@ -552,7 +551,7 @@ test.describe('campaigns shell flows', () => {
       '建立活動前，請先選擇目前操作帳號。'
     )
 
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('campaign-submit').click()
 
     await expect(page.getByTestId('campaign-form-error')).toContainText(
@@ -619,7 +618,7 @@ test.describe('campaigns shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/edit$/)
     await expect(page.getByTestId('campaign-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-description-input')
@@ -851,7 +850,7 @@ test.describe('campaigns shell flows', () => {
     await page
       .getByTestId('campaign-safety-source-url-input')
       .fill('https://play.google.com/apps/testing/com.example.closed-beta')
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
     await page.getByTestId('campaign-safety-risk-level-field').selectOption('medium')
     await page.getByTestId('campaign-safety-review-status-field').selectOption('approved')
     await page.getByTestId('campaign-safety-risk-note-input').fill(
@@ -910,7 +909,7 @@ test.describe('campaigns shell flows', () => {
 
     await page.goto('/campaigns/camp_123/safety/new')
     await expect(page.getByTestId('campaign-safety-form')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-safety-distribution-channel-field')
@@ -953,7 +952,7 @@ test.describe('campaigns shell flows', () => {
 
     await page.goto('/campaigns/camp_123/safety/new')
     await expect(page.getByTestId('campaign-safety-form')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(testerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
     await page
       .getByTestId('campaign-safety-distribution-channel-field')
       .selectOption('testflight')
@@ -1064,7 +1063,7 @@ test.describe('campaigns shell flows', () => {
 
     await expect(page).toHaveURL(/\/campaigns\/camp_123\/safety\/edit$/)
     await expect(page.getByTestId('campaign-safety-edit-panel')).toBeVisible()
-    await page.getByTestId('current-actor-select').selectOption(developerAccount.id)
+    await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await page
       .getByTestId('campaign-safety-distribution-channel-field')

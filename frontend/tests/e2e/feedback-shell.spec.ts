@@ -95,6 +95,29 @@ test.describe('feedback shell flows', () => {
     await page.addInitScript(() => {
       window.localStorage.removeItem('beta-feedback-platform.current-actor-id')
     })
+
+    await page.route(/\/api\/v1\/feedback\/[^/]+\/timeline$/, async (route) => {
+      const feedbackId = route.request().url().match(/\/feedback\/([^/]+)\/timeline$/)?.[1] ?? 'fb_unknown'
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              id: `evt_${feedbackId}`,
+              entity_type: 'feedback',
+              entity_id: feedbackId,
+              event_type: 'feedback_submitted',
+              actor_account_id: testerAccount.id,
+              actor_account_display_name: testerAccount.display_name,
+              summary: '提交回饋。',
+              created_at: '2026-04-03T11:31:00Z'
+            }
+          ],
+          total: 1
+        })
+      })
+    })
   })
 
   test('supports creating feedback from the task detail flow', async ({ page }) => {
@@ -248,6 +271,7 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText(feedbackDetail.reproduction_steps)
     await expect(detailPanel).toContainText(String(feedbackDetail.rating))
     await expect(detailPanel).toContainText('已提交')
+    await expect(page.getByTestId('feedback-timeline-panel')).toContainText('提交回饋。')
   })
 
   test('supports marking feedback as reviewed from the detail page', async ({ page }) => {
@@ -290,7 +314,7 @@ test.describe('feedback shell flows', () => {
       '審閱變更已儲存。'
     )
     await expect(page.getByTestId('feedback-detail-panel')).toContainText('已審閱')
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+    await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       'Confirmed by the developer after reviewing the crash logs.'
     )
   })
@@ -345,7 +369,7 @@ test.describe('feedback shell flows', () => {
     await expect(page.getByTestId('feedback-detail-panel')).toContainText(
       formatFeedbackReviewStatusLabel('needs_more_info')
     )
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+    await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       'Please include the exact time between launch and crash.'
     )
   })
@@ -463,17 +487,17 @@ test.describe('feedback shell flows', () => {
       .fill('Retested with screen recording enabled.')
     await page.getByTestId('feedback-submit').click()
 
+    await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123$/)
     expect(updateRequestBody).toEqual({
       actual_result: 'App exits immediately after three seconds on a cold launch.',
       note: 'Retested with screen recording enabled.'
     })
 
-    await expect(page).toHaveURL(/\/tasks\/task_123\/feedback\/fb_123$/)
     await expect(page.getByTestId('feedback-detail-panel')).toContainText('已提交')
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+    await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       '2026-04-03T12:12:00Z'
     )
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+    await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       'Please include the exact time between launch and crash.'
     )
   })

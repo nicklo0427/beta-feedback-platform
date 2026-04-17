@@ -13,5 +13,9 @@ class TaskRecord:
     instruction_summary: Optional[str]
     status: str
     submitted_at: Optional[str]
+    resolution_outcome: Optional[str]
+    resolution_note: Optional[str]
+    resolved_at: Optional[str]
+    resolved_by_account_id: Optional[str]
     created_at: str
     updated_at: str

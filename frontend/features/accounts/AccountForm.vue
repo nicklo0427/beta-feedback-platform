@@ -80,65 +80,83 @@ function handleSubmit(): void {
       {{ validationMessage || errorMessage }}
     </div>
 
-    <div class="resource-form__grid">
-      <label class="resource-field">
-        <span class="resource-field__label">顯示名稱</span>
-        <input
-          v-model="values.display_name"
-          class="resource-input"
-          data-testid="account-display-name-input"
-          name="display_name"
-          type="text"
-          :disabled="pending"
-        >
-      </label>
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">帳號識別</h2>
+        <p class="resource-form__section-description">
+          這些欄位會決定首頁、工作區與協作流程如何依角色顯示。
+        </p>
+      </div>
 
-      <label class="resource-field">
-        <span class="resource-field__label">角色</span>
-        <select
-          v-model="values.role"
-          class="resource-select"
-          data-testid="account-role-select"
-          name="role"
-          :disabled="pending"
-        >
-          <option value="">請選擇角色</option>
-          <option
-            v-for="role in ACCOUNT_ROLE_OPTIONS"
-            :key="role"
-            :value="role"
+      <div class="resource-form__section-grid">
+        <label class="resource-field">
+          <span class="resource-field__label">顯示名稱</span>
+          <input
+            v-model="values.display_name"
+            class="resource-input"
+            data-testid="account-display-name-input"
+            name="display_name"
+            type="text"
+            :disabled="pending"
           >
-            {{ formatAccountRoleLabel(role) }}
-          </option>
-        </select>
-      </label>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">角色</span>
+          <select
+            v-model="values.role"
+            class="resource-select"
+            data-testid="account-role-select"
+            name="role"
+            :disabled="pending"
+          >
+            <option value="">請選擇角色</option>
+            <option
+              v-for="role in ACCOUNT_ROLE_OPTIONS"
+              :key="role"
+              :value="role"
+            >
+              {{ formatAccountRoleLabel(role) }}
+            </option>
+          </select>
+        </label>
+
+        <label class="resource-field">
+          <span class="resource-field__label">語系</span>
+          <input
+            v-model="values.locale"
+            class="resource-input"
+            data-testid="account-locale-input"
+            name="locale"
+            type="text"
+            :disabled="pending"
+          >
+        </label>
+      </div>
+    </section>
+
+    <section class="resource-form__section">
+      <div>
+        <h2 class="resource-form__section-title">個人簡介</h2>
+        <p class="resource-form__section-description">
+          簡短描述這個帳號的背景，讓協作頁面更容易判讀使用情境。
+        </p>
+      </div>
 
       <label class="resource-field">
-        <span class="resource-field__label">語系</span>
-        <input
-          v-model="values.locale"
-          class="resource-input"
-          data-testid="account-locale-input"
-          name="locale"
-          type="text"
+        <span class="resource-field__label">簡介</span>
+        <textarea
+          v-model="values.bio"
+          class="resource-textarea"
+          data-testid="account-bio-input"
+          name="bio"
+          rows="5"
           :disabled="pending"
-        >
+        />
       </label>
-    </div>
+    </section>
 
-    <label class="resource-field">
-      <span class="resource-field__label">簡介</span>
-      <textarea
-        v-model="values.bio"
-        class="resource-textarea"
-        data-testid="account-bio-input"
-        name="bio"
-        rows="5"
-        :disabled="pending"
-      />
-    </label>
-
-    <div class="resource-form__actions">
+    <div class="resource-form__sticky-actions">
       <button
         class="resource-action"
         data-testid="account-submit"

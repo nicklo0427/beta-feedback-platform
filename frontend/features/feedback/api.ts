@@ -13,10 +13,13 @@ import type {
 } from './types'
 
 export async function fetchTaskFeedback(
-  taskId: string
+  taskId: string,
+  actorId?: string | null
 ): Promise<ListResponse<FeedbackListItem>> {
   const { request } = useApiClient()
-  return request<ListResponse<FeedbackListItem>>(`/tasks/${taskId}/feedback`)
+  return request<ListResponse<FeedbackListItem>>(`/tasks/${taskId}/feedback`, {
+    headers: buildCurrentActorHeaders(actorId)
+  })
 }
 
 export async function fetchFeedbackQueue(

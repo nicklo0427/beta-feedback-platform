@@ -6,7 +6,6 @@ definePageMeta({
 import { computed, ref } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
@@ -141,12 +140,16 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         <p class="resource-shell__description">
           這個流程會沿用 participation request 內已接受的活動與裝置設定檔，只需要補上任務標題、說明與狀態。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActor"
+            class="resource-shell__meta-chip"
+          >
+            目前帳號 {{ currentActor.display_name }}
+          </span>
+          <span class="resource-shell__meta-chip">請從 shell 切換操作情境</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="任務建立情境"
-        description="請選擇目前操作的開發者帳號。系統會檢查這筆 participation request 是否屬於你擁有的活動。"
-      />
 
       <section
         v-if="accountsError"

@@ -1,0 +1,66 @@
+<svg width="960" height="760" viewBox="0 0 960 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="deviceGlow" x1="110" y1="120" x2="836" y2="656" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#DBEBFF"/>
+      <stop offset="1" stop-color="#D8FFF6"/>
+    </linearGradient>
+    <linearGradient id="deviceSurface" x1="190" y1="164" x2="752" y2="604" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#10203A"/>
+      <stop offset="1" stop-color="#1B345A"/>
+    </linearGradient>
+    <linearGradient id="deviceBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#7EC6FF"/>
+      <stop offset="1" stop-color="#2C86FF"/>
+    </linearGradient>
+    <linearGradient id="deviceMint" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#A1F7DA"/>
+      <stop offset="1" stop-color="#39B59A"/>
+    </linearGradient>
+    <linearGradient id="deviceGold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#FFD89A"/>
+      <stop offset="1" stop-color="#DA9631"/>
+    </linearGradient>
+  </defs>
+
+  <circle cx="224" cy="170" r="114" fill="#BCD8FF" fill-opacity="0.42"/>
+  <circle cx="742" cy="226" r="128" fill="#C3F4E8" fill-opacity="0.36"/>
+
+  <rect x="120" y="120" width="720" height="520" rx="42" fill="url(#deviceGlow)" fill-opacity="0.34"/>
+  <rect x="166" y="160" width="628" height="440" rx="34" fill="url(#deviceSurface)"/>
+
+  <g transform="translate(202 206)">
+    <rect x="0" y="42" width="220" height="304" rx="34" fill="#0C182D"/>
+    <rect x="16" y="58" width="188" height="272" rx="28" fill="#112440"/>
+    <rect x="48" y="90" width="124" height="16" rx="8" fill="#E9F4FF" fill-opacity="0.8"/>
+    <rect x="48" y="128" width="124" height="86" rx="24" fill="url(#deviceMint)"/>
+    <rect x="48" y="238" width="96" height="14" rx="7" fill="#E9F4FF" fill-opacity="0.22"/>
+    <rect x="48" y="266" width="122" height="14" rx="7" fill="#E9F4FF" fill-opacity="0.18"/>
+    <rect x="80" y="14" width="60" height="10" rx="5" fill="#DCEBFF" fill-opacity="0.46"/>
+  </g>
+
+  <g transform="translate(436 192)">
+    <rect x="0" y="0" width="286" height="182" rx="28" fill="#0E2038"/>
+    <rect x="22" y="26" width="104" height="14" rx="7" fill="#F1F7FF" fill-opacity="0.82"/>
+    <rect x="22" y="58" width="124" height="44" rx="22" fill="url(#deviceBlue)"/>
+    <rect x="164" y="58" width="96" height="44" rx="22" fill="#F1F7FF" fill-opacity="0.14"/>
+    <rect x="22" y="124" width="238" height="14" rx="7" fill="#F1F7FF" fill-opacity="0.2"/>
+    <rect x="22" y="148" width="194" height="12" rx="6" fill="#F1F7FF" fill-opacity="0.14"/>
+  </g>
+
+  <g transform="translate(436 402)">
+    <rect x="0" y="0" width="286" height="160" rx="28" fill="#0E2038"/>
+    <rect x="22" y="24" width="112" height="14" rx="7" fill="#F1F7FF" fill-opacity="0.82"/>
+    <rect x="22" y="56" width="82" height="82" rx="26" fill="url(#deviceGold)"/>
+    <rect x="124" y="66" width="136" height="14" rx="7" fill="#F1F7FF" fill-opacity="0.78"/>
+    <rect x="124" y="94" width="118" height="12" rx="6" fill="#F1F7FF" fill-opacity="0.2"/>
+    <rect x="124" y="118" width="92" height="12" rx="6" fill="#F1F7FF" fill-opacity="0.14"/>
+  </g>
+
+  <path d="M384 320C422 320 430 280 472 280" stroke="#87CBFF" stroke-width="10" stroke-linecap="round"/>
+  <path d="M384 412C428 412 430 482 472 482" stroke="#FFD89A" stroke-width="10" stroke-linecap="round"/>
+
+  <rect x="702" y="126" width="96" height="72" rx="20" fill="#FCFEFF" fill-opacity="0.72"/>
+  <rect x="702" y="126" width="96" height="72" rx="20" stroke="#B4D3FF" stroke-opacity="0.38"/>
+  <rect x="722" y="150" width="54" height="12" rx="6" fill="#1C74F4" fill-opacity="0.86"/>
+  <rect x="722" y="172" width="34" height="10" rx="5" fill="#173157" fill-opacity="0.18"/>
+</svg>

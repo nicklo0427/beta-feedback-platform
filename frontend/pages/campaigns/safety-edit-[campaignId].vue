@@ -5,8 +5,8 @@ definePageMeta({
 
 import { computed, ref, watch } from 'vue'
 
-import CurrentActorSelector from '~/features/accounts/CurrentActorSelector.vue'
 import {
+  getActorAwareReadErrorMessage,
   getActorAwareMutationErrorMessage,
   useCurrentActorId,
   useCurrentActorPersistence
@@ -40,10 +40,10 @@ const {
   refresh
 } = useAsyncData(
   () => `campaign-safety-edit-${campaignId.value}`,
-  () => fetchCampaignSafetyDetail(campaignId.value),
+  () => fetchCampaignSafetyDetail(campaignId.value, currentActorId.value),
   {
     server: false,
-    watch: [campaignId],
+    watch: [campaignId, currentActorId],
     default: () => null
   }
 )
@@ -109,12 +109,16 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
         <p class="resource-shell__description">
           更新既有活動的來源標示與風險資訊，維持分發安全原則與審核狀態一致。
         </p>
+        <div class="resource-shell__meta">
+          <span
+            v-if="currentActorId"
+            class="resource-shell__meta-chip"
+          >
+            actor {{ currentActorId }}
+          </span>
+          <span class="resource-shell__meta-chip">操作情境由右上 shell 控制</span>
+        </div>
       </header>
-
-      <CurrentActorSelector
-        title="安全設定操作帳號"
-        description="選擇目前正在操作的開發者帳號。更新安全設定時，系統會驗證活動擁有權。"
-      />
 
       <section
         v-if="pending"
@@ -134,7 +138,7 @@ async function handleSubmit(values: CampaignSafetyFormValues): Promise<void> {
       >
         <h2 class="resource-state__title">無法載入活動安全編輯表單</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的活動安全資訊。' }}
+          {{ getActorAwareReadErrorMessage(error, '找不到指定的活動安全資訊。') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">

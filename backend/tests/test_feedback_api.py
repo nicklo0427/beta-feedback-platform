@@ -89,7 +89,10 @@ def test_feedback_crud_flow_derives_relations_and_updates_task_status(client: Te
     assert created_feedback["resubmitted_at"] is None
     assert created_feedback["updated_at"]
 
-    list_response = client.get(f"/api/v1/tasks/{task_id}/feedback")
+    list_response = client.get(
+        f"/api/v1/tasks/{task_id}/feedback",
+        headers=_actor_headers(tester.id),
+    )
     assert list_response.status_code == 200
     assert list_response.json() == {
         "items": [
@@ -133,10 +136,25 @@ def test_feedback_crud_flow_derives_relations_and_updates_task_status(client: Te
     )
     assert patched_feedback["resubmitted_at"] is None
 
-    task_detail_response = client.get(f"/api/v1/tasks/{task_id}")
+    task_detail_response = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=_actor_headers(developer.id),
+    )
     assert task_detail_response.status_code == 200
     assert task_detail_response.json()["status"] == "submitted"
     assert task_detail_response.json()["submitted_at"] is not None
+
+    timeline_response = client.get(
+        f"/api/v1/feedback/{feedback_id}/timeline",
+        headers=_actor_headers(developer.id),
+    )
+    assert timeline_response.status_code == 200
+    timeline_payload = timeline_response.json()
+    assert timeline_payload["total"] == 2
+    assert [item["event_type"] for item in timeline_payload["items"]] == [
+        "feedback_needs_more_info",
+        "feedback_submitted",
+    ]
 
     delete_response = client.delete(f"/api/v1/feedback/{feedback_id}")
     assert delete_response.status_code == 204

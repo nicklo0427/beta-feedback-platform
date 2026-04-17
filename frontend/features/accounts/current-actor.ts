@@ -1,15 +1,47 @@
-import { useState } from '#imports'
+import { useRuntimeConfig, useState } from '#imports'
 import { watch } from 'vue'
 
 import { fetchCurrentSession } from '~/features/auth/api'
 import type { AuthSessionResponse } from '~/features/auth/types'
+import {
+  translateForLocale,
+  useAppLocale,
+  type AppLocale
+} from '~/features/i18n/use-app-i18n'
 import { ApiClientError } from '~/services/api/client'
 
 const CURRENT_ACTOR_STORAGE_KEY = 'beta-feedback-platform.current-actor-id'
 const AUTH_SESSION_MARKER_KEY = 'beta-feedback-platform.auth-session-enabled'
 
+export type AuthRuntimeMode = 'session_only' | 'session_with_header_fallback'
+
+function resolveErrorLocale(): AppLocale {
+  return useAppLocale().value
+}
+
+function tError(
+  locale: AppLocale,
+  key: string,
+  params?: Record<string, string | number>
+): string {
+  return translateForLocale(locale, key, params)
+}
+
+function normalizeAuthRuntimeMode(value: unknown): AuthRuntimeMode {
+  return value === 'session_only'
+    ? 'session_only'
+    : 'session_with_header_fallback'
+}
+
 export function useCurrentActorId() {
   return useState<string | null>('current-actor-id', () => null)
+}
+
+export function useAuthRuntimeMode() {
+  const config = useRuntimeConfig()
+  return useState<AuthRuntimeMode>('auth-runtime-mode', () =>
+    normalizeAuthRuntimeMode(config.public.authMode)
+  )
 }
 
 export function useAuthSession() {
@@ -107,6 +139,7 @@ export async function useAuthSessionBootstrap(): Promise<void> {
 export function useCurrentActorPersistence(): void {
   const currentActorId = useCurrentActorId()
   const authSession = useAuthSession()
+  const authRuntimeMode = useAuthRuntimeMode()
   const hydrated = useState<boolean>('current-actor-hydrated', () => false)
   const watchRegistered = useState<boolean>(
     'current-actor-watch-registered',
@@ -115,7 +148,15 @@ export function useCurrentActorPersistence(): void {
 
   if (import.meta.client && !hydrated.value) {
     const storedActorId = window.localStorage.getItem(CURRENT_ACTOR_STORAGE_KEY)
-    currentActorId.value = storedActorId || authSession.value?.account.id || null
+    currentActorId.value =
+      authRuntimeMode.value === 'session_only'
+        ? authSession.value?.account.id || null
+        : storedActorId || authSession.value?.account.id || null
+
+    if (authRuntimeMode.value === 'session_only') {
+      window.localStorage.removeItem(CURRENT_ACTOR_STORAGE_KEY)
+    }
+
     hydrated.value = true
   }
 
@@ -125,6 +166,11 @@ export function useCurrentActorPersistence(): void {
     watch(
       currentActorId,
       (nextActorId) => {
+        if (authRuntimeMode.value === 'session_only') {
+          window.localStorage.removeItem(CURRENT_ACTOR_STORAGE_KEY)
+          return
+        }
+
         if (nextActorId) {
           window.localStorage.setItem(CURRENT_ACTOR_STORAGE_KEY, nextActorId)
           return
@@ -143,6 +189,12 @@ export function useCurrentActorPersistence(): void {
 export function buildCurrentActorHeaders(
   actorId?: string | null
 ): Record<string, string> | undefined {
+  const authRuntimeMode = useAuthRuntimeMode()
+
+  if (authRuntimeMode.value === 'session_only') {
+    return undefined
+  }
+
   if (!actorId) {
     return undefined
   }
@@ -156,28 +208,32 @@ export function getActorAwareMutationErrorMessage(
   error: unknown,
   fallbackMessage: string
 ): string {
+  const locale = resolveErrorLocale()
+
   if (!(error instanceof ApiClientError)) {
     return fallbackMessage
   }
 
   if (error.code === 'missing_actor_context') {
-    return '請先選擇目前操作帳號，再繼續操作。'
+    return useAuthRuntimeMode().value === 'session_only'
+      ? tError(locale, 'errors.mutation.missingActorContextSession')
+      : tError(locale, 'errors.mutation.missingActorContext')
   }
 
   if (error.code === 'unauthenticated') {
-    return '請先登入，再繼續操作。'
+    return tError(locale, 'errors.common.unauthenticated')
   }
 
   if (error.code === 'session_expired') {
-    return '登入已過期，請重新登入後再試一次。'
+    return tError(locale, 'errors.common.sessionExpired')
   }
 
   if (error.code === 'forbidden_actor_role') {
-    return '目前操作帳號角色不符合這項操作。'
+    return tError(locale, 'errors.common.forbiddenActorRole')
   }
 
   if (error.code === 'ownership_mismatch') {
-    return '你不能操作不屬於自己的資源。'
+    return tError(locale, 'errors.common.ownershipMismatchMutation')
   }
 
   if (error.code === 'assignment_not_eligible') {
@@ -191,9 +247,13 @@ export function getActorAwareMutationErrorMessage(
         ? errorDetails.reason_summary
         : null
 
-    return reasonSummary
-      ? `選擇的裝置設定檔不符合活動資格條件：${reasonSummary}`
-      : '選擇的裝置設定檔不符合這個活動的資格條件。'
+    if (locale === 'zh-TW' && reasonSummary) {
+      return tError(locale, 'errors.mutation.assignmentNotEligibleWithReason', {
+        reason: reasonSummary
+      })
+    }
+
+    return tError(locale, 'errors.mutation.assignmentNotEligible')
   }
 
   if (error.code === 'participation_not_qualified') {
@@ -207,25 +267,41 @@ export function getActorAwareMutationErrorMessage(
         ? errorDetails.reason_summary
         : null
 
-    return reasonSummary
-      ? `選擇的裝置設定檔目前不能送出參與意圖：${reasonSummary}`
-      : '選擇的裝置設定檔目前不能對這個活動送出參與意圖。'
+    if (locale === 'zh-TW' && reasonSummary) {
+      return tError(
+        locale,
+        'errors.mutation.participationNotQualifiedWithReason',
+        {
+          reason: reasonSummary
+        }
+      )
+    }
+
+    return tError(locale, 'errors.mutation.participationNotQualified')
   }
 
   if (error.code === 'duplicate_pending_participation_request') {
-    return '這個裝置設定檔已經對此活動送出待處理的參與意圖。'
+    return tError(locale, 'errors.mutation.duplicatePendingParticipationRequest')
   }
 
   if (error.code === 'invalid_participation_transition') {
-    return '這筆參與意圖目前不能執行這個狀態變更。'
+    return tError(locale, 'errors.mutation.invalidParticipationTransition')
   }
 
   if (error.code === 'participation_request_not_accepted') {
-    return '只有已接受的參與意圖才能建立對應任務。'
+    return tError(locale, 'errors.mutation.participationRequestNotAccepted')
   }
 
   if (error.code === 'participation_request_task_already_created') {
-    return '這筆參與意圖已經建立過對應任務。'
+    return tError(locale, 'errors.mutation.participationRequestTaskAlreadyCreated')
+  }
+
+  if (error.code === 'invalid_task_resolution_state') {
+    return tError(locale, 'errors.mutation.invalidTaskResolutionState')
+  }
+
+  if (error.code === 'resolution_outcome_required') {
+    return tError(locale, 'errors.mutation.resolutionOutcomeRequired')
   }
 
   return error.message
@@ -235,6 +311,7 @@ export function getActorAwareReadErrorMessage(
   error: unknown,
   fallbackMessage: string
 ): string {
+  const locale = resolveErrorLocale()
   const candidates = [
     error,
     typeof error === 'object' && error !== null && 'data' in error
@@ -278,23 +355,25 @@ export function getActorAwareReadErrorMessage(
   }
 
   if (normalizedError.code === 'missing_actor_context') {
-    return '這筆資料包含受保護的協作上下文，請先選擇目前操作帳號。'
+    return useAuthRuntimeMode().value === 'session_only'
+      ? tError(locale, 'errors.read.missingActorContextSession')
+      : tError(locale, 'errors.read.missingActorContext')
   }
 
   if (normalizedError.code === 'unauthenticated') {
-    return '這筆資料需要先登入後才能查看。'
+    return tError(locale, 'errors.read.unauthenticated')
   }
 
   if (normalizedError.code === 'session_expired') {
-    return '登入已過期，請重新登入後再查看這筆資料。'
+    return tError(locale, 'errors.read.sessionExpired')
   }
 
   if (normalizedError.code === 'forbidden_actor_role') {
-    return '目前操作帳號角色無法查看這筆資料。'
+    return tError(locale, 'errors.read.forbiddenActorRole')
   }
 
   if (normalizedError.code === 'ownership_mismatch') {
-    return '你不能查看不屬於自己工作範圍的資料。'
+    return tError(locale, 'errors.read.ownershipMismatch')
   }
 
   return normalizedError.message

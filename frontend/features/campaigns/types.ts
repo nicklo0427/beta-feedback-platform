@@ -1,3 +1,5 @@
+import type { AppLocale } from '~/features/i18n/use-app-i18n'
+
 export type TargetPlatform = 'web' | 'h5' | 'pwa' | 'ios' | 'android'
 
 export type CampaignStatus = 'draft' | 'active' | 'closed'
@@ -16,14 +18,24 @@ export const CAMPAIGN_STATUSES: CampaignStatus[] = [
   'closed'
 ]
 
-const CAMPAIGN_STATUS_LABELS: Record<CampaignStatus, string> = {
-  draft: '草稿',
-  active: '啟用中',
-  closed: '已關閉'
+const CAMPAIGN_STATUS_LABELS: Record<AppLocale, Record<CampaignStatus, string>> = {
+  'zh-TW': {
+    draft: '草稿',
+    active: '啟用中',
+    closed: '已關閉'
+  },
+  en: {
+    draft: 'Draft',
+    active: 'Active',
+    closed: 'Closed'
+  }
 }
 
-export function formatCampaignStatusLabel(value: CampaignStatus): string {
-  return CAMPAIGN_STATUS_LABELS[value]
+export function formatCampaignStatusLabel(
+  value: CampaignStatus,
+  locale: AppLocale = 'zh-TW'
+): string {
+  return CAMPAIGN_STATUS_LABELS[locale][value]
 }
 
 export interface CampaignQualifyingDeviceProfileRef {

@@ -88,7 +88,8 @@ def test_tasks_crud_flow_supports_filters_and_submitted_at(client: TestClient) -
     }
 
     list_response = client.get(
-        f"/api/v1/tasks?campaign_id={campaign_id}&device_profile_id={device_profile_id}&status=assigned"
+        f"/api/v1/tasks?campaign_id={campaign_id}&device_profile_id={device_profile_id}&status=assigned",
+        headers=_actor_headers(developer.id),
     )
 
     assert list_response.status_code == 200
@@ -273,6 +274,15 @@ def test_task_detail_returns_participation_request_context_when_linked(
     detail_payload = detail_response.json()
     assert detail_payload["participation_request_context"]["request_id"] == accepted_request.id
     assert detail_payload["participation_request_context"]["request_status"] == "accepted"
+
+    timeline_response = client.get(
+        f"/api/v1/tasks/{task_id}/timeline",
+        headers=_actor_headers(developer.id),
+    )
+    assert timeline_response.status_code == 200
+    timeline_payload = timeline_response.json()
+    assert timeline_payload["total"] == 1
+    assert timeline_payload["items"][0]["event_type"] == "task_created_from_participation_request"
     assert detail_payload["participation_request_context"]["tester_account_id"] == tester.id
     assert (
         detail_payload["participation_request_context"]["tester_account_display_name"]
@@ -454,6 +464,182 @@ def test_task_patch_rejects_illegal_status_transition(client: TestClient) -> Non
             "resource": "task",
             "current_status": "assigned",
             "next_status": "submitted",
+        },
+    }
+
+
+def test_task_patch_supports_resolution_workflow_for_developer(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_response.json()["id"],
+            "status": "submitted",
+        },
+        headers=_actor_headers(developer.id),
+    )
+    task_id = task_response.json()["id"]
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_id}",
+        json={
+            "status": "closed",
+            "resolution_outcome": "confirmed_issue",
+            "resolution_note": "已確認 onboarding 首次開啟會 crash。",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "closed"
+    assert payload["resolution_context"] == {
+        "resolution_outcome": "confirmed_issue",
+        "resolution_note": "已確認 onboarding 首次開啟會 crash。",
+        "resolved_at": payload["resolution_context"]["resolved_at"],
+        "resolved_by_account_id": developer.id,
+        "resolved_by_account_display_name": developer.display_name,
+    }
+
+
+def test_task_patch_rejects_resolution_before_closed_status(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_response.json()["id"],
+            "status": "submitted",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_response.json()['id']}",
+        json={
+            "resolution_outcome": "not_reproducible",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "invalid_task_resolution_state",
+        "message": "Task resolution can only be recorded when the task is closed.",
+        "details": {
+            "resource": "task",
+            "task_id": task_response.json()["id"],
+            "status": "submitted",
+            "required_status": "closed",
+        },
+    }
+
+
+def test_task_patch_rejects_tester_resolution_action(client: TestClient) -> None:
+    developer = _create_developer_account()
+    tester = _create_tester_account()
+    project = create_project(
+        ProjectCreate(name="HabitQuest"),
+        current_actor_id=developer.id,
+    )
+    campaign_response = client.post(
+        "/api/v1/campaigns",
+        json={
+            "project_id": project.id,
+            "name": "Closed Beta Round 1",
+            "target_platforms": ["ios"],
+        },
+        headers=_actor_headers(developer.id),
+    )
+    campaign_id = campaign_response.json()["id"]
+    device_profile_response = client.post(
+        "/api/v1/device-profiles",
+        headers=_actor_headers(tester.id),
+        json={
+            "name": "QA iPhone 15",
+            "platform": "ios",
+            "device_model": "iPhone 15 Pro",
+            "os_name": "iOS",
+        },
+    )
+    task_response = client.post(
+        f"/api/v1/campaigns/{campaign_id}/tasks",
+        json={
+            "title": "Validate onboarding flow",
+            "device_profile_id": device_profile_response.json()["id"],
+            "status": "submitted",
+        },
+        headers=_actor_headers(developer.id),
+    )
+
+    response = client.patch(
+        f"/api/v1/tasks/{task_response.json()['id']}",
+        json={
+            "status": "closed",
+            "resolution_outcome": "cancelled",
+        },
+        headers=_actor_headers(tester.id),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "forbidden_actor_role",
+        "message": "Tester can only start assigned tasks they own.",
+        "details": {
+            "actor_id": tester.id,
+            "actor_role": "tester",
+            "required_role": "developer",
         },
     }
 
@@ -671,7 +857,10 @@ def test_task_detail_surfaces_qualification_drift_context(client: TestClient) ->
     )
     assert patch_rule_response.status_code == 200
 
-    detail_response = client.get(f"/api/v1/tasks/{task_id}")
+    detail_response = client.get(
+        f"/api/v1/tasks/{task_id}",
+        headers=_actor_headers(developer.id),
+    )
     assert detail_response.status_code == 200
     assert detail_response.json()["qualification_context"] == {
         "device_profile_id": device_profile_id,
