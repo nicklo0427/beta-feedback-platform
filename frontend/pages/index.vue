@@ -24,25 +24,31 @@ const showLocalFallbackNote = computed(
         <div class="home-landing-hero__grid">
           <div class="home-landing-hero__copy">
             <p class="app-eyebrow">{{ t('home.guest.eyebrow') }}</p>
-            <h1 class="app-title">beta-feedback-platform</h1>
+            <h1 class="app-title home-hero-title">
+              <span class="home-hero-title__brand">beta-feedback-platform</span>
+              <span class="home-hero-title__promise">{{ t('home.guest.promiseTitle') }}</span>
+            </h1>
             <p class="app-description">
               {{ t('home.guest.description') }}
             </p>
+            <p class="home-hero-flow-hint">
+              {{ t('home.guest.flowHint') }}
+            </p>
 
             <div class="home-hero-actions">
-              <NuxtLink
-                class="resource-action"
-                data-testid="home-guest-login-link"
-                to="/login"
-              >
-                {{ t('home.guest.actions.login') }}
-              </NuxtLink>
               <NuxtLink
                 class="resource-action"
                 data-testid="home-guest-register-link"
                 to="/register"
               >
                 {{ t('home.guest.actions.register') }}
+              </NuxtLink>
+              <NuxtLink
+                class="resource-action resource-action--quiet"
+                data-testid="home-guest-login-link"
+                to="/login"
+              >
+                {{ t('home.guest.actions.login') }}
               </NuxtLink>
               <a
                 class="resource-action resource-action--quiet"
@@ -52,21 +58,27 @@ const showLocalFallbackNote = computed(
                 {{ t('home.guest.actions.learnMore') }}
               </a>
             </div>
+
+            <div class="home-hero-proof">
+              <span class="resource-shell__meta-chip">{{ t('home.guest.proof.workflow') }}</span>
+              <span class="resource-shell__meta-chip">{{ t('home.guest.proof.review') }}</span>
+              <span class="resource-shell__meta-chip">{{ t('home.guest.proof.crossPlatform') }}</span>
+            </div>
           </div>
 
           <figure class="home-brand-hero" data-testid="home-guest-visual">
             <div class="home-brand-hero__frame">
               <img
                 class="home-brand-hero__image"
-                :src="'/brand/t083-hero-collaboration-scene.svg'"
+                :src="'/brand/t092-hero-beta-ops-scene.svg'"
                 :alt="t('home.guest.visuals.heroAlt')"
               >
               <div class="home-brand-hero__callout home-brand-hero__callout--top">
                 <span class="resource-shell__meta-chip">{{ t('home.guest.visuals.heroLabel') }}</span>
               </div>
               <div class="home-brand-hero__callout home-brand-hero__callout--bottom">
-                <span class="resource-shell__meta-chip">{{ t('home.guest.cards.workflowValue') }}</span>
-                <span class="resource-shell__meta-chip">{{ t('home.guest.cards.developerValue') }}</span>
+                <span class="resource-shell__meta-chip">{{ t('home.guest.proof.workflow') }}</span>
+                <span class="resource-shell__meta-chip">{{ t('home.guest.proof.crossPlatform') }}</span>
               </div>
             </div>
             <figcaption class="home-brand-hero__caption">
@@ -78,169 +90,139 @@ const showLocalFallbackNote = computed(
             </figcaption>
           </figure>
         </div>
-
-        <div class="home-guest-grid">
-          <article class="summary-stat-card">
-            <span class="summary-stat-card__label">{{ t('home.guest.cards.developerLabel') }}</span>
-            <strong class="summary-stat-card__value">{{ t('home.guest.cards.developerValue') }}</strong>
-            <p class="home-summary-card__description">
-              {{ t('home.guest.cards.developerDescription') }}
-            </p>
-          </article>
-          <article class="summary-stat-card">
-            <span class="summary-stat-card__label">{{ t('home.guest.cards.testerLabel') }}</span>
-            <strong class="summary-stat-card__value">{{ t('home.guest.cards.testerValue') }}</strong>
-            <p class="home-summary-card__description">
-              {{ t('home.guest.cards.testerDescription') }}
-            </p>
-          </article>
-          <article class="summary-stat-card">
-            <span class="summary-stat-card__label">{{ t('home.guest.cards.workflowLabel') }}</span>
-            <strong class="summary-stat-card__value">{{ t('home.guest.cards.workflowValue') }}</strong>
-            <p class="home-summary-card__description">
-              {{ t('home.guest.cards.workflowDescription') }}
-            </p>
-          </article>
-        </div>
       </section>
 
-      <section class="resource-section" data-testid="home-overview-section">
-        <h2 class="resource-section__title">{{ t('home.overview.title') }}</h2>
-        <div class="home-grid">
-          <div class="home-summary-card">
-            <h3 class="home-summary-card__title">{{ t('home.overview.whatTitle') }}</h3>
-            <p class="home-summary-card__description">
-              {{ t('home.overview.whatDescription') }}
-            </p>
-          </div>
-          <div class="home-summary-card">
-            <h3 class="home-summary-card__title">{{ t('home.overview.notWhatTitle') }}</h3>
-            <ul class="home-list" data-testid="home-non-goals">
-              <li>{{ t('home.overview.nonGoals.ratingFarm') }}</li>
-              <li>{{ t('home.overview.nonGoals.reviewExchange') }}</li>
-              <li>{{ t('home.overview.nonGoals.trafficBoost') }}</li>
-            </ul>
-          </div>
-          <div class="home-summary-card">
-            <h3 class="home-summary-card__title">{{ t('home.overview.supportedPlatformsTitle') }}</h3>
-            <div class="resource-shell__meta">
-              <span class="resource-shell__meta-chip">{{ t('home.overview.platformChipWeb') }}</span>
-              <span class="resource-shell__meta-chip">{{ t('home.overview.platformChipIos') }}</span>
-              <span class="resource-shell__meta-chip">{{ t('home.overview.platformChipAndroid') }}</span>
-            </div>
-          </div>
+      <section class="resource-section home-trust-proof" data-testid="home-trust-proof-section">
+        <div class="home-section-heading">
+          <p class="app-eyebrow">{{ t('home.trust.eyebrow') }}</p>
+          <h2 class="resource-section__title">{{ t('home.trust.title') }}</h2>
+          <p class="resource-section__description">
+            {{ t('home.trust.description') }}
+          </p>
         </div>
-      </section>
 
-      <section class="resource-section" data-testid="home-entry-section">
-        <h2 class="resource-section__title">{{ t('home.guest.entryTitle') }}</h2>
-        <p class="resource-section__description">
-          {{ t('home.guest.entryDescription') }}
-        </p>
-
-        <div class="home-entry-grid">
-          <NuxtLink class="shell-link-card" data-testid="home-entry-login-card" to="/login">
-            <span class="shell-link-label">{{ t('home.guest.loginCardLabel') }}</span>
-            <strong class="shell-link-title">{{ t('home.guest.loginCardTitle') }}</strong>
-            <span class="shell-link-description">
-              {{ t('home.guest.loginCardDescription') }}
-            </span>
-          </NuxtLink>
-
-          <NuxtLink class="shell-link-card" data-testid="home-entry-register-card" to="/register">
-            <span class="shell-link-label">{{ t('home.guest.registerCardLabel') }}</span>
-            <strong class="shell-link-title">{{ t('home.guest.registerCardTitle') }}</strong>
-            <span class="shell-link-description">
-              {{ t('home.guest.registerCardDescription') }}
-            </span>
-          </NuxtLink>
-        </div>
-      </section>
-
-      <section class="resource-section" data-testid="home-visual-story-section">
-        <h2 class="resource-section__title">{{ t('home.guest.visuals.sectionTitle') }}</h2>
-        <p class="resource-section__description">
-          {{ t('home.guest.visuals.sectionDescription') }}
-        </p>
-
-        <div class="home-visual-story-grid">
+        <div class="home-trust-proof__grid">
           <article class="home-visual-panel" data-testid="home-supporting-visual-review">
             <figure class="home-visual-panel__figure">
               <img
                 class="home-visual-panel__image"
-                :src="'/brand/t083-review-pipeline-scene.svg'"
-                :alt="t('home.guest.visuals.reviewAlt')"
+                :src="'/brand/t092-trust-operations-scene.svg'"
+                :alt="t('home.trust.visualAlt')"
                 loading="lazy"
               >
             </figure>
             <div class="home-visual-panel__body">
-              <span class="shell-link-label">{{ t('home.guest.visuals.reviewLabel') }}</span>
-              <strong class="shell-link-title">{{ t('home.guest.visuals.reviewTitle') }}</strong>
-              <p class="shell-link-description">{{ t('home.guest.visuals.reviewDescription') }}</p>
+              <span class="shell-link-label">{{ t('home.trust.visualLabel') }}</span>
+              <strong class="shell-link-title">{{ t('home.trust.visualTitle') }}</strong>
+              <p class="shell-link-description">{{ t('home.trust.visualDescription') }}</p>
             </div>
           </article>
 
-          <article class="home-visual-panel" data-testid="home-supporting-visual-tester">
-            <figure class="home-visual-panel__figure">
-              <img
-                class="home-visual-panel__image"
-                :src="'/brand/t083-device-participation-scene.svg'"
-                :alt="t('home.guest.visuals.testerAlt')"
-                loading="lazy"
-              >
-            </figure>
-            <div class="home-visual-panel__body">
-              <span class="shell-link-label">{{ t('home.guest.visuals.testerLabel') }}</span>
-              <strong class="shell-link-title">{{ t('home.guest.visuals.testerTitle') }}</strong>
-              <p class="shell-link-description">{{ t('home.guest.visuals.testerDescription') }}</p>
-            </div>
-          </article>
+          <div class="home-trust-proof__cards">
+            <article class="summary-stat-card">
+              <span class="summary-stat-card__label">{{ t('home.trust.cards.notWhatLabel') }}</span>
+              <strong class="summary-stat-card__value">{{ t('home.trust.cards.notWhatValue') }}</strong>
+              <ul class="home-list" data-testid="home-non-goals">
+                <li>{{ t('home.trust.nonGoals.ratingFarm') }}</li>
+                <li>{{ t('home.trust.nonGoals.reviewExchange') }}</li>
+                <li>{{ t('home.trust.nonGoals.trafficBoost') }}</li>
+              </ul>
+            </article>
+            <article class="summary-stat-card">
+              <span class="summary-stat-card__label">{{ t('home.trust.cards.safetyLabel') }}</span>
+              <strong class="summary-stat-card__value">{{ t('home.trust.cards.safetyValue') }}</strong>
+              <p class="home-summary-card__description">
+                {{ t('home.trust.cards.safetyDescription') }}
+              </p>
+            </article>
+            <article class="summary-stat-card">
+              <span class="summary-stat-card__label">{{ t('home.trust.cards.platformsLabel') }}</span>
+              <strong class="summary-stat-card__value">{{ t('home.trust.cards.platformsValue') }}</strong>
+              <div class="resource-shell__meta">
+                <span class="resource-shell__meta-chip">{{ t('home.trust.platformChipWeb') }}</span>
+                <span class="resource-shell__meta-chip">{{ t('home.trust.platformChipIos') }}</span>
+                <span class="resource-shell__meta-chip">{{ t('home.trust.platformChipAndroid') }}</span>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
 
-      <section id="home-flow" class="resource-section" data-testid="home-core-flow">
-        <h2 class="resource-section__title">{{ t('home.flow.title') }}</h2>
-        <ol class="home-flow">
-          <li class="home-flow__item">
-            <strong>{{ t('home.flow.projectTitle') }}</strong>
-            <span>{{ t('home.flow.projectDescription') }}</span>
-          </li>
-          <li class="home-flow__item">
-            <strong>{{ t('home.flow.campaignTitle') }}</strong>
-            <span>{{ t('home.flow.campaignDescription') }}</span>
-          </li>
-          <li class="home-flow__item">
-            <strong>{{ t('home.flow.deviceProfileTitle') }}</strong>
-            <span>{{ t('home.flow.deviceProfileDescription') }}</span>
-          </li>
-          <li class="home-flow__item">
-            <strong>{{ t('home.flow.taskTitle') }}</strong>
-            <span>{{ t('home.flow.taskDescription') }}</span>
-          </li>
-          <li class="home-flow__item">
-            <strong>{{ t('home.flow.feedbackTitle') }}</strong>
-            <span>{{ t('home.flow.feedbackDescription') }}</span>
-          </li>
-        </ol>
+      <section id="home-flow" class="resource-section home-product-flow" data-testid="home-product-flow-section">
+        <div class="home-section-heading">
+          <p class="app-eyebrow">{{ t('home.flow.eyebrow') }}</p>
+          <h2 class="resource-section__title">{{ t('home.flow.title') }}</h2>
+          <p class="resource-section__description">{{ t('home.flow.description') }}</p>
+        </div>
+
+        <div class="home-flow-sequence">
+          <article class="home-flow-card">
+            <span class="home-flow-card__step">01</span>
+            <strong class="home-flow-card__title">{{ t('home.flow.projectTitle') }}</strong>
+            <p class="home-flow-card__description">{{ t('home.flow.projectDescription') }}</p>
+          </article>
+          <article class="home-flow-card">
+            <span class="home-flow-card__step">02</span>
+            <strong class="home-flow-card__title">{{ t('home.flow.campaignTitle') }}</strong>
+            <p class="home-flow-card__description">{{ t('home.flow.campaignDescription') }}</p>
+          </article>
+          <article class="home-flow-card">
+            <span class="home-flow-card__step">03</span>
+            <strong class="home-flow-card__title">{{ t('home.flow.deviceProfileTitle') }}</strong>
+            <p class="home-flow-card__description">{{ t('home.flow.deviceProfileDescription') }}</p>
+          </article>
+          <article class="home-flow-card">
+            <span class="home-flow-card__step">04</span>
+            <strong class="home-flow-card__title">{{ t('home.flow.taskTitle') }}</strong>
+            <p class="home-flow-card__description">{{ t('home.flow.taskDescription') }}</p>
+          </article>
+          <article class="home-flow-card">
+            <span class="home-flow-card__step">05</span>
+            <strong class="home-flow-card__title">{{ t('home.flow.feedbackTitle') }}</strong>
+            <p class="home-flow-card__description">{{ t('home.flow.feedbackDescription') }}</p>
+          </article>
+        </div>
+
+        <div class="home-flow-outcome">
+          <span class="shell-link-label">{{ t('home.flow.outcomeLabel') }}</span>
+          <strong class="shell-link-title">{{ t('home.flow.outcomeTitle') }}</strong>
+          <p class="shell-link-description">{{ t('home.flow.outcomeDescription') }}</p>
+        </div>
       </section>
 
-      <section class="resource-section" data-testid="home-trust-section">
-        <h2 class="resource-section__title">{{ t('home.safety.title') }}</h2>
-        <div class="home-grid">
-          <div class="home-summary-card">
-            <h3 class="home-summary-card__title">{{ t('home.safety.safetyFirstTitle') }}</h3>
-            <ul class="home-list">
-              <li>{{ t('home.safety.safetyItemOfficial') }}</li>
-              <li>{{ t('home.safety.safetyItemUnknownSource') }}</li>
-              <li>{{ t('home.safety.safetyItemDeviceSecurity') }}</li>
-            </ul>
-          </div>
-          <div class="home-summary-card">
-            <h3 class="home-summary-card__title">{{ t('home.safety.trustTitle') }}</h3>
-            <p class="home-summary-card__description">
-              {{ t('home.safety.trustDescription') }}
-            </p>
-          </div>
+      <section class="resource-section home-role-value" data-testid="home-role-value-section">
+        <div class="home-section-heading">
+          <p class="app-eyebrow">{{ t('home.roles.eyebrow') }}</p>
+          <h2 class="resource-section__title">{{ t('home.roles.title') }}</h2>
+          <p class="resource-section__description">{{ t('home.roles.description') }}</p>
+        </div>
+
+        <div class="home-role-grid">
+          <article class="summary-stat-card">
+            <span class="summary-stat-card__label">{{ t('home.roles.developerLabel') }}</span>
+            <strong class="summary-stat-card__value">{{ t('home.roles.developerValue') }}</strong>
+            <p class="home-summary-card__description">{{ t('home.roles.developerDescription') }}</p>
+          </article>
+          <article class="summary-stat-card">
+            <span class="summary-stat-card__label">{{ t('home.roles.testerLabel') }}</span>
+            <strong class="summary-stat-card__value">{{ t('home.roles.testerValue') }}</strong>
+            <p class="home-summary-card__description">{{ t('home.roles.testerDescription') }}</p>
+          </article>
+          <article class="home-visual-panel home-visual-panel--role" data-testid="home-supporting-visual-tester">
+            <figure class="home-visual-panel__figure">
+              <img
+                class="home-visual-panel__image"
+                :src="'/brand/t092-role-participation-scene.svg'"
+                :alt="t('home.roles.visualAlt')"
+                loading="lazy"
+              >
+            </figure>
+            <div class="home-visual-panel__body">
+              <span class="shell-link-label">{{ t('home.roles.visualLabel') }}</span>
+              <strong class="shell-link-title">{{ t('home.roles.visualTitle') }}</strong>
+              <p class="shell-link-description">{{ t('home.roles.visualDescription') }}</p>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -251,11 +233,15 @@ const showLocalFallbackNote = computed(
         </p>
 
         <div class="home-final-cta__actions">
-          <NuxtLink class="resource-action" data-testid="home-final-login-link" to="/login">
-            {{ t('home.guest.final.login') }}
-          </NuxtLink>
           <NuxtLink class="resource-action" data-testid="home-final-register-link" to="/register">
             {{ t('home.guest.final.register') }}
+          </NuxtLink>
+          <NuxtLink
+            class="resource-action resource-action--quiet"
+            data-testid="home-final-login-link"
+            to="/login"
+          >
+            {{ t('home.guest.final.login') }}
           </NuxtLink>
         </div>
 
@@ -276,7 +262,7 @@ const showLocalFallbackNote = computed(
 
 <style scoped lang="scss">
 .home-landing-hero {
-  gap: 1rem;
+  gap: 1.2rem;
 }
 
 .public-home__panel {
@@ -296,10 +282,39 @@ const showLocalFallbackNote = computed(
   gap: 1rem;
 }
 
+.home-hero-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.home-hero-title__brand {
+  display: block;
+}
+
+.home-hero-title__promise {
+  display: block;
+  max-width: 12ch;
+}
+
+.home-hero-flow-hint {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
 .home-hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.home-hero-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 
 .home-brand-hero {
@@ -352,10 +367,15 @@ const showLocalFallbackNote = computed(
   gap: 0.55rem;
 }
 
-.home-guest-grid,
-.home-entry-grid,
-.home-visual-story-grid,
-.home-grid {
+.home-section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.home-trust-proof__grid,
+.home-trust-proof__cards,
+.home-role-grid {
   display: grid;
   gap: 1rem;
 }
@@ -404,6 +424,58 @@ const showLocalFallbackNote = computed(
   }
 }
 
+.home-product-flow {
+  gap: 1.15rem;
+}
+
+.home-flow-sequence {
+  display: grid;
+  gap: 0.95rem;
+}
+
+.home-flow-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border-soft-alt);
+  border-radius: 1.35rem;
+  background: var(--surface-card-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.home-flow-card__step {
+  color: var(--color-accent-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.home-flow-card__title {
+  color: var(--color-text-primary);
+  font-size: 1.02rem;
+}
+
+.home-flow-card__description {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+}
+
+.home-flow-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--border-accent);
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(circle at top right, rgba(124, 190, 255, 0.12), transparent 32%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(236, 244, 253, 0.82));
+}
+
 .home-final-cta {
   display: flex;
   flex-direction: column;
@@ -448,26 +520,37 @@ const showLocalFallbackNote = computed(
     linear-gradient(155deg, rgba(13, 24, 42, 0.98), rgba(8, 18, 32, 0.9));
 }
 
+:global(:root[data-theme='dark']) .home-flow-outcome {
+  background:
+    radial-gradient(circle at top right, rgba(118, 186, 255, 0.14), transparent 32%),
+    linear-gradient(160deg, rgba(10, 19, 34, 0.95), rgba(8, 16, 30, 0.88));
+}
+
 @media (min-width: 768px) {
   .home-landing-hero__grid {
-    grid-template-columns: minmax(0, 1.05fr) minmax(20rem, 0.95fr);
+    grid-template-columns: minmax(0, 1.06fr) minmax(24rem, 0.94fr);
   }
 
-  .home-guest-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .home-trust-proof__grid {
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   }
 
-  .home-entry-grid {
+  .home-trust-proof__cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+
+  .home-flow-sequence {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .home-role-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: stretch;
   }
 
-  .home-visual-story-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .home-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .home-visual-panel--role {
+    grid-column: span 1;
   }
 }
 </style>

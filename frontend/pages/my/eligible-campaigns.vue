@@ -240,12 +240,12 @@ watch([currentActorId, currentActor], () => {
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myEligibleCampaigns.currentAccount') }}</span>
               <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
-              <span class="app-page-summary-card__description">確認這個 workspace 正在使用哪位測試者的資格上下文。</span>
+              <span class="app-page-summary-card__description">{{ t('myEligibleCampaigns.currentAccountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myEligibleCampaigns.qualifiedCampaignsLabel') }}</span>
               <strong class="app-page-summary-card__value">{{ campaignResponse.total }}</strong>
-              <span class="app-page-summary-card__description">活動卡片會保留 qualification 與 participation entry 的同一套版型。</span>
+              <span class="app-page-summary-card__description">{{ t('myEligibleCampaigns.qualifiedCampaignsDescription') }}</span>
             </article>
           </div>
         </section>
@@ -357,7 +357,7 @@ watch([currentActorId, currentActor], () => {
               :pending="submittingCampaignId === campaign.id"
               :error-message="participationErrors[campaign.id] || null"
               :success-message="participationSuccesses[campaign.id] || null"
-              submit-label="送出參與意圖"
+              :submit-label="t('common.submitParticipationRequest')"
               :test-id-prefix="`eligible-campaign-participation-${campaign.id}`"
               @submit="handleCreateParticipationRequest(campaign.id, $event)"
             />

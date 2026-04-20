@@ -26,19 +26,19 @@ export const TASK_STATUSES: TaskStatus[] = [
 const TASK_STATUS_LABELS: Record<AppLocale, Record<TaskStatus, string>> = {
   'zh-TW': {
     draft: '草稿',
-    open: '開放中',
-    assigned: '已指派',
+    open: '可安排',
+    assigned: '已安排',
     in_progress: '進行中',
-    submitted: '已提交',
-    closed: '已關閉'
+    submitted: '已送出',
+    closed: '已完成'
   },
   en: {
     draft: 'Draft',
-    open: 'Open',
-    assigned: 'Assigned',
+    open: 'Ready',
+    assigned: 'Scheduled',
     in_progress: 'In progress',
-    submitted: 'Submitted',
-    closed: 'Closed'
+    submitted: 'Sent',
+    closed: 'Done'
   }
 }
 
@@ -54,16 +54,16 @@ const TASK_RESOLUTION_OUTCOME_LABELS: Record<
   Record<TaskResolutionOutcome, string>
 > = {
   'zh-TW': {
-    confirmed_issue: '確認問題',
-    needs_follow_up: '需要後續追蹤',
-    not_reproducible: '無法重現',
-    cancelled: '取消處理'
+    confirmed_issue: '確認有問題',
+    needs_follow_up: '還要再追',
+    not_reproducible: '沒有重現成功',
+    cancelled: '先不處理'
   },
   en: {
-    confirmed_issue: 'Confirmed issue',
+    confirmed_issue: 'Issue confirmed',
     needs_follow_up: 'Needs follow-up',
-    not_reproducible: 'Not reproducible',
-    cancelled: 'Cancelled'
+    not_reproducible: 'Could not reproduce',
+    cancelled: 'Closed without action'
   }
 }
 

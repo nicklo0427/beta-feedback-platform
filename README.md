@@ -56,13 +56,13 @@
 
 截至目前為止，repo 可以視為已完成：
 
-- `T011` 到 `T090`
+- `T011` 到 `T094`
 - MVP 主流程閉環
 - 第一輪產品化補強
 - role-aware collaboration baseline
 - qualification / assignment clarity baseline
 - participation intent baseline
-- 前端繁體中文文案整理
+- public / app 非技術背景文案簡化 baseline
 - account collaboration summary 與 owned resource panels
 - participation-aware demo seed 與 manual QA 文件
 - 全站 UI/UX refresh phase
@@ -96,8 +96,9 @@
 - detail 頁已朝 `主欄 + context rail` 收斂
 - create / edit forms 已收斂成一致的 sectioned form UX
 - 高頻 workspace / queue / list 頁已套進一致的 app template 節奏
+- public landing、login / register 與 app 內主流程頁已收斂成更少術語、更接近一般使用者能理解的產品語言
 
-這代表 qualification、participation、participation-to-assignment、Alembic schema lifecycle、以及 UI/UX refresh baseline 都已完成，下一步不應回頭補同一批基礎能力，而應轉往：
+這代表 qualification、participation、participation-to-assignment、Alembic schema lifecycle、UI/UX refresh、以及非技術背景 copy baseline 都已完成，下一步不應回頭補同一批基礎能力，而應轉往：
 
 - target environment rehearsal
 - public beta launch decision
@@ -182,6 +183,8 @@
 - `login` / `register` session auth flow
 - auth success redirect -> `/dashboard`
 - `/dashboard` signed-in home
+- public copy simplification for non-technical users
+- in-product terminology simplification on high-frequency flows
 - `accounts` list / detail / create / edit
 - account collaboration summary / owned resource panels
 - homepage IA / overview shell

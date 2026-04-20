@@ -106,7 +106,7 @@ test.describe('participation requests flows', () => {
 
     await expect(card).toContainText(formatParticipationRequestStatusLabel('withdrawn'))
     await expect(page.getByTestId('participation-request-withdraw-pr_123')).toHaveCount(0)
-    await expect(card).toContainText('任務橋接 尚未建立任務')
+    await expect(card).toContainText('任務安排 尚未安排任務')
   })
 
   test('shows linked task context for an accepted request that already became a task', async ({
@@ -156,7 +156,7 @@ test.describe('participation requests flows', () => {
     await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     const card = page.getByTestId('participation-request-card-pr_456')
-    await expect(card).toContainText('任務橋接 已建立任務')
+    await expect(card).toContainText('任務安排 已安排任務')
     await expect(card).toContainText('建立任務時間 2026-04-09T10:30:00Z')
     await expect(page.getByTestId('participation-request-task-link-pr_456')).toHaveAttribute(
       'href',

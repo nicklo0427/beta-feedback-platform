@@ -233,11 +233,11 @@ test.describe('participation request detail flows', () => {
       'testflight'
     )
     await expect(page.getByTestId('participation-request-qualification-panel')).toContainText(
-      '符合資格'
+      '適合參與'
     )
     await expect(page.getByTestId('participation-request-create-task-link')).toBeVisible()
     await expect(page.getByTestId('participation-request-detail-panel')).toContainText(
-      '任務橋接 尚未建立任務'
+      '任務安排 尚未安排任務'
     )
     await expect(page.getByTestId('participation-request-timeline-panel')).toContainText(
       '從參與意圖建立任務。'
@@ -323,7 +323,7 @@ test.describe('participation request detail flows', () => {
     await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('participation-request-detail-error')).toContainText(
-      '你不能查看不屬於自己工作範圍的資料。'
+      '這不是你目前可以查看的內容。'
     )
   })
 })

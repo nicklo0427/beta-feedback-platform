@@ -4,7 +4,7 @@
 
 目前 repo 已完成：
 
-- `T011` 到 `T090`
+- `T011` 到 `T094`
 - MVP 主流程閉環
 - role-aware collaboration baseline
 - qualification / assignment clarity baseline
@@ -21,32 +21,37 @@
 - `T088` app shell redesign
 - `T089` high-frequency app template harmonization
 - `T090` responsive / docs / QA refresh baseline
+- `T091` dashboard entry flow / shell regression pass
+- `T092` public homepage conversion and product-flow polish
+- `T093` public copy simplification for non-technical users
+- `T094` in-product terminology simplification and helper copy
 
 這代表：
 
 - **功能型 MVP 已完成**
 - **repo 內的 public beta readiness baseline 已完成**
 - **public home、auth pages、登入後 `/dashboard` 與 app shell 已完成分層**
-- **下一步最值得先做的是把 dashboard/home/auth/shell 的回歸驗收集中收斂**
+- **下一步最值得先做的是決定要往 public trust/visual 深化，還是全站 i18n / terminology 擴張**
 
 ## 1. 現在先做哪一件事
 
 如果你的目標是：
 
-- 確認 public home、auth、dashboard、app shell 的 handoff 沒有漏網回歸
-- 把 `T088` / `T089` 之後的 shell 與 page template regression 一次收斂
-- 把 desktop / mobile / locale / theme / session-only 的驗收補完整
+- 讓 public landing 更像可對外展示的正式產品首頁
+- 把目前只覆蓋到主流程的 i18n / terminology 再往更多頁面擴張
+- 或開始補 launch 前最後一段 public beta hardening / release decision
 
-那下一張最合理的票應改為：
+那下一個 phase 比較合理的方向會是三選一：
 
-- `T091 - Dashboard Entry Flow and Shell Regression Pass`
+- `Public landing trust / proof / visual system` 深化
+- `Full-site i18n and terminology expansion`
+- `Public beta rollout decision and post-beta hardening`
 
-這張票仍以前端驗收為主，不改 backend API，只做：
+目前不需要再重做 `T093 / T094` 的方向，因為這一批已完成：
 
-- regression 收斂
-- responsive smoke 補驗
-- locale / theme persistence 補驗
-- public/app shell handoff 補驗
+- public 面的人話化重寫
+- app 內主流程頁的術語降噪
+- CTA、state copy、helper text 與 i18n 對齊
 
 ## 2. 剛完成的 Phase
 
@@ -58,6 +63,9 @@
 - app shell 比例、導覽層級、page frame 重設計
 - 高頻 app page template 對齊
 - responsive / QA / docs refresh
+- public homepage conversion 與 product-flow polish
+- public copy simplification for non-technical users
+- in-product terminology simplification and helper copy
 
 ## 3. 已完成 Tickets
 
@@ -111,17 +119,51 @@
 - 收斂 public home → auth → dashboard → app shell 的端到端驗收
 - 補 locale / theme persistence 與 responsive smoke
 
-## 4. 建議順序
+### T092 - Public Homepage Conversion and Product-Flow Polish
 
-1. `T091`
+- 把首頁首屏改成 conversion-first 的雙目標 hero
+- 把 public landing section 重排成 trust / flow / role value / final CTA
+- 升級首頁品牌視覺與 `zh-TW / en` 文案
+- 保持 route 與 backend API 不變
 
-## 5. 為什麼這樣排
+### T093 - Public Copy Simplification for Non-Technical Users
 
-- `T084` 到 `T090` 已把 layout phase 的實作面收完
-- 現在最需要的是把新的 public/app 邊界、dashboard 入口與 shell/page template 變更集中回歸
-- `T091` 應該在 UI 結構相對穩定後做，這樣測試才不會一直被重寫
+- 把 `/`、`/login`、`/register` 與 public header 的語言改成沒有開發背景也看得懂的產品語言
+- 降低 `campaign`、`qualification`、`participation request` 等術語在登入前的理解成本
+- 對齊首頁、auth pages 與 public CTA 的 `zh-TW / en` 文案
 
-## 6. 這一輪先不要做的事
+### T094 - In-Product Terminology Simplification and Helper Copy
+
+- 把 `/dashboard`、`/my/*`、`/review/*` 與高頻 detail 頁的主要標題、CTA、狀態文案改得更口語
+- 透過 helper copy 保留流程精準度，但降低理解門檻
+- 對齊主流程頁的狀態 label、錯誤訊息與中英文 i18n
+
+## 4. 下一個 Phase
+
+下一個 phase 建議先在下面三條裡選一條：
+
+- `Public Landing Trust and Visual Proof`
+- `Full-Site i18n and Terminology Expansion`
+- `Public Beta Launch Decision and Hardening`
+
+目標不再是回頭收同一批 copy，而是決定要：
+
+- 繼續強化 public 面的信任感、案例感與品牌視覺
+- 把目前已完成的 i18n / 非技術詞彙基線擴到剩下的 resource/detail/form 頁
+- 或回到 launch / rollout 角度，準備真正的 public beta 發佈決策
+
+## 5. 建議順序
+
+1. 決定下一輪是偏 `public marketing polish`、`full-site product language`，還是 `launch hardening`
+2. 再依選定方向拆成 `T095+`
+
+## 6. 為什麼這樣排
+
+- `T093 / T094` 已先把對非技術背景最重要的理解門檻降下來
+- 下一步如果還留在同一層 copy 微調，收益會開始變小
+- 比較值得的是選擇一條新的主線，避免 roadmap 只剩零碎修飾
+
+## 7. 這一輪先不要做的事
 
 以下項目仍暫不建議在這個 phase 啟動：
 
@@ -135,7 +177,10 @@
 - locale-prefixed i18n routing
 - 全站插畫系統 overhaul
 - landing 頁以外的大型 marketing site 擴張
+- backend-side i18n
+- 全站一次性文案大重寫
+- 資料模型重新命名
 
-## 7. 一句話結論
+## 8. 一句話結論
 
-`T084` 到 `T090` 已把 public landing、auth pages、登入後 `/dashboard`、app shell 與高頻頁模板拆清楚；下一步最合理的是直接進 `T091`，把這整條入口與 shell regression 一次驗完整。
+`T084` 到 `T094` 已把 public landing、auth pages、登入後 `/dashboard`、app shell 與高頻主流程頁的語言收斂到非技術背景也較容易理解；下一步該做的不是重做同一批文案，而是決定要往 `public trust`、`full-site i18n`，還是 `launch hardening` 前進。

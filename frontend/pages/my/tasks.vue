@@ -206,12 +206,12 @@ async function handleStartTask(taskId: string): Promise<void> {
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myTasks.currentAccount') }}</span>
               <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
-              <span class="app-page-summary-card__description">這個 inbox 只聚焦你目前帳號可處理的 tester 任務。</span>
+              <span class="app-page-summary-card__description">{{ t('myTasks.currentAccountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myTasks.currentStatus') }}</span>
               <strong class="app-page-summary-card__value">{{ formatTaskStatusLabel(activeStatus, locale) }}</strong>
-              <span class="app-page-summary-card__description">切換狀態後，列表會保留同一套任務卡片節奏與下一步操作。</span>
+              <span class="app-page-summary-card__description">{{ t('myTasks.currentStatusDescription') }}</span>
             </article>
           </div>
         </section>

@@ -155,11 +155,13 @@ test.describe('participation review queue flows', () => {
     await expect(acceptedCard).toContainText(
       formatParticipationRequestStatusLabel('accepted')
     )
-    await expect(acceptedCard).toContainText('任務橋接 尚未建立任務')
+    await expect(acceptedCard).toContainText('任務安排 尚未安排任務')
     await expect(page.getByTestId('review-participation-create-task-pr_123')).toBeVisible()
-    await expect(page.getByTestId('participation-review-summary')).toContainText(/待處理\s*0/)
     await expect(page.getByTestId('participation-review-summary')).toContainText(
-      /已接受待建任務\s*1/
+      /等待回覆\s*0/
+    )
+    await expect(page.getByTestId('participation-review-summary')).toContainText(
+      /已同意待安排\s*1/
     )
     await expect(page.getByTestId('participation-review-summary')).toContainText(/涉及活動\s*1/)
 

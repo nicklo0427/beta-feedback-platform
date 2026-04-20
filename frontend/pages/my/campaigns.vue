@@ -164,7 +164,7 @@ const campaigns = computed(() => campaignResponse.value.items)
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">我的活動</span>
               <strong class="app-page-summary-card__value">{{ campaignResponse.total }}</strong>
-              <span class="app-page-summary-card__description">可直接延伸到參與意圖審查與回饋審查流程。</span>
+              <span class="app-page-summary-card__description">可直接延伸到參與申請審查與回饋審查流程。</span>
             </article>
           </div>
         </section>
@@ -280,7 +280,7 @@ const campaigns = computed(() => campaignResponse.value.items)
               v-else-if="campaign.participation_summary"
               class="resource-card__description"
             >
-              目前這個活動還沒有 participation requests，候選人漏斗維持零狀態。
+              目前這個活動還沒有參與申請，候選人漏斗維持零狀態。
             </p>
             <div class="resource-state__actions">
               <NuxtLink
@@ -302,7 +302,7 @@ const campaigns = computed(() => campaignResponse.value.items)
                 :data-testid="`my-campaign-review-link-${campaign.id}`"
                 to="/review/participation-requests"
               >
-                查看參與意圖審查
+                查看參與申請審查
               </NuxtLink>
             </div>
           </article>

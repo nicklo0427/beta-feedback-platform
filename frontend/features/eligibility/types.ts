@@ -75,12 +75,12 @@ export const QUALIFICATION_STATUS_LABELS: Record<
   Record<QualificationStatus, string>
 > = {
   'zh-TW': {
-    qualified: '符合資格',
-    not_qualified: '不符合資格'
+    qualified: '適合參與',
+    not_qualified: '目前不適合'
   },
   en: {
-    qualified: 'Qualified',
-    not_qualified: 'Not qualified'
+    qualified: 'Good fit',
+    not_qualified: 'Not a fit right now'
   }
 }
 

@@ -302,6 +302,6 @@ test.describe('participation request to task bridge', () => {
     await expect(page.getByTestId('task-detail-panel')).toContainText(
       'Validate accepted request bridge'
     )
-    await expect(page.getByTestId('task-qualification-context')).toContainText('符合資格')
+    await expect(page.getByTestId('task-qualification-context')).toContainText('適合參與')
   })
 })

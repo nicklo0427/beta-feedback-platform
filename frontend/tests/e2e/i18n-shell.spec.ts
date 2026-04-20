@@ -36,7 +36,7 @@ test('switches the shell locale to English and persists across routes', async ({
   await page.goto('/login')
 
   await expect(
-    page.getByRole('heading', { name: 'Sign in to your workspace' })
+    page.getByRole('heading', { name: 'Sign in and continue' })
   ).toBeVisible()
   await expect(page.getByTestId('public-shell-register-link')).toContainText('Register')
   await expect(page.getByTestId('login-submit')).toContainText('Sign in')

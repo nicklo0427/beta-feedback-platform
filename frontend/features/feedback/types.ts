@@ -122,13 +122,13 @@ const FEEDBACK_REVIEW_STATUS_LABELS: Record<
   Record<FeedbackReviewStatus, string>
 > = {
   'zh-TW': {
-    submitted: '已提交',
-    needs_more_info: '需補充資訊',
-    reviewed: '已審閱'
+    submitted: '已送出',
+    needs_more_info: '需要補充',
+    reviewed: '已看過'
   },
   en: {
-    submitted: 'Submitted',
-    needs_more_info: 'Needs more info',
+    submitted: 'Sent',
+    needs_more_info: 'More detail needed',
     reviewed: 'Reviewed'
   }
 }

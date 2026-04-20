@@ -400,7 +400,7 @@ test.describe('eligibility shell flows', () => {
     await page.getByTestId('eligibility-rule-submit').click()
 
     await expect(page.getByTestId('eligibility-rule-form-error')).toContainText(
-      '你不能操作不屬於自己的資源。'
+      '這不是你目前可以操作的內容。'
     )
   })
 

@@ -301,6 +301,6 @@ test.describe('eligible campaigns workspace flows', () => {
 
     await expect(
       page.getByTestId('eligible-campaign-participation-camp_123-success')
-    ).toContainText('已送出參與意圖')
+    ).toContainText('參與申請已送出')
   })
 })

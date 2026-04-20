@@ -185,7 +185,9 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText(
       formatFeedbackCategoryLabel(createdFeedback.category as FeedbackCategory)
     )
-    await expect(page.getByTestId('feedback-review-panel')).toContainText('已提交')
+    await expect(page.getByTestId('feedback-review-panel')).toContainText(
+      formatFeedbackReviewStatusLabel('submitted')
+    )
   })
 
   test('shows feedback create validation and backend errors', async ({ page }) => {
@@ -270,7 +272,7 @@ test.describe('feedback shell flows', () => {
     await expect(detailPanel).toContainText(feedbackDetail.summary)
     await expect(detailPanel).toContainText(feedbackDetail.reproduction_steps)
     await expect(detailPanel).toContainText(String(feedbackDetail.rating))
-    await expect(detailPanel).toContainText('已提交')
+    await expect(detailPanel).toContainText(formatFeedbackReviewStatusLabel('submitted'))
     await expect(page.getByTestId('feedback-timeline-panel')).toContainText('提交回饋。')
   })
 
@@ -313,7 +315,9 @@ test.describe('feedback shell flows', () => {
     await expect(page.getByTestId('feedback-review-success')).toContainText(
       '審閱變更已儲存。'
     )
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText('已審閱')
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      formatFeedbackReviewStatusLabel('reviewed')
+    )
     await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       'Confirmed by the developer after reviewing the crash logs.'
     )
@@ -493,7 +497,9 @@ test.describe('feedback shell flows', () => {
       note: 'Retested with screen recording enabled.'
     })
 
-    await expect(page.getByTestId('feedback-detail-panel')).toContainText('已提交')
+    await expect(page.getByTestId('feedback-detail-panel')).toContainText(
+      formatFeedbackReviewStatusLabel('submitted')
+    )
     await expect(page.getByTestId('feedback-review-context-panel')).toContainText(
       '2026-04-03T12:12:00Z'
     )

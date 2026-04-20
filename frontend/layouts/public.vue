@@ -133,19 +133,19 @@ useHead(() => ({
         <div v-else class="public-topbar__cta" data-testid="public-shell-auth-actions">
           <NuxtLink
             class="resource-action"
-            :class="{ 'resource-action--quiet': isLoginRoute }"
-            data-testid="public-shell-login-link"
-            to="/login"
-          >
-            {{ t('common.login') }}
-          </NuxtLink>
-          <NuxtLink
-            class="resource-action"
             :class="{ 'resource-action--quiet': isRegisterRoute }"
             data-testid="public-shell-register-link"
             to="/register"
           >
             {{ t('common.register') }}
+          </NuxtLink>
+          <NuxtLink
+            class="resource-action resource-action--quiet"
+            :class="{ 'resource-action--quiet': isLoginRoute }"
+            data-testid="public-shell-login-link"
+            to="/login"
+          >
+            {{ t('common.login') }}
           </NuxtLink>
         </div>
       </div>

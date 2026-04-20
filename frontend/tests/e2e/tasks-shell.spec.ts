@@ -190,7 +190,7 @@ test.describe('tasks shell flows', () => {
 
     await expect(page.getByTestId('task-qualification-context')).toBeVisible()
     await expect(page.getByTestId('task-qualification-drift-warning')).toBeVisible()
-    await expect(page.getByTestId('task-qualification-context')).toContainText('資格已漂移')
+    await expect(page.getByTestId('task-qualification-context')).toContainText('條件已改變')
     await expect(page.getByTestId('task-qualification-context')).toContainText(
       '主要未符合條件：安裝渠道不符合目前活動條件。'
     )
@@ -233,7 +233,7 @@ test.describe('tasks shell flows', () => {
     await page.goto('/tasks/task_123')
 
     await expect(page.getByTestId('task-detail-error')).toContainText(
-      '這筆資料包含受保護的協作上下文，請先選擇目前操作帳號。'
+      '先選好目前帳號，才能看這些內容。'
     )
 
     await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
@@ -279,6 +279,7 @@ test.describe('tasks shell flows', () => {
       updated_at: '2026-04-03T12:00:00Z'
     }
 
+    let createRequestActorId: string | null = null
     let createRequestBody: unknown = null
     let hasCreatedTask = false
 
@@ -342,7 +343,7 @@ test.describe('tasks shell flows', () => {
         return
       }
 
-      expect(route.request().headers()['x-actor-id']).toBe(developerAccount.id)
+      createRequestActorId = route.request().headers()['x-actor-id'] ?? null
       createRequestBody = JSON.parse(route.request().postData() ?? '{}')
       hasCreatedTask = true
 
@@ -381,6 +382,8 @@ test.describe('tasks shell flows', () => {
     await page.getByTestId('task-status-field').selectOption('assigned')
     await page.getByTestId('task-submit').click()
 
+    await expect.poll(() => createRequestBody).not.toBeNull()
+    expect(createRequestActorId).toBe(developerAccount.id)
     expect(createRequestBody).toEqual({
       title: 'Validate paywall copy',
       instruction_summary: 'Check the paywall CTA and pricing copy.',

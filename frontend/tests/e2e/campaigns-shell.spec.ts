@@ -299,7 +299,7 @@ test.describe('campaigns shell flows', () => {
 
     const emptyState = page.getByTestId('campaign-qualification-empty')
     await expect(emptyState).toBeVisible()
-    await expect(emptyState).toContainText('目前沒有可檢查的裝置設定檔')
+    await expect(emptyState).toContainText('目前沒有可判斷的裝置資訊')
   })
 
   test('shows qualification role mismatch when current actor is not a tester', async ({
@@ -397,7 +397,7 @@ test.describe('campaigns shell flows', () => {
     })
 
     await expect(page.getByTestId('campaign-participation-success')).toContainText(
-      '已送出參與意圖'
+      '參與申請已送出'
     )
   })
 
@@ -961,7 +961,7 @@ test.describe('campaigns shell flows', () => {
     await page.getByTestId('campaign-safety-submit').click()
 
     await expect(page.getByTestId('campaign-safety-form-error')).toContainText(
-      '目前操作帳號角色不符合這項操作。'
+      '你現在使用的帳號不適合做這個操作。'
     )
   })
 

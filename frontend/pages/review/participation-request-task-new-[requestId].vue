@@ -12,6 +12,7 @@ import {
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
 import { formatAccountRoleLabel } from '~/features/accounts/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import {
   createTaskFromParticipationRequest,
   fetchParticipationRequestDetail
@@ -24,6 +25,7 @@ useCurrentActorPersistence()
 
 const route = useRoute()
 const router = useRouter()
+const { locale, t } = useAppI18n()
 const requestId = computed(() => String(route.params.requestId))
 const currentActorId = useCurrentActorId()
 const submitting = ref(false)
@@ -97,7 +99,7 @@ const lockedDeviceProfiles = computed(() => {
 
 async function handleSubmit(values: TaskFormValues): Promise<void> {
   if (!currentActorId.value) {
-    submitError.value = '建立任務前，請先選擇目前操作帳號。'
+    submitError.value = t('participationTaskCreate.submitNoActor')
     return
   }
 
@@ -118,7 +120,7 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
   } catch (submitFailure) {
     submitError.value = getActorAwareMutationErrorMessage(
       submitFailure,
-      '目前無法從這筆 participation request 建立任務。'
+      t('participationTaskCreate.errorFallback')
     )
   } finally {
     submitting.value = false
@@ -127,27 +129,27 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
 </script>
 
 <template>
-  <main class="app-shell">
+  <main class="app-shell" :data-locale="locale">
     <section class="resource-shell">
       <header class="resource-shell__header">
         <NuxtLink
           class="resource-shell__breadcrumb"
           :to="`/review/participation-requests/${requestId}`"
         >
-          參與意圖詳情
+          {{ t('participationTaskCreate.breadcrumb') }}
         </NuxtLink>
-        <h1 class="resource-shell__title">從參與意圖建立任務</h1>
+        <h1 class="resource-shell__title">{{ t('participationTaskCreate.title') }}</h1>
         <p class="resource-shell__description">
-          這個流程會沿用 participation request 內已接受的活動與裝置設定檔，只需要補上任務標題、說明與狀態。
+          {{ t('participationTaskCreate.description') }}
         </p>
         <div class="resource-shell__meta">
           <span
             v-if="currentActor"
             class="resource-shell__meta-chip"
           >
-            目前帳號 {{ currentActor.display_name }}
+            {{ t('participationTaskCreate.currentAccount') }} {{ currentActor.display_name }}
           </span>
-          <span class="resource-shell__meta-chip">請從 shell 切換操作情境</span>
+          <span class="resource-shell__meta-chip">{{ t('participationTaskCreate.switchContextHint') }}</span>
         </div>
       </header>
 
@@ -156,11 +158,11 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-actor-error"
       >
-        <h2 class="resource-state__title">無法取得操作情境</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.actorErrorTitle') }}</h2>
         <p class="resource-state__description">{{ accountsError.message }}</p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refreshAccounts()">
-            重試
+            {{ t('common.retry') }}
           </button>
         </div>
       </section>
@@ -170,8 +172,8 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-actor-loading"
       >
-        <h2 class="resource-state__title">載入開發者情境中</h2>
-        <p class="resource-state__description">正在確認目前操作帳號。</p>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.actorLoadingTitle') }}</h2>
+        <p class="resource-state__description">{{ t('participationTaskCreate.actorLoadingDescription') }}</p>
       </section>
 
       <section
@@ -179,9 +181,9 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-select-actor"
       >
-        <h2 class="resource-state__title">請選擇開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.selectActorTitle') }}</h2>
         <p class="resource-state__description">
-          先選擇目前操作帳號，系統才知道能不能從這筆 participation request 建立任務。
+          {{ t('participationTaskCreate.selectActorDescription') }}
         </p>
       </section>
 
@@ -190,9 +192,9 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-actor-missing"
       >
-        <h2 class="resource-state__title">找不到已選擇的帳號</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.actorMissingTitle') }}</h2>
         <p class="resource-state__description">
-          目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。
+          {{ t('participationTaskCreate.actorMissingDescription') }}
         </p>
       </section>
 
@@ -201,9 +203,13 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-role-mismatch"
       >
-        <h2 class="resource-state__title">建立任務需要開發者帳號</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.roleMismatchTitle') }}</h2>
         <p class="resource-state__description">
-          目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到開發者帳號，再從這筆 participation request 建立任務。
+          {{
+            t('participationTaskCreate.roleMismatchDescription', {
+              role: formatAccountRoleLabel(currentActor.role, locale)
+            })
+          }}
         </p>
       </section>
 
@@ -212,9 +218,9 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-loading"
       >
-        <h2 class="resource-state__title">載入 participation request 中</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.loadingTitle') }}</h2>
         <p class="resource-state__description">
-          正在整理活動與裝置設定檔上下文。
+          {{ t('participationTaskCreate.loadingDescription') }}
         </p>
       </section>
 
@@ -223,16 +229,16 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-error"
       >
-        <h2 class="resource-state__title">無法載入建立任務流程</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.errorTitle') }}</h2>
         <p class="resource-state__description">
-          {{ error?.message || '找不到指定的 participation request。' }}
+          {{ error?.message || t('participationTaskCreate.errorFallback') }}
         </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            重試
+            {{ t('common.retry') }}
           </button>
           <NuxtLink class="resource-action" :to="`/review/participation-requests/${requestId}`">
-            返回參與意圖詳情
+            {{ t('participationTaskCreate.backToDetail') }}
           </NuxtLink>
         </div>
       </section>
@@ -242,16 +248,20 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-linked"
       >
-        <h2 class="resource-state__title">這筆參與意圖已建立對應任務</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.linkedTitle') }}</h2>
         <p class="resource-state__description">
-          這筆 participation request 已在 {{ participationRequest.assignment_created_at || '稍早' }} 建立對應任務。
+          {{
+            t('participationTaskCreate.linkedDescription', {
+              when: participationRequest.assignment_created_at || t('participationTaskCreate.laterLabel')
+            })
+          }}
         </p>
         <div class="resource-state__actions">
           <NuxtLink class="resource-action" :to="`/tasks/${participationRequest.linked_task_id}`">
-            查看對應任務
+            {{ t('participationTaskCreate.viewLinkedTask') }}
           </NuxtLink>
           <NuxtLink class="resource-action" :to="`/review/participation-requests/${requestId}`">
-            返回參與意圖詳情
+            {{ t('participationTaskCreate.backToDetail') }}
           </NuxtLink>
         </div>
       </section>
@@ -261,13 +271,17 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-state"
         data-testid="participation-request-task-create-status-mismatch"
       >
-        <h2 class="resource-state__title">只有已接受的參與意圖才能建立任務</h2>
+        <h2 class="resource-state__title">{{ t('participationTaskCreate.statusMismatchTitle') }}</h2>
         <p class="resource-state__description">
-          目前這筆 participation request 的狀態是{{ participationRequest.status }}，請先完成接受流程。
+          {{
+            t('participationTaskCreate.statusMismatchDescription', {
+              status: participationRequest.status
+            })
+          }}
         </p>
         <div class="resource-state__actions">
           <NuxtLink class="resource-action" :to="`/review/participation-requests/${requestId}`">
-            返回參與意圖詳情
+            {{ t('participationTaskCreate.backToDetail') }}
           </NuxtLink>
         </div>
       </section>
@@ -277,14 +291,14 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         class="resource-section"
         data-testid="participation-request-task-create-panel"
       >
-        <h2 class="resource-section__title">建立對應任務</h2>
+        <h2 class="resource-section__title">{{ t('participationTaskCreate.panelTitle') }}</h2>
 
         <div class="resource-shell__meta">
           <span class="resource-shell__meta-chip">
-            活動 {{ participationRequest.campaign_name }}
+            {{ t('participationTaskCreate.campaignLabel') }} {{ participationRequest.campaign_name }}
           </span>
           <span class="resource-shell__meta-chip">
-            裝置 {{ participationRequest.device_profile_name }}
+            {{ t('participationTaskCreate.deviceLabel') }} {{ participationRequest.device_profile_name }}
           </span>
         </div>
 
@@ -296,7 +310,7 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
           :lock-device-profile="true"
           :pending="submitting"
           :error-message="submitError"
-          submit-label="建立對應任務"
+          :submit-label="t('participationTaskCreate.panelTitle')"
           :cancel-to="`/review/participation-requests/${requestId}`"
           @submit="handleSubmit"
         />

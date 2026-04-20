@@ -171,12 +171,12 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewFeedback.currentAccount') }}</span>
               <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
-              <span class="app-page-summary-card__description">這個 queue 只呈現目前開發者需要處理的 feedback review 工作。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewFeedback.currentAccountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewFeedback.reviewLabel') }}</span>
               <strong class="app-page-summary-card__value">{{ formatFeedbackReviewStatusLabel(activeReviewStatus, locale) }}</strong>
-              <span class="app-page-summary-card__description">切換 review 狀態後，列表維持相同的 queue card 節奏。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewFeedback.reviewDescription') }}</span>
             </article>
           </div>
         </section>

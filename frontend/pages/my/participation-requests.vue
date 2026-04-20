@@ -77,7 +77,7 @@ const participationRequests = computed(() => requestResponse.value.items)
 const requestsErrorMessage = computed(() =>
   getActorAwareReadErrorMessage(
     requestsError.value,
-    '目前無法載入我的參與意圖。'
+    '目前無法載入我的參與申請。'
   )
 )
 
@@ -198,12 +198,12 @@ watch([currentActorId, currentActor], () => {
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myParticipationRequests.currentAccount') }}</span>
               <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
-              <span class="app-page-summary-card__description">這裡聚焦同一位測試者目前送出的參與意圖與 bridge 狀態。</span>
+              <span class="app-page-summary-card__description">{{ t('myParticipationRequests.currentAccountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('myParticipationRequests.requestsCount') }}</span>
               <strong class="app-page-summary-card__value">{{ requestResponse.total }}</strong>
-              <span class="app-page-summary-card__description">接受、撤回與已建立任務的狀態會維持一致的列表節奏。</span>
+              <span class="app-page-summary-card__description">{{ t('myParticipationRequests.requestsCountDescription') }}</span>
             </article>
           </div>
         </section>

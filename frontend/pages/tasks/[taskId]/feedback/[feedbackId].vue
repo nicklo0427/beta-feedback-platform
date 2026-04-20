@@ -266,25 +266,25 @@ async function handleReviewSubmit(): Promise<void> {
             class="resource-section"
             data-testid="feedback-detail-panel"
           >
-            <span class="resource-section__eyebrow">Feedback Detail</span>
+            <span class="resource-section__eyebrow">{{ t('feedbackDetail.eyebrow') }}</span>
             <h2 class="resource-section__title">{{ feedback.summary }}</h2>
 
             <div class="resource-shell__meta">
-              <span class="resource-shell__meta-chip">嚴重程度 {{ formatFeedbackSeverityLabel(feedback.severity) }}</span>
-              <span class="resource-shell__meta-chip">分類 {{ formatFeedbackCategoryLabel(feedback.category) }}</span>
+              <span class="resource-shell__meta-chip">{{ t('feedbackDetail.severityLabel') }} {{ formatFeedbackSeverityLabel(feedback.severity, locale) }}</span>
+              <span class="resource-shell__meta-chip">{{ t('feedbackDetail.categoryLabel') }} {{ formatFeedbackCategoryLabel(feedback.category, locale) }}</span>
               <span class="resource-shell__meta-chip">
-                審閱 {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+                {{ t('feedbackDetail.reviewLabel') }} {{ formatFeedbackReviewStatusLabel(feedback.review_status, locale) }}
               </span>
-              <span class="resource-shell__meta-chip">任務 {{ feedback.task_id }}</span>
+              <span class="resource-shell__meta-chip">{{ t('feedbackDetail.taskLabel') }} {{ feedback.task_id }}</span>
             </div>
 
             <div class="resource-key-value">
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">回饋 ID</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.feedbackIdLabel') }}</span>
                 <span class="resource-key-value__value">{{ feedback.id }}</span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">活動 ID</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.campaignIdLabel') }}</span>
                 <NuxtLink
                   class="resource-key-value__value"
                   :to="`/campaigns/${feedback.campaign_id}`"
@@ -293,7 +293,7 @@ async function handleReviewSubmit(): Promise<void> {
                 </NuxtLink>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">裝置設定檔 ID</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.deviceProfileIdLabel') }}</span>
                 <NuxtLink
                   v-if="feedback.device_profile_id"
                   class="resource-key-value__value"
@@ -302,37 +302,37 @@ async function handleReviewSubmit(): Promise<void> {
                   {{ feedback.device_profile_id }}
                 </NuxtLink>
                 <span v-else class="resource-key-value__value">
-                  尚未推導。
+                  {{ t('feedbackDetail.deviceProfileIdEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">評分</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.ratingLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.rating ?? '尚未提供。' }}
+                  {{ feedback.rating ?? t('feedbackDetail.ratingEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">重現步驟</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.reproductionStepsLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.reproduction_steps || '尚未提供。' }}
+                  {{ feedback.reproduction_steps || t('feedbackDetail.fieldEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">預期結果</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.expectedResultLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.expected_result || '尚未提供。' }}
+                  {{ feedback.expected_result || t('feedbackDetail.fieldEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">實際結果</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.actualResultLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.actual_result || '尚未提供。' }}
+                  {{ feedback.actual_result || t('feedbackDetail.fieldEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">備註</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.noteLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.note || '目前沒有備註。' }}
+                  {{ feedback.note || t('feedbackDetail.noteEmpty') }}
                 </span>
               </div>
             </div>
@@ -342,11 +342,11 @@ async function handleReviewSubmit(): Promise<void> {
             class="resource-section"
             data-testid="feedback-review-panel"
           >
-            <span class="resource-section__eyebrow">Review Workflow</span>
-            <h2 class="resource-section__title">審閱流程</h2>
+            <span class="resource-section__eyebrow">{{ t('feedbackDetail.reviewEyebrow') }}</span>
+            <h2 class="resource-section__title">{{ t('feedbackDetail.reviewTitle') }}</h2>
             <div class="resource-section__body">
               <p class="resource-card__description">
-                開發者可在這裡標記回饋狀態，並留下最小補充要求或處理註記。
+                {{ t('feedbackDetail.reviewDescription') }}
               </p>
 
               <div
@@ -359,15 +359,15 @@ async function handleReviewSubmit(): Promise<void> {
 
               <section class="resource-form__section">
                 <div>
-                  <h3 class="resource-form__section-title">審閱設定</h3>
+                  <h3 class="resource-form__section-title">{{ t('feedbackDetail.reviewSettingsTitle') }}</h3>
                   <p class="resource-form__section-description">
-                    更新回饋狀態與開發者註記後，這些內容會立即反映到 review queue 與補件流程。
+                    {{ t('feedbackDetail.reviewSettingsDescription') }}
                   </p>
                 </div>
 
                 <div class="resource-form__section-grid">
                   <label class="resource-field">
-                    <span class="resource-field__label">審閱狀態</span>
+                    <span class="resource-field__label">{{ t('feedbackDetail.reviewStatusLabel') }}</span>
                     <select
                       v-model="reviewStatus"
                       class="resource-select"
@@ -379,14 +379,14 @@ async function handleReviewSubmit(): Promise<void> {
                         :key="statusOption"
                         :value="statusOption"
                       >
-                        {{ formatFeedbackReviewStatusLabel(statusOption) }}
+                        {{ formatFeedbackReviewStatusLabel(statusOption, locale) }}
                       </option>
                     </select>
                   </label>
                 </div>
 
                 <label class="resource-field">
-                  <span class="resource-field__label">開發者註記</span>
+                  <span class="resource-field__label">{{ t('feedbackDetail.developerNoteFieldLabel') }}</span>
                   <textarea
                     v-model="developerNote"
                     class="resource-textarea"
@@ -405,7 +405,7 @@ async function handleReviewSubmit(): Promise<void> {
                   :disabled="reviewPending"
                   @click="handleReviewSubmit"
                 >
-                  {{ reviewPending ? '儲存中...' : '儲存審閱變更' }}
+                  {{ reviewPending ? t('feedbackDetail.reviewSaving') : t('feedbackDetail.reviewSubmit') }}
                 </button>
               </div>
             </div>
@@ -417,46 +417,46 @@ async function handleReviewSubmit(): Promise<void> {
             class="resource-section"
             data-testid="feedback-review-context-panel"
           >
-            <span class="resource-section__eyebrow">Review Context</span>
-            <h2 class="resource-section__title">審閱上下文</h2>
+            <span class="resource-section__eyebrow">{{ t('feedbackDetail.contextEyebrow') }}</span>
+            <h2 class="resource-section__title">{{ t('feedbackDetail.contextTitle') }}</h2>
 
             <div class="resource-key-value">
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">審閱狀態</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.reviewStatusLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ formatFeedbackReviewStatusLabel(feedback.review_status) }}
+                  {{ formatFeedbackReviewStatusLabel(feedback.review_status, locale) }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">開發者註記</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.developerNoteLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.developer_note || '目前沒有開發者註記。' }}
+                  {{ feedback.developer_note || t('feedbackDetail.developerNoteEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">提交時間</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.submittedAtLabel') }}</span>
                 <span class="resource-key-value__value">{{ feedback.submitted_at }}</span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">重新提交時間</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.resubmittedAtLabel') }}</span>
                 <span class="resource-key-value__value">
-                  {{ feedback.resubmitted_at || '尚未重新提交。' }}
+                  {{ feedback.resubmitted_at || t('feedbackDetail.resubmittedAtEmpty') }}
                 </span>
               </div>
               <div class="resource-key-value__row">
-                <span class="resource-key-value__label">更新時間</span>
+                <span class="resource-key-value__label">{{ t('feedbackDetail.updatedAtLabel') }}</span>
                 <span class="resource-key-value__value">{{ feedback.updated_at }}</span>
               </div>
             </div>
           </section>
 
           <ActivityTimelinePanel
-            title="回饋時間線"
-            description="這裡會整理回饋提交、補件要求、重新提交與審閱完成等關鍵事件。"
+            :title="t('feedbackDetail.timelineTitle')"
+            :description="t('feedbackDetail.timelineDescription')"
             :pending="timelinePending"
             :error-message="timelineErrorMessage"
             :events="timelineEvents"
-            empty-message="這筆回饋目前還沒有可顯示的關鍵事件。"
+            :empty-message="t('feedbackDetail.timelineEmpty')"
             test-id-prefix="feedback-timeline"
           />
         </aside>

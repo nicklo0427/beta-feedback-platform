@@ -32,12 +32,14 @@ import {
 } from '~/features/safety/types'
 import { fetchTasks } from '~/features/tasks/api'
 import { formatTaskStatusLabel } from '~/features/tasks/types'
+import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import { ApiClientError } from '~/services/api/client'
 
 const route = useRoute()
 const campaignId = computed(() => String(route.params.campaignId))
 
 useCurrentActorPersistence()
+const { locale, t } = useAppI18n()
 
 const currentActorId = useCurrentActorId()
 
@@ -139,15 +141,15 @@ const participationInitialValues = computed(() =>
 )
 const qualificationErrorMessage = computed(() => {
   if (!(qualificationError.value instanceof ApiClientError)) {
-    return qualificationError.value?.message || '目前無法載入目前測試者資格結果。'
+    return qualificationError.value?.message || t('campaignDetail.qualificationErrorFallback')
   }
 
   if (qualificationError.value.code === 'missing_actor_context') {
-    return '請先選擇目前操作帳號，再查看資格結果。'
+    return t('campaignDetail.qualificationNoActor')
   }
 
   if (qualificationError.value.code === 'forbidden_actor_role') {
-    return '目前操作帳號角色不符合查看資格結果的條件。'
+    return t('campaignDetail.qualificationForbiddenRole')
   }
 
   return qualificationError.value.message
@@ -232,7 +234,7 @@ async function handleCreateParticipationRequest(
 
   try {
     if (!currentActorId.value) {
-      participationErrorMessage.value = '送出參與意圖前，請先選擇目前操作帳號。'
+      participationErrorMessage.value = t('campaignDetail.participationNoActor')
       return
     }
 
@@ -241,12 +243,11 @@ async function handleCreateParticipationRequest(
       buildParticipationRequestCreatePayload(values),
       currentActorId.value
     )
-    participationSuccessMessage.value =
-      '已送出參與意圖。你可以到我的參與意圖查看目前狀態。'
+    participationSuccessMessage.value = t('campaignDetail.participationSuccess')
   } catch (submitFailure) {
     participationErrorMessage.value = getActorAwareMutationErrorMessage(
       submitFailure,
-      '目前無法送出這筆參與意圖。'
+      t('campaignDetail.participationFallback')
     )
   } finally {
     participationPending.value = false
@@ -263,10 +264,10 @@ watch([campaignId, currentActorId], () => {
   <main class="app-shell">
     <section class="resource-shell">
       <header class="resource-shell__header">
-        <NuxtLink class="resource-shell__breadcrumb" to="/campaigns">活動列表</NuxtLink>
-        <h1 class="resource-shell__title">活動詳情</h1>
+        <NuxtLink class="resource-shell__breadcrumb" to="/campaigns">{{ t('campaignDetail.breadcrumb') }}</NuxtLink>
+        <h1 class="resource-shell__title">{{ t('campaignDetail.title') }}</h1>
         <p class="resource-shell__description">
-          這個頁面先承接單一活動的核心欄位，包含所屬專案、版本、平台與活動狀態。
+          {{ t('campaignDetail.description') }}
         </p>
       </header>
 
@@ -275,10 +276,10 @@ watch([campaignId, currentActorId], () => {
         class="resource-state"
         data-testid="campaign-detail-loading"
       >
-        <h2 class="resource-state__title">載入活動詳情中</h2>
-        <p class="resource-state__description">
-          正在從 API 載入活動詳情。
-        </p>
+          <h2 class="resource-state__title">{{ t('campaignDetail.loadingTitle') }}</h2>
+          <p class="resource-state__description">
+            {{ t('campaignDetail.loadingDescription') }}
+          </p>
       </section>
 
       <section
@@ -286,16 +287,16 @@ watch([campaignId, currentActorId], () => {
         class="resource-state"
         data-testid="campaign-detail-error"
       >
-        <h2 class="resource-state__title">無法載入活動詳情</h2>
-        <p class="resource-state__description">
-          {{ error?.message || '找不到指定的活動。' }}
-        </p>
+          <h2 class="resource-state__title">{{ t('campaignDetail.errorTitle') }}</h2>
+          <p class="resource-state__description">
+            {{ error?.message || t('campaignDetail.errorFallback') }}
+          </p>
         <div class="resource-state__actions">
           <button class="resource-action" type="button" @click="refresh()">
-            重試
+            {{ t('common.retry') }}
           </button>
           <NuxtLink class="resource-action" to="/campaigns">
-            返回活動列表
+            {{ t('campaignDetail.backToCampaigns') }}
           </NuxtLink>
         </div>
       </section>
@@ -312,12 +313,12 @@ watch([campaignId, currentActorId], () => {
             data-testid="campaign-edit-link"
             :to="`/campaigns/${campaign.id}/edit`"
           >
-            編輯活動
+            {{ t('campaignDetail.editCampaign') }}
           </NuxtLink>
         </div>
 
         <div class="resource-shell__meta">
-          <span class="resource-shell__meta-chip">狀態 {{ formatCampaignStatusLabel(campaign.status) }}</span>
+          <span class="resource-shell__meta-chip">{{ t('campaignDetail.statusLabel') }} {{ formatCampaignStatusLabel(campaign.status, locale) }}</span>
           <span
             v-for="platform in campaign.target_platforms"
             :key="platform"
@@ -329,11 +330,11 @@ watch([campaignId, currentActorId], () => {
 
         <div class="resource-key-value">
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">活動 ID</span>
+                <span class="resource-key-value__label">{{ t('campaignDetail.campaignIdLabel') }}</span>
             <span class="resource-key-value__value">{{ campaign.id }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">專案 ID</span>
+                <span class="resource-key-value__label">{{ t('campaignDetail.projectIdLabel') }}</span>
             <NuxtLink
               class="resource-key-value__value"
               :to="`/projects/${campaign.project_id}`"
@@ -342,43 +343,43 @@ watch([campaignId, currentActorId], () => {
             </NuxtLink>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">版本標記</span>
-            <span class="resource-key-value__value">
-              {{ campaign.version_label || '目前尚未提供版本標記。' }}
-            </span>
+                <span class="resource-key-value__label">{{ t('campaignDetail.versionLabel') }}</span>
+                <span class="resource-key-value__value">
+                  {{ campaign.version_label || t('campaignDetail.versionEmpty') }}
+                </span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">更新時間</span>
+                <span class="resource-key-value__label">{{ t('campaignDetail.updatedAtLabel') }}</span>
             <span class="resource-key-value__value">{{ campaign.updated_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">建立時間</span>
+                <span class="resource-key-value__label">{{ t('campaignDetail.createdAtLabel') }}</span>
             <span class="resource-key-value__value">{{ campaign.created_at }}</span>
           </div>
           <div class="resource-key-value__row">
-            <span class="resource-key-value__label">描述</span>
-            <span class="resource-key-value__value">
-              {{ campaign.description || '目前尚未提供活動描述。' }}
-            </span>
-          </div>
-        </div>
-      </section>
+                <span class="resource-key-value__label">{{ t('campaignDetail.descriptionLabel') }}</span>
+                <span class="resource-key-value__value">
+                  {{ campaign.description || t('campaignDetail.descriptionEmpty') }}
+                </span>
+              </div>
+            </div>
+          </section>
 
       <section
         v-if="!pending && !error && campaign"
         class="resource-section"
         data-testid="campaign-reputation-section"
       >
-        <h2 class="resource-section__title">協作摘要</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.reputationTitle') }}</h2>
 
         <div
           v-if="reputationPending"
           class="resource-state"
           data-testid="campaign-reputation-loading"
         >
-          <h3 class="resource-state__title">載入協作摘要中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.reputationLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在根據任務與回饋推導這個活動的最小協作摘要。
+            {{ t('campaignDetail.reputationLoadingDescription') }}
           </p>
         </div>
 
@@ -387,13 +388,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-reputation-error"
         >
-          <h3 class="resource-state__title">無法載入協作摘要</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.reputationErrorTitle') }}</h3>
           <p class="resource-state__description">
-            {{ getActorAwareReadErrorMessage(reputationError, '目前無法載入活動協作摘要。') }}
+            {{ getActorAwareReadErrorMessage(reputationError, t('campaignDetail.reputationErrorFallback')) }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshReputation()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </div>
@@ -403,9 +404,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-reputation-zero"
         >
-          <h3 class="resource-state__title">目前還沒有協作訊號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.reputationZeroTitle') }}</h3>
           <p class="resource-state__description">
-            這個活動還沒有累積任務完成或回饋紀錄，目前摘要維持在零狀態。
+            {{ t('campaignDetail.reputationZeroDescription') }}
           </p>
         </div>
 
@@ -416,40 +417,40 @@ watch([campaignId, currentActorId], () => {
         >
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              關閉率 {{ reputation.closure_rate.toFixed(2) }}
+              {{ t('campaignDetail.closureRateLabel') }} {{ reputation.closure_rate.toFixed(2) }}
             </span>
             <span class="resource-shell__meta-chip">
-              回饋數 {{ reputation.feedback_received_count }}
+              {{ t('campaignDetail.feedbackCountLabel') }} {{ reputation.feedback_received_count }}
             </span>
           </div>
 
           <div class="resource-key-value">
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">任務總數</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.tasksTotalLabel') }}</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_total_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">已關閉任務數</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.tasksClosedLabel') }}</span>
               <span class="resource-key-value__value">
                 {{ reputation.tasks_closed_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">收到的回饋數</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.feedbackReceivedLabel') }}</span>
               <span class="resource-key-value__value">
                 {{ reputation.feedback_received_count }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">最近回饋時間</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.lastFeedbackAtLabel') }}</span>
               <span class="resource-key-value__value">
-                {{ reputation.last_feedback_at || '目前尚未收到任何回饋。' }}
+                {{ reputation.last_feedback_at || t('campaignDetail.lastFeedbackAtEmpty') }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">更新時間</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.updatedAtLabel') }}</span>
               <span class="resource-key-value__value">{{ reputation.updated_at }}</span>
             </div>
           </div>
@@ -461,16 +462,16 @@ watch([campaignId, currentActorId], () => {
         class="resource-section"
         data-testid="campaign-safety-section"
       >
-        <h2 class="resource-section__title">安全與來源</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.safetyTitle') }}</h2>
 
         <div
           v-if="safetyPending"
           class="resource-state"
           data-testid="campaign-safety-loading"
         >
-          <h3 class="resource-state__title">載入活動安全資訊中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.safetyLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在載入這個活動的來源標示與風險資訊。
+            {{ t('campaignDetail.safetyLoadingDescription') }}
           </p>
         </div>
 
@@ -479,13 +480,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-safety-error"
         >
-          <h3 class="resource-state__title">無法載入活動安全資訊</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.safetyErrorTitle') }}</h3>
           <p class="resource-state__description">
-            {{ getActorAwareReadErrorMessage(safetyError, '目前無法載入活動安全資訊。') }}
+            {{ getActorAwareReadErrorMessage(safetyError, t('campaignDetail.safetyErrorFallback')) }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshSafety()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </div>
@@ -495,9 +496,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-safety-empty"
         >
-          <h3 class="resource-state__title">目前還沒有安全設定</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.safetyEmptyTitle') }}</h3>
           <p class="resource-state__description">
-            目前這個活動尚未設定來源標示與風險資訊。後續建立安全設定後，這個區塊會直接承接顯示。
+            {{ t('campaignDetail.safetyEmptyDescription') }}
           </p>
           <div class="resource-state__actions">
             <NuxtLink
@@ -505,7 +506,7 @@ watch([campaignId, currentActorId], () => {
               data-testid="campaign-safety-create-link"
               :to="`/campaigns/${campaignId}/safety/new`"
             >
-              建立安全設定
+              {{ t('campaignDetail.createSafety') }}
             </NuxtLink>
           </div>
         </div>
@@ -521,34 +522,34 @@ watch([campaignId, currentActorId], () => {
               data-testid="campaign-safety-edit-link"
               :to="`/campaigns/${campaignId}/safety/edit`"
             >
-              編輯安全設定
+              {{ t('campaignDetail.editSafety') }}
             </NuxtLink>
           </div>
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              風險 {{ formatRiskLevelLabel(safety.risk_level) }}
+              {{ t('campaignDetail.riskLabel') }} {{ formatRiskLevelLabel(safety.risk_level, locale) }}
             </span>
             <span class="resource-shell__meta-chip">
-              審核 {{ formatReviewStatusLabel(safety.review_status) }}
+              {{ t('campaignDetail.reviewStatusLabel') }} {{ formatReviewStatusLabel(safety.review_status, locale) }}
             </span>
             <span class="resource-shell__meta-chip">
-              僅限官方渠道 {{ safety.official_channel_only ? '是' : '否' }}
+              {{ t('campaignDetail.officialChannelOnlyLabel') }} {{ safety.official_channel_only ? t('campaignDetail.yes') : t('campaignDetail.no') }}
             </span>
           </div>
 
           <div class="resource-key-value">
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">來源標示</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.sourceLabelLabel') }}</span>
               <span class="resource-key-value__value">{{ safety.source_label }}</span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">分發渠道</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.distributionChannelLabel') }}</span>
               <span class="resource-key-value__value">
-                {{ formatDistributionChannelLabel(safety.distribution_channel) }}
+                {{ formatDistributionChannelLabel(safety.distribution_channel, locale) }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">來源網址</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.sourceUrlLabel') }}</span>
               <a
                 v-if="safety.source_url"
                 class="resource-key-value__value"
@@ -559,17 +560,17 @@ watch([campaignId, currentActorId], () => {
                 {{ safety.source_url }}
               </a>
               <span v-else class="resource-key-value__value">
-                目前沒有來源網址。
+                {{ t('campaignDetail.sourceUrlEmpty') }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">風險註記</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.riskNoteLabel') }}</span>
               <span class="resource-key-value__value">
-                {{ safety.risk_note || '目前沒有額外風險註記。' }}
+                {{ safety.risk_note || t('campaignDetail.riskNoteEmpty') }}
               </span>
             </div>
             <div class="resource-key-value__row">
-              <span class="resource-key-value__label">更新時間</span>
+              <span class="resource-key-value__label">{{ t('campaignDetail.updatedAtLabel') }}</span>
               <span class="resource-key-value__value">{{ safety.updated_at }}</span>
             </div>
           </div>
@@ -581,14 +582,14 @@ watch([campaignId, currentActorId], () => {
         class="resource-section"
         data-testid="campaign-eligibility-section"
       >
-        <h2 class="resource-section__title">資格條件規則</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.eligibilityTitle') }}</h2>
         <div class="resource-state__actions">
           <NuxtLink
             class="resource-action"
             data-testid="eligibility-rule-create-link"
             :to="`/campaigns/${campaignId}/eligibility-rules/new`"
           >
-            建立資格條件規則
+            {{ t('campaignDetail.createEligibilityRule') }}
           </NuxtLink>
         </div>
 
@@ -597,9 +598,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-eligibility-loading"
         >
-          <h3 class="resource-state__title">載入資格條件規則中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.eligibilityLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在載入這個活動的最小資格條件規則。
+            {{ t('campaignDetail.eligibilityLoadingDescription') }}
           </p>
         </div>
 
@@ -608,13 +609,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-eligibility-error"
         >
-          <h3 class="resource-state__title">無法載入資格條件規則</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.eligibilityErrorTitle') }}</h3>
           <p class="resource-state__description">
-            {{ getActorAwareReadErrorMessage(eligibilityError, '目前無法載入資格條件規則。') }}
+            {{ getActorAwareReadErrorMessage(eligibilityError, t('campaignDetail.eligibilityErrorFallback')) }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshEligibility()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </div>
@@ -624,9 +625,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-eligibility-empty"
         >
-          <h3 class="resource-state__title">目前還沒有資格條件規則</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.eligibilityEmptyTitle') }}</h3>
           <p class="resource-state__description">
-            目前這個活動尚未建立任何資格條件規則，後續可在後端建立後由此區塊直接承接。
+            {{ t('campaignDetail.eligibilityEmptyDescription') }}
           </p>
           <div class="resource-state__actions">
             <NuxtLink
@@ -634,7 +635,7 @@ watch([campaignId, currentActorId], () => {
               data-testid="eligibility-rule-empty-create-link"
               :to="`/campaigns/${campaignId}/eligibility-rules/new`"
             >
-              建立第一筆資格條件規則
+              {{ t('campaignDetail.createFirstEligibilityRule') }}
             </NuxtLink>
           </div>
         </div>
@@ -651,26 +652,26 @@ watch([campaignId, currentActorId], () => {
             :data-testid="`eligibility-rule-card-${eligibilityRule.id}`"
             :to="`/campaigns/${campaign.id}/eligibility-rules/${eligibilityRule.id}`"
           >
-            <span class="resource-shell__breadcrumb">資格條件規則</span>
+            <span class="resource-shell__breadcrumb">{{ t('campaignDetail.eligibilityBreadcrumb') }}</span>
             <h3 class="resource-card__title">
               {{ formatPlatformLabel(eligibilityRule.platform) }}
             </h3>
             <p class="resource-card__description">
               {{
                 eligibilityRule.os_name
-                  ? `作業系統 ${eligibilityRule.os_name}`
-                  : '目前尚未限制作業系統。'
+                  ? t('campaignDetail.osNameDescription', { osName: eligibilityRule.os_name })
+                  : t('campaignDetail.osNameEmpty')
               }}
             </p>
             <div class="resource-card__meta">
               <span class="resource-card__chip">
-                啟用中 {{ eligibilityRule.is_active ? '是' : '否' }}
+                {{ t('campaignDetail.activeLabel') }} {{ eligibilityRule.is_active ? t('campaignDetail.yes') : t('campaignDetail.no') }}
               </span>
               <span class="resource-card__chip">
                 {{
                   eligibilityRule.install_channel
-                    ? `渠道 ${eligibilityRule.install_channel}`
-                    : '目前尚未限制安裝渠道'
+                    ? `${t('campaignDetail.installChannelLabel')} ${eligibilityRule.install_channel}`
+                    : t('campaignDetail.installChannelEmpty')
                 }}
               </span>
             </div>
@@ -683,20 +684,20 @@ watch([campaignId, currentActorId], () => {
         class="resource-section"
         data-testid="campaign-qualification-section"
       >
-        <h2 class="resource-section__title">目前測試者資格檢查</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.qualificationTitle') }}</h2>
 
         <section
           v-if="accountsError"
           class="resource-state"
           data-testid="campaign-qualification-actor-error"
         >
-          <h3 class="resource-state__title">無法取得測試者情境</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.actorErrorTitle') }}</h3>
           <p class="resource-state__description">
             {{ accountsError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshAccounts()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </section>
@@ -706,9 +707,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-qualification-actor-loading"
         >
-          <h3 class="resource-state__title">載入測試者情境中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.actorLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在確認目前操作帳號與可用的測試裝置設定檔。
+            {{ t('campaignDetail.qualificationActorLoadingDescription') }}
           </p>
         </section>
 
@@ -717,9 +718,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-qualification-select-actor"
         >
-          <h3 class="resource-state__title">請先選擇測試者帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.qualificationSelectActorTitle') }}</h3>
           <p class="resource-state__description">
-            先選擇目前操作帳號，系統才知道要用哪位測試者擁有的裝置設定檔來判斷資格。
+            {{ t('campaignDetail.qualificationSelectActorDescription') }}
           </p>
         </section>
 
@@ -728,9 +729,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-qualification-actor-missing"
         >
-          <h3 class="resource-state__title">找不到已選擇的帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.qualificationActorMissingTitle') }}</h3>
           <p class="resource-state__description">
-            目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。
+            {{ t('campaignDetail.qualificationActorMissingDescription') }}
           </p>
         </section>
 
@@ -739,19 +740,23 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-qualification-role-mismatch"
         >
-          <h3 class="resource-state__title">資格檢查需要測試者帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.qualificationRoleMismatchTitle') }}</h3>
           <p class="resource-state__description">
-            目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到測試者帳號，再查看是否符合這個活動的資格條件。
+            {{
+              t('campaignDetail.qualificationRoleMismatchDescription', {
+                role: formatAccountRoleLabel(currentActor.role, locale)
+              })
+            }}
           </p>
         </section>
 
         <template v-else>
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
+              {{ t('campaignDetail.qualificationCurrentAccount') }} {{ currentActor.display_name }}
             </span>
             <span class="resource-shell__meta-chip">
-              裝置資格結果 {{ qualificationResponse.total }}
+              {{ t('campaignDetail.qualificationResultsLabel') }} {{ qualificationResponse.total }}
             </span>
           </div>
 
@@ -760,9 +765,9 @@ watch([campaignId, currentActorId], () => {
             class="resource-state"
             data-testid="campaign-qualification-loading"
           >
-            <h3 class="resource-state__title">載入資格檢查結果中</h3>
+            <h3 class="resource-state__title">{{ t('campaignDetail.qualificationLoadingTitle') }}</h3>
             <p class="resource-state__description">
-              正在根據這位測試者擁有的裝置設定檔與活動資格條件，推導最小 qualification 結果。
+              {{ t('campaignDetail.qualificationLoadingDescription') }}
             </p>
           </section>
 
@@ -771,13 +776,13 @@ watch([campaignId, currentActorId], () => {
             class="resource-state"
             data-testid="campaign-qualification-error"
           >
-            <h3 class="resource-state__title">無法載入資格檢查結果</h3>
+            <h3 class="resource-state__title">{{ t('campaignDetail.qualificationErrorTitle') }}</h3>
             <p class="resource-state__description">
               {{ qualificationErrorMessage }}
             </p>
             <div class="resource-state__actions">
               <button class="resource-action" type="button" @click="refreshQualification()">
-                重試
+                {{ t('common.retry') }}
               </button>
             </div>
           </section>
@@ -787,13 +792,13 @@ watch([campaignId, currentActorId], () => {
             class="resource-state"
             data-testid="campaign-qualification-empty"
           >
-            <h3 class="resource-state__title">目前沒有可檢查的裝置設定檔</h3>
+            <h3 class="resource-state__title">{{ t('campaignDetail.qualificationEmptyTitle') }}</h3>
             <p class="resource-state__description">
-              目前這位測試者還沒有任何擁有的裝置設定檔，系統暫時無法判斷是否符合這個活動的資格條件。
+              {{ t('campaignDetail.qualificationEmptyDescription') }}
             </p>
             <div class="resource-state__actions">
               <NuxtLink class="resource-action" to="/device-profiles/new">
-                建立裝置設定檔
+                {{ t('campaignDetail.createDeviceProfile') }}
               </NuxtLink>
             </div>
           </section>
@@ -809,23 +814,23 @@ watch([campaignId, currentActorId], () => {
               class="resource-card"
               :data-testid="`campaign-qualification-result-${result.device_profile_id}`"
             >
-              <span class="resource-shell__breadcrumb">裝置資格結果</span>
+              <span class="resource-shell__breadcrumb">{{ t('campaignDetail.qualificationBreadcrumb') }}</span>
               <h3 class="resource-card__title">{{ result.device_profile_name }}</h3>
               <p class="resource-card__description">
-                {{ result.reason_summary || '目前沒有額外資格說明。' }}
+                {{ result.reason_summary || t('campaignDetail.qualificationSummaryEmpty') }}
               </p>
               <div class="resource-card__meta">
                 <span class="resource-card__chip">
-                  狀態 {{ formatQualificationStatusLabel(result.qualification_status) }}
+                  {{ t('campaignDetail.qualificationStatusLabel') }} {{ formatQualificationStatusLabel(result.qualification_status, locale) }}
                 </span>
                 <span class="resource-card__chip">
-                  裝置 {{ result.device_profile_id }}
+                  {{ t('campaignDetail.qualificationDeviceLabel') }} {{ result.device_profile_id }}
                 </span>
                 <span
                   v-if="result.matched_rule_id"
                   class="resource-card__chip"
                 >
-                  命中規則 {{ result.matched_rule_id }}
+                  {{ t('campaignDetail.matchedRuleLabel') }} {{ result.matched_rule_id }}
                 </span>
               </div>
             </article>
@@ -838,11 +843,11 @@ watch([campaignId, currentActorId], () => {
         class="resource-section"
         data-testid="campaign-participation-section"
       >
-        <h2 class="resource-section__title">參與意圖</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.participationTitle') }}</h2>
 
         <div class="resource-state__actions">
           <NuxtLink class="resource-action" to="/my/participation-requests">
-            查看我的參與意圖
+            {{ t('campaignDetail.viewMyParticipationRequests') }}
           </NuxtLink>
         </div>
 
@@ -851,13 +856,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-actor-error"
         >
-          <h3 class="resource-state__title">無法取得測試者情境</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.actorErrorTitle') }}</h3>
           <p class="resource-state__description">
             {{ accountsError.message }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshAccounts()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </section>
@@ -867,9 +872,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-actor-loading"
         >
-          <h3 class="resource-state__title">載入測試者情境中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.actorLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在確認目前操作帳號與可用的參與意圖送出條件。
+            {{ t('campaignDetail.participationActorLoadingDescription') }}
           </p>
         </section>
 
@@ -878,9 +883,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-select-actor"
         >
-          <h3 class="resource-state__title">請先選擇測試者帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationSelectActorTitle') }}</h3>
           <p class="resource-state__description">
-            先在上方選擇目前操作帳號，系統才知道要用哪位測試者擁有的裝置設定檔送出參與意圖。
+            {{ t('campaignDetail.participationSelectActorDescription') }}
           </p>
         </section>
 
@@ -889,9 +894,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-actor-missing"
         >
-          <h3 class="resource-state__title">找不到已選擇的帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationActorMissingTitle') }}</h3>
           <p class="resource-state__description">
-            目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。
+            {{ t('campaignDetail.participationActorMissingDescription') }}
           </p>
         </section>
 
@@ -900,9 +905,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-role-mismatch"
         >
-          <h3 class="resource-state__title">參與意圖需要測試者帳號</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationRoleMismatchTitle') }}</h3>
           <p class="resource-state__description">
-            目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到測試者帳號，再送出這個活動的參與意圖。
+            {{
+              t('campaignDetail.participationRoleMismatchDescription', {
+                role: formatAccountRoleLabel(currentActor.role, locale)
+              })
+            }}
           </p>
         </section>
 
@@ -911,9 +920,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-loading"
         >
-          <h3 class="resource-state__title">載入可送出的裝置設定檔中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在整理目前符合資格、可以對這個活動送出參與意圖的裝置設定檔。
+            {{ t('campaignDetail.participationLoadingDescription') }}
           </p>
         </section>
 
@@ -922,13 +931,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-error"
         >
-          <h3 class="resource-state__title">無法準備參與意圖表單</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationErrorTitle') }}</h3>
           <p class="resource-state__description">
             {{ qualificationErrorMessage }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshQualification()">
-              重試
+                {{ t('common.retry') }}
             </button>
           </div>
         </section>
@@ -938,13 +947,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-participation-empty"
         >
-          <h3 class="resource-state__title">目前沒有可送出的裝置設定檔</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.participationEmptyTitle') }}</h3>
           <p class="resource-state__description">
-            目前這位測試者還沒有任何符合資格的裝置設定檔，所以暫時不能對這個活動送出參與意圖。
+            {{ t('campaignDetail.participationEmptyDescription') }}
           </p>
           <div class="resource-state__actions">
             <NuxtLink class="resource-action" to="/device-profiles">
-              查看裝置設定檔
+              {{ t('myEligibleCampaigns.viewDeviceProfiles') }}
             </NuxtLink>
           </div>
         </section>
@@ -956,10 +965,10 @@ watch([campaignId, currentActorId], () => {
         >
           <div class="resource-shell__meta">
             <span class="resource-shell__meta-chip">
-              可送出裝置 {{ qualifiedParticipationDeviceProfiles.length }}
+              {{ t('campaignDetail.eligibleDevicesLabel') }} {{ qualifiedParticipationDeviceProfiles.length }}
             </span>
             <span class="resource-shell__meta-chip">
-              目前帳號 {{ currentActor.display_name }}
+              {{ t('campaignDetail.qualificationCurrentAccount') }} {{ currentActor.display_name }}
             </span>
           </div>
 
@@ -969,7 +978,7 @@ watch([campaignId, currentActorId], () => {
             :pending="participationPending"
             :error-message="participationErrorMessage"
             :success-message="participationSuccessMessage"
-            submit-label="送出參與意圖"
+            :submit-label="t('common.submitParticipationRequest')"
             test-id-prefix="campaign-participation"
             @submit="handleCreateParticipationRequest"
           />
@@ -981,7 +990,7 @@ watch([campaignId, currentActorId], () => {
         class="resource-section"
         data-testid="campaign-tasks-section"
       >
-        <h2 class="resource-section__title">任務</h2>
+        <h2 class="resource-section__title">{{ t('campaignDetail.tasksTitle') }}</h2>
 
         <div class="resource-state__actions">
           <NuxtLink
@@ -989,14 +998,14 @@ watch([campaignId, currentActorId], () => {
             data-testid="campaign-task-create-link"
             :to="`/campaigns/${campaign.id}/tasks/new`"
           >
-            為此活動建立任務
+            {{ t('campaignDetail.createTask') }}
           </NuxtLink>
           <NuxtLink
             class="resource-action"
             data-testid="campaign-tasks-link"
             :to="`/tasks?campaign_id=${campaign.id}`"
           >
-            查看此活動的所有任務
+            {{ t('campaignDetail.viewCampaignTasks') }}
           </NuxtLink>
         </div>
 
@@ -1005,9 +1014,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-tasks-loading"
         >
-          <h3 class="resource-state__title">載入任務中</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.tasksLoadingTitle') }}</h3>
           <p class="resource-state__description">
-            正在載入這個活動底下的任務列表。
+            {{ t('campaignDetail.tasksLoadingDescription') }}
           </p>
         </div>
 
@@ -1016,13 +1025,13 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-tasks-error"
         >
-          <h3 class="resource-state__title">無法載入任務</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.tasksErrorTitle') }}</h3>
           <p class="resource-state__description">
-            {{ getActorAwareReadErrorMessage(tasksError, '目前無法載入這個活動底下的任務。') }}
+            {{ getActorAwareReadErrorMessage(tasksError, t('campaignDetail.tasksErrorFallback')) }}
           </p>
           <div class="resource-state__actions">
             <button class="resource-action" type="button" @click="refreshTasks()">
-              重試
+              {{ t('common.retry') }}
             </button>
           </div>
         </div>
@@ -1032,9 +1041,9 @@ watch([campaignId, currentActorId], () => {
           class="resource-state"
           data-testid="campaign-tasks-empty"
         >
-          <h3 class="resource-state__title">目前還沒有任務</h3>
+          <h3 class="resource-state__title">{{ t('campaignDetail.tasksEmptyTitle') }}</h3>
           <p class="resource-state__description">
-            目前這個活動尚未建立任何任務，後續可在後端建立後由此區塊直接承接。
+            {{ t('campaignDetail.tasksEmptyDescription') }}
           </p>
         </div>
 
@@ -1050,18 +1059,18 @@ watch([campaignId, currentActorId], () => {
             :data-testid="`campaign-task-card-${task.id}`"
             :to="`/tasks/${task.id}`"
           >
-            <span class="resource-shell__breadcrumb">任務</span>
+            <span class="resource-shell__breadcrumb">{{ t('campaignDetail.taskBreadcrumb') }}</span>
             <h3 class="resource-card__title">{{ task.title }}</h3>
             <p class="resource-card__description">
               {{
                 task.device_profile_id
-                  ? `已指派給 ${task.device_profile_id}`
-                  : '目前尚未指派裝置設定檔。'
+                  ? t('campaignDetail.taskAssignedTo', { deviceProfileId: task.device_profile_id })
+                  : t('campaignDetail.taskAssignmentEmpty')
               }}
             </p>
             <div class="resource-card__meta">
-              <span class="resource-card__chip">狀態 {{ formatTaskStatusLabel(task.status) }}</span>
-              <span class="resource-card__chip">更新於 {{ task.updated_at }}</span>
+              <span class="resource-card__chip">{{ t('campaignDetail.statusLabel') }} {{ formatTaskStatusLabel(task.status, locale) }}</span>
+              <span class="resource-card__chip">{{ t('campaignDetail.updatedAtLabel') }} {{ task.updated_at }}</span>
             </div>
           </NuxtLink>
         </div>

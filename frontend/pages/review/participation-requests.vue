@@ -90,7 +90,7 @@ const involvedCampaignCount = computed(
 const queueErrorMessage = computed(() =>
   getActorAwareReadErrorMessage(
     queueError.value,
-    '目前無法載入參與意圖審查佇列。'
+    '目前無法載入參與申請審查列表。'
   )
 )
 
@@ -224,27 +224,27 @@ watch([currentActorId, currentActor], () => {
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewParticipation.currentAccount') }}</span>
               <strong class="app-page-summary-card__value">{{ currentActor.display_name }}</strong>
-              <span class="app-page-summary-card__description">這位開發者目前要處理的 participation queue 會集中在這裡。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewParticipation.currentAccountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewParticipation.queueCount') }}</span>
               <strong class="app-page-summary-card__value">{{ queueResponse.total }}</strong>
-              <span class="app-page-summary-card__description">總覽目前 queue 規模與同一套審查卡片節奏。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewParticipation.queueCountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewParticipation.pendingCount') }}</span>
               <strong class="app-page-summary-card__value">{{ pendingRequestsCount }}</strong>
-              <span class="app-page-summary-card__description">可立即做 accept / decline 決策的待處理項目。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewParticipation.pendingCountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewParticipation.acceptedCount') }}</span>
               <strong class="app-page-summary-card__value">{{ acceptedRequestsCount }}</strong>
-              <span class="app-page-summary-card__description">已接受但還沒 bridge 成任務的候選人。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewParticipation.acceptedCountDescription') }}</span>
             </article>
             <article class="app-page-summary-card">
               <span class="app-page-summary-card__label">{{ t('reviewParticipation.campaignCount') }}</span>
               <strong class="app-page-summary-card__value">{{ involvedCampaignCount }}</strong>
-              <span class="app-page-summary-card__description">目前 queue 涵蓋的活動數量。</span>
+              <span class="app-page-summary-card__description">{{ t('reviewParticipation.campaignCountDescription') }}</span>
             </article>
           </div>
         </section>

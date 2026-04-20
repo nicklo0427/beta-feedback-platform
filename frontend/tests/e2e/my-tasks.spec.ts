@@ -318,7 +318,7 @@ test.describe('my tasks inbox flows', () => {
 
     await expect(page.getByTestId('my-task-drift-chip-task_123')).toBeVisible()
     await expect(page.getByTestId('my-task-drift-warning-task_123')).toContainText(
-      '已不再符合活動條件'
+      '已不再符合這次活動'
     )
   })
 

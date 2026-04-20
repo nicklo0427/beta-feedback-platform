@@ -25,14 +25,14 @@ const PARTICIPATION_REQUEST_STATUS_LABELS: Record<
   Record<ParticipationRequestStatus, string>
 > = {
   'zh-TW': {
-    pending: '待處理',
-    accepted: '已接受',
+    pending: '等待回覆',
+    accepted: '已同意',
     declined: '已婉拒',
     withdrawn: '已撤回'
   },
   en: {
-    pending: 'Pending',
-    accepted: 'Accepted',
+    pending: 'Waiting for reply',
+    accepted: 'Approved',
     declined: 'Declined',
     withdrawn: 'Withdrawn'
   }
@@ -50,12 +50,12 @@ const PARTICIPATION_ASSIGNMENT_STATUS_LABELS: Record<
   Record<ParticipationAssignmentStatus, string>
 > = {
   'zh-TW': {
-    not_assigned: '尚未建立任務',
-    task_created: '已建立任務'
+    not_assigned: '尚未安排任務',
+    task_created: '已安排任務'
   },
   en: {
-    not_assigned: 'Task not created',
-    task_created: 'Task created'
+    not_assigned: 'Task not set up yet',
+    task_created: 'Task ready'
   }
 }
 

@@ -377,7 +377,7 @@ function handleSubmit(): void {
             type="button"
             @click="refreshQualificationPreview()"
           >
-            重試
+            {{ t('common.retry') }}
           </button>
         </div>
       </section>
