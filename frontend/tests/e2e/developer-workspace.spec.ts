@@ -18,6 +18,14 @@ const testerAccount = {
   updated_at: '2026-04-05T09:30:00Z'
 }
 
+const dualRoleTesterPrimaryAccount = {
+  id: 'acct_dual_123',
+  display_name: 'Dual Role Maker',
+  role: 'tester',
+  roles: ['developer', 'tester'],
+  updated_at: '2026-04-05T09:30:00Z'
+}
+
 const projectListItem = {
   id: 'proj_123',
   name: 'HabitQuest',
@@ -66,7 +74,9 @@ const campaignListItem = {
 
 async function mockAccounts(
   page: Page,
-  accounts: Array<typeof developerAccount | typeof testerAccount>
+  accounts: Array<
+    typeof developerAccount | typeof testerAccount | typeof dualRoleTesterPrimaryAccount
+  >
 ): Promise<void> {
   await mockApiJson(page, '/accounts', {
     items: accounts,
@@ -134,6 +144,34 @@ test.describe('developer workspace flows', () => {
     await page.getByTestId('current-actor-select').first().selectOption(developerAccount.id)
 
     await expect(page.getByTestId('my-projects-empty')).toBeVisible()
+  })
+
+  test('allows a dual-role account into developer workspace even when primary role is tester', async ({
+    page
+  }) => {
+    await mockAccounts(page, [dualRoleTesterPrimaryAccount])
+    await page.route(/\/api\/v1\/projects\?mine=true$/, async (route) => {
+      expect(route.request().headers()['x-actor-id']).toBe(dualRoleTesterPrimaryAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [
+            {
+              ...projectListItem,
+              owner_account_id: dualRoleTesterPrimaryAccount.id
+            }
+          ],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/my/projects')
+    await page.getByTestId('current-actor-select').first().selectOption(dualRoleTesterPrimaryAccount.id)
+
+    await expect(page.getByTestId('my-projects-list')).toBeVisible()
+    await expect(page.getByTestId('my-projects-role-mismatch')).toHaveCount(0)
   })
 
   test('shows role mismatch when a tester opens the my projects workspace', async ({

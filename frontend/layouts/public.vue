@@ -83,9 +83,17 @@ useHead(() => ({
   <div class="public-frame" data-testid="public-shell-root">
     <header class="public-topbar" data-testid="public-shell-header">
       <NuxtLink class="app-brand app-brand--public" to="/">
-        <span class="app-brand__eyebrow">{{ t('shell.brand.eyebrow') }}</span>
-        <span class="app-brand__title">beta-feedback-platform</span>
-        <span class="app-brand__description">{{ t('shell.brand.description') }}</span>
+        <span class="app-brand__icon" aria-hidden="true">
+          <img
+            class="app-brand__icon-image"
+            :src="'/brand/header-brand-icon.webp'"
+            alt=""
+            data-testid="public-shell-brand-icon"
+          >
+        </span>
+        <span class="app-brand__copy">
+          <span class="app-brand__title">beta-feedback-platform</span>
+        </span>
       </NuxtLink>
 
       <div class="public-topbar__actions">

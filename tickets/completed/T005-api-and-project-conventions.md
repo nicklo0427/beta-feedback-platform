@@ -62,7 +62,7 @@ T005 - API and Project Conventions
 
 ## Deliverables
 
-- 更新後的 `tickets/T005-api-and-project-conventions.md`
+- 更新後的 `tickets/completed/T005-api-and-project-conventions.md`
 - 一份根目錄 API 規範文件：`API_CONVENTIONS.md`
 - 一份 request / response baseline 規範
 - 一份錯誤格式 baseline 規範

@@ -8,7 +8,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import {
   decideParticipationRequest,
   fetchReviewParticipationRequests
@@ -44,7 +48,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isDeveloperActor = computed(() => currentActor.value?.role === 'developer')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isDeveloperActor = computed(() => accountHasRole(currentActor.value, 'developer'))
 
 const {
   data: queueResponse,
@@ -53,7 +60,7 @@ const {
   refresh: refreshQueue
 } = useAsyncData(
   () =>
-    `review-participation-requests-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `review-participation-requests-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return {
@@ -211,7 +218,7 @@ watch([currentActorId, currentActor], () => {
         <p class="resource-state__description">
           {{
             t('reviewParticipation.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.projects import repository
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
@@ -61,17 +62,11 @@ def _resolve_project_owner_account_id(current_actor_id: str | None) -> str | Non
         return None
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="conflict",
-            message="Developer account is required to own a project.",
-            details={
-                "resource": "project",
-                "account_id": actor.id,
-                "expected_role": AccountRole.DEVELOPER.value,
-                "actual_role": actor.role,
-            },
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer account is required to own a project.",
         )
 
     return actor.id

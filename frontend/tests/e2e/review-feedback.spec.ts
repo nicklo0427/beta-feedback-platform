@@ -18,6 +18,14 @@ const testerAccount = {
   updated_at: '2026-04-05T09:30:00Z'
 }
 
+const dualRoleTesterPrimaryAccount = {
+  id: 'acct_dual_123',
+  display_name: 'Dual Role Maker',
+  role: 'tester',
+  roles: ['developer', 'tester'],
+  updated_at: '2026-04-05T09:30:00Z'
+}
+
 const submittedFeedback = {
   id: 'fb_123',
   task_id: 'task_123',
@@ -186,6 +194,38 @@ test.describe('feedback review queue flows', () => {
     await expect(page.getByTestId('review-feedback-card-fb_456')).toContainText(
       formatFeedbackReviewStatusLabel('needs_more_info')
     )
+  })
+
+  test('allows a dual-role account into feedback review even when primary role is tester', async ({
+    page
+  }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [dualRoleTesterPrimaryAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/feedback\?mine=true&review_status=submitted$/, async (route) => {
+      expect(route.request().headers()['x-actor-id']).toBe(dualRoleTesterPrimaryAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [submittedFeedback],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/review/feedback')
+    await page.getByTestId('current-actor-select').first().selectOption(dualRoleTesterPrimaryAccount.id)
+
+    await expect(page.getByTestId('feedback-review-list')).toBeVisible()
+    await expect(page.getByTestId('feedback-review-role-mismatch')).toHaveCount(0)
   })
 
   test('shows role mismatch when the selected actor is not a developer', async ({

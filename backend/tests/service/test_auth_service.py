@@ -21,10 +21,25 @@ def test_auth_service_register_creates_session_and_current_actor() -> None:
     assert session_id.startswith("sess_")
     assert session.account.display_name == "Release Owner"
     assert session.account.email == "owner@example.com"
+    assert session.account.roles == ["developer"]
     assert session.expires_at
 
     current_session = get_current_session(session_id)
     assert current_session.account.id == session.account.id
+
+
+def test_auth_service_register_accepts_dual_roles() -> None:
+    _, session = register(
+        AuthRegisterRequest(
+            display_name="Dual Mode Builder",
+            roles=["developer", "tester"],
+            email="dual@example.com",
+            password="supersecret",
+        )
+    )
+
+    assert session.account.role == "developer"
+    assert session.account.roles == ["developer", "tester"]
 
 
 def test_auth_service_login_rejects_invalid_credentials() -> None:

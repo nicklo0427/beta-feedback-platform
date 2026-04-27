@@ -316,6 +316,13 @@
   gap: var(--space-sm);
 }
 
+fieldset.resource-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .resource-field__label {
   color: var(--color-accent-soft);
   font-size: 0.74rem;

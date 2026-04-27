@@ -176,13 +176,13 @@ def test_project_create_rejects_non_developer_actor(client: TestClient) -> None:
 
     assert response.status_code == 409
     assert response.json() == {
-        "code": "conflict",
+        "code": "forbidden_actor_role",
         "message": "Developer account is required to own a project.",
         "details": {
-            "resource": "project",
-            "account_id": account_id,
-            "expected_role": "developer",
-            "actual_role": "tester",
+            "actor_id": account_id,
+            "actor_role": "tester",
+            "actor_roles": ["tester"],
+            "required_role": "developer",
         },
     }
 

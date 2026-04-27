@@ -7,7 +7,7 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import { formatAccountRolesLabel } from '~/features/accounts/types'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatFeedbackReviewStatusLabel } from '~/features/feedback/types'
 import { formatPlatformLabel } from '~/features/platform-display'
@@ -431,7 +431,7 @@ const accountSummaryUpdatedAt = computed(
             </div>
             <div class="resource-shell__meta">
               <span class="resource-shell__meta-chip">
-                {{ formatAccountRoleLabel(account.role) }}
+                {{ formatAccountRolesLabel(account) }}
               </span>
             </div>
             <div class="resource-key-value">

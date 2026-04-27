@@ -9,6 +9,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.campaigns import repository
@@ -78,16 +79,11 @@ def _ensure_developer_actor(current_actor_id: str | None):
         return None
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Developer role is required for this operation.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.DEVELOPER.value,
-            },
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required for this operation.",
         )
 
     return actor
@@ -170,16 +166,11 @@ def _resolve_owned_project_ids_for_actor(current_actor_id: str) -> set[str]:
     from app.modules.projects import repository as projects_repository
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Developer role is required to access owned campaigns.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.DEVELOPER.value,
-            },
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required to access owned campaigns.",
         )
 
     return {
@@ -193,16 +184,11 @@ def _resolve_owned_device_profiles_for_tester(current_actor_id: str):
     from app.modules.device_profiles import repository as device_profiles_repository
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Tester role is required to access qualified campaigns.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.TESTER.value,
-            },
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required to access qualified campaigns.",
         )
 
     return [

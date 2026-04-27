@@ -377,6 +377,7 @@ def test_participation_request_review_queue_rejects_tester_actor(
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -414,6 +415,7 @@ def test_participation_request_create_rejects_developer_actor(client: TestClient
         "details": {
             "actor_id": developer.id,
             "actor_role": "developer",
+            "actor_roles": ["developer"],
             "required_role": "tester",
         },
     }
@@ -534,6 +536,7 @@ def test_participation_request_decision_rejects_tester_actor(client: TestClient)
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }

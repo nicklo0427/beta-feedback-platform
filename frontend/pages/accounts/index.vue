@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 
 import { fetchAccounts } from '~/features/accounts/api'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import { formatAccountRolesLabel } from '~/features/accounts/types'
 
 const {
   data: accountResponse,
@@ -102,7 +102,7 @@ const accounts = computed(() => accountResponse.value.items)
           <span class="resource-shell__breadcrumb">帳號</span>
           <h2 class="resource-card__title">{{ account.display_name }}</h2>
           <p class="resource-card__description">
-            {{ formatAccountRoleLabel(account.role) }}
+            {{ formatAccountRolesLabel(account) }}
           </p>
           <div class="resource-card__meta">
             <span class="resource-card__chip">更新時間 {{ account.updated_at }}</span>

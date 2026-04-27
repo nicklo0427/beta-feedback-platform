@@ -20,6 +20,7 @@ def test_auth_register_login_logout_and_me_flow(client: TestClient) -> None:
         "id": register_response.json()["account"]["id"],
         "display_name": "Release Owner",
         "role": "developer",
+        "roles": ["developer"],
         "email": "owner@example.com",
         "is_active": True,
     }
@@ -49,6 +50,26 @@ def test_auth_register_login_logout_and_me_flow(client: TestClient) -> None:
     assert login_response.status_code == 200
     assert login_response.cookies.get("bfp_session")
     assert login_response.json()["account"]["id"] == register_response.json()["account"]["id"]
+
+
+def test_auth_register_accepts_dual_roles(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "display_name": "Dual Mode Builder",
+            "roles": ["developer", "tester"],
+            "email": "dual@example.com",
+            "password": "supersecret",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["account"]["role"] == "developer"
+    assert response.json()["account"]["roles"] == ["developer", "tester"]
+
+    me_response = client.get("/api/v1/auth/me")
+    assert me_response.status_code == 200
+    assert me_response.json()["account"]["roles"] == ["developer", "tester"]
 
 
 def test_auth_register_rejects_duplicate_email(client: TestClient) -> None:

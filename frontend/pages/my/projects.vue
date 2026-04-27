@@ -6,7 +6,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { fetchProjects } from '~/features/projects/api'
 
 useCurrentActorPersistence()
@@ -30,7 +34,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isDeveloperActor = computed(() => currentActor.value?.role === 'developer')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isDeveloperActor = computed(() => accountHasRole(currentActor.value, 'developer'))
 
 const {
   data: projectResponse,
@@ -38,7 +45,7 @@ const {
   error: projectsError,
   refresh: refreshProjects
 } = useAsyncData(
-  () => `my-projects-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+  () => `my-projects-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return {
@@ -142,7 +149,7 @@ const projects = computed(() => projectResponse.value.items)
       >
         <h2 class="resource-state__title">開發者工作區需要開發者帳號</h2>
         <p class="resource-state__description">
-          目前選到的是{{ formatAccountRoleLabel(currentActor.role) }}帳號。請切換到開發者帳號，再查看我的專案。
+          目前帳號身份是{{ formatAccountRolesLabel(currentActor) }}，這個帳號還不能管理專案。請改用具備開發者身份的帳號；若你已經是雙身份帳號，也可以在工作區切換成開發者視角。
         </p>
       </section>
 

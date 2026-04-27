@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
@@ -162,16 +163,11 @@ def _to_participation_request_list_item(
 
 def _ensure_tester_actor(current_actor_id: str) -> str:
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Tester role is required for this operation.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.TESTER.value,
-            },
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required for this operation.",
         )
 
     return actor.id
@@ -179,16 +175,11 @@ def _ensure_tester_actor(current_actor_id: str) -> str:
 
 def _ensure_developer_actor(current_actor_id: str) -> str:
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Developer role is required for this operation.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.DEVELOPER.value,
-            },
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required for this operation.",
         )
 
     return actor.id
@@ -309,35 +300,44 @@ def get_participation_request(
     record = ensure_participation_request_exists(request_id)
     actor = ensure_account_exists(current_actor_id)
 
-    if actor.role == AccountRole.TESTER.value:
+    tester_error: AppError | None = None
+    if account_has_role(actor, AccountRole.TESTER):
         if record.tester_account_id != actor.id:
-            _raise_ownership_mismatch(
+            try:
+                _raise_ownership_mismatch(
+                    actor.id,
+                    "participation_request",
+                    {
+                        "resource": "tester_account",
+                        "id": record.tester_account_id,
+                        "owner_account_id": record.tester_account_id,
+                    },
+                )
+            except AppError as error:
+                tester_error = error
+        else:
+            return _to_participation_request_enriched_detail(record)
+
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            ensure_campaign_owned_by_actor(
+                record.campaign_id,
                 actor.id,
-                "participation_request",
-                {
-                    "resource": "tester_account",
-                    "id": record.tester_account_id,
-                    "owner_account_id": record.tester_account_id,
-                },
+                resource="participation_request",
             )
-        return _to_participation_request_enriched_detail(record)
+            return _to_participation_request_enriched_detail(record)
+        except AppError as error:
+            if tester_error is not None and error.code == "ownership_mismatch":
+                raise tester_error
+            raise
 
-    if actor.role == AccountRole.DEVELOPER.value:
-        ensure_campaign_owned_by_actor(
-            record.campaign_id,
-            actor.id,
-            resource="participation_request",
-        )
-        return _to_participation_request_enriched_detail(record)
+    if tester_error is not None:
+        raise tester_error
 
-    raise AppError(
-        status_code=status.HTTP_409_CONFLICT,
-        code="forbidden_actor_role",
-        message="Current actor role cannot access participation request details.",
-        details={
-            "actor_id": actor.id,
-            "actor_role": actor.role,
-        },
+    raise_forbidden_actor_role(
+        actor,
+        AccountRole.DEVELOPER,
+        "Current actor role cannot access participation request details.",
     )
 
 
@@ -488,17 +488,12 @@ def update_participation_request(
     current = ensure_participation_request_exists(request_id)
     actor = ensure_account_exists(current_actor_id)
 
-    if actor.role == AccountRole.TESTER.value:
-        if payload.status != ParticipationRequestStatus.WITHDRAWN.value:
-            raise AppError(
-                status_code=status.HTTP_409_CONFLICT,
-                code="forbidden_actor_role",
-                message="Developer role is required to review participation requests.",
-                details={
-                    "actor_id": actor.id,
-                    "actor_role": actor.role,
-                    "required_role": AccountRole.DEVELOPER.value,
-                },
+    if payload.status == ParticipationRequestStatus.WITHDRAWN.value:
+        if not account_has_role(actor, AccountRole.TESTER):
+            raise_forbidden_actor_role(
+                actor,
+                AccountRole.TESTER,
+                "Tester role is required to withdraw participation requests.",
             )
 
         if current.tester_account_id != actor.id:
@@ -534,7 +529,17 @@ def update_participation_request(
         )
         return _to_participation_request_detail(updated)
 
-    if actor.role == AccountRole.DEVELOPER.value:
+    if payload.status in {
+        ParticipationRequestStatus.ACCEPTED.value,
+        ParticipationRequestStatus.DECLINED.value,
+    }:
+        if not account_has_role(actor, AccountRole.DEVELOPER):
+            raise_forbidden_actor_role(
+                actor,
+                AccountRole.DEVELOPER,
+                "Developer role is required to review participation requests.",
+            )
+
         from app.modules.campaigns.service import ensure_campaign_owned_by_actor
 
         ensure_campaign_owned_by_actor(
@@ -586,14 +591,10 @@ def update_participation_request(
         )
         return _to_participation_request_detail(updated)
 
-    raise AppError(
-        status_code=status.HTTP_409_CONFLICT,
-        code="forbidden_actor_role",
-        message="Current actor role cannot update participation requests.",
-        details={
-            "actor_id": actor.id,
-            "actor_role": actor.role,
-        },
+    _raise_invalid_participation_transition(
+        request_id=current.id,
+        current_status=current.status,
+        next_status=payload.status,
     )
 
 

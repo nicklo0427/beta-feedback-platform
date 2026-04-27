@@ -32,10 +32,65 @@ export function formatAccountRoleLabel(
   return role
 }
 
+export function normalizeAccountRoles(account: {
+  role?: AccountRole | string | null
+  roles?: (AccountRole | string)[] | null
+}): AccountRole[] {
+  const requestedRoles = new Set(
+    (account.roles ?? []).filter((role): role is AccountRole =>
+      ACCOUNT_ROLE_OPTIONS.includes(role as AccountRole)
+    )
+  )
+  const normalizedRoles = ACCOUNT_ROLE_OPTIONS.filter((role) =>
+    requestedRoles.has(role)
+  )
+
+  if (normalizedRoles.length > 0) {
+    return [...new Set(normalizedRoles)]
+  }
+
+  if (account.role && ACCOUNT_ROLE_OPTIONS.includes(account.role as AccountRole)) {
+    return [account.role as AccountRole]
+  }
+
+  return []
+}
+
+export function accountHasRole(
+  account: {
+    role?: AccountRole | string | null
+    roles?: (AccountRole | string)[] | null
+  } | null | undefined,
+  role: AccountRole
+): boolean {
+  return normalizeAccountRoles(account ?? {}).includes(role)
+}
+
+export function formatAccountRolesLabel(
+  accountOrRoles:
+    | {
+        role?: AccountRole | string | null
+        roles?: (AccountRole | string)[] | null
+      }
+    | (AccountRole | string)[],
+  locale: AppLocale = 'zh-TW'
+): string {
+  const roles = Array.isArray(accountOrRoles)
+    ? normalizeAccountRoles({ roles: accountOrRoles })
+    : normalizeAccountRoles(accountOrRoles)
+
+  if (roles.length === 0) {
+    return locale === 'en' ? 'No role selected' : '尚未選擇身份'
+  }
+
+  return roles.map((role) => formatAccountRoleLabel(role, locale)).join(' / ')
+}
+
 export interface AccountListItem {
   id: string
   display_name: string
   role: AccountRole
+  roles: AccountRole[]
   updated_at: string
 }
 
@@ -43,6 +98,7 @@ export interface AccountDetail {
   id: string
   display_name: string
   role: AccountRole
+  roles: AccountRole[]
   bio: string | null
   locale: string | null
   created_at: string
@@ -106,6 +162,7 @@ export interface TesterAccountSummary {
 export interface AccountCollaborationSummary {
   account_id: string
   role: AccountRole
+  roles: AccountRole[]
   developer_summary: DeveloperAccountSummary | null
   tester_summary: TesterAccountSummary | null
   updated_at: string
@@ -113,7 +170,7 @@ export interface AccountCollaborationSummary {
 
 export interface AccountFormValues {
   display_name: string
-  role: AccountRole | ''
+  roles: AccountRole[]
   bio: string
   locale: string
 }
@@ -121,6 +178,7 @@ export interface AccountFormValues {
 export interface AccountCreatePayload {
   display_name: string
   role: AccountRole
+  roles: AccountRole[]
   bio: string | null
   locale: string | null
 }
@@ -128,6 +186,7 @@ export interface AccountCreatePayload {
 export interface AccountUpdatePayload {
   display_name?: string
   role?: AccountRole
+  roles?: AccountRole[]
   bio?: string | null
   locale?: string | null
 }

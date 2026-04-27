@@ -13,7 +13,12 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRoleLabel,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { formatQualificationStatusLabel } from '~/features/eligibility/types'
 import { useAppI18n } from '~/features/i18n/use-app-i18n'
@@ -48,7 +53,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isDeveloperActor = computed(() => currentActor.value?.role === 'developer')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isDeveloperActor = computed(() => accountHasRole(currentActor.value, 'developer'))
 
 const {
   data: participationRequest,
@@ -57,7 +65,7 @@ const {
   refresh
 } = useAsyncData(
   () =>
-    `review-participation-request-detail-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `review-participation-request-detail-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return null
@@ -89,7 +97,7 @@ const {
   error: timelineError
 } = useAsyncData(
   () =>
-    `review-participation-request-timeline-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `review-participation-request-timeline-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return {
@@ -186,7 +194,7 @@ const timelineErrorMessage = computed(() =>
         <p class="resource-state__description">
           {{
             t('participationRequestDetail.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

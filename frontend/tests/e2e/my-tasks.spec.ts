@@ -20,6 +20,14 @@ const developerAccount = {
   updated_at: '2026-04-03T09:30:00Z'
 }
 
+const dualRoleDeveloperPrimaryAccount = {
+  id: 'acct_dual_123',
+  display_name: 'Dual Role Maker',
+  role: 'developer',
+  roles: ['developer', 'tester'],
+  updated_at: '2026-04-03T09:30:00Z'
+}
+
 const assignedTask = {
   id: 'task_123',
   campaign_id: 'camp_123',
@@ -191,6 +199,38 @@ test.describe('my tasks inbox flows', () => {
     await page.getByTestId('current-actor-select').first().selectOption(testerAccount.id)
 
     await expect(page.getByTestId('my-tasks-empty')).toBeVisible()
+  })
+
+  test('allows a dual-role account into tester inbox even when primary role is developer', async ({
+    page
+  }) => {
+    await page.route(/\/api\/v1\/accounts$/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [dualRoleDeveloperPrimaryAccount],
+          total: 1
+        })
+      })
+    })
+    await page.route(/\/api\/v1\/tasks\?status=assigned&mine=true$/, async (route) => {
+      expect(route.request().headers()['x-actor-id']).toBe(dualRoleDeveloperPrimaryAccount.id)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          items: [assignedTask],
+          total: 1
+        })
+      })
+    })
+
+    await page.goto('/my/tasks')
+    await page.getByTestId('current-actor-select').first().selectOption(dualRoleDeveloperPrimaryAccount.id)
+
+    await expect(page.getByTestId('my-tasks-list')).toBeVisible()
+    await expect(page.getByTestId('my-tasks-role-mismatch')).toHaveCount(0)
   })
 
   test('supports the assigned to in-progress quick action from the tester inbox', async ({

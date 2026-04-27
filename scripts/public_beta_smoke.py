@@ -182,8 +182,9 @@ def assert_auth_and_write_smoke(config: SmokeConfig) -> dict[str, str]:
         timeout_seconds=config.timeout_seconds,
         opener=opener,
         payload={
-            "display_name": f"Ops Smoke Developer {unique_suffix}",
+            "display_name": f"Ops Smoke Dual Role {unique_suffix}",
             "role": "developer",
+            "roles": ["developer", "tester"],
             "email": email,
             "password": password,
             "locale": "zh-TW",
@@ -196,6 +197,10 @@ def assert_auth_and_write_smoke(config: SmokeConfig) -> dict[str, str]:
 
     register_payload = register_response.json()
     account_id = register_payload["account"]["id"]
+    if register_payload["account"].get("roles") != ["developer", "tester"]:
+        raise SmokeCheckError(
+            "Register smoke did not return the expected dual-role account payload."
+        )
 
     me_response = perform_request(
         method="GET",
@@ -206,6 +211,10 @@ def assert_auth_and_write_smoke(config: SmokeConfig) -> dict[str, str]:
     if me_response.status_code != 200:
         raise SmokeCheckError(
             f"Auth me smoke failed with HTTP {me_response.status_code}: {me_response.text}"
+        )
+    if me_response.json()["account"].get("roles") != ["developer", "tester"]:
+        raise SmokeCheckError(
+            "Auth me smoke did not preserve the expected dual-role account payload."
         )
 
     project_response = perform_request(
@@ -255,6 +264,7 @@ def assert_auth_and_write_smoke(config: SmokeConfig) -> dict[str, str]:
         "account_id": account_id,
         "project_id": project_payload["id"],
         "email": email,
+        "roles": "developer,tester",
     }
 
 

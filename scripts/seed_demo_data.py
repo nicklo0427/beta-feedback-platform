@@ -167,19 +167,34 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
         "developer_account": {
             "display_name": f"Role-Aware Developer {label}",
             "role": "developer",
+            "roles": ["developer"],
             "bio": "Seeded developer account for owned workspace verification.",
             "locale": "zh-TW",
         },
         "tester_account": {
             "display_name": f"Role-Aware Tester {label}",
             "role": "tester",
+            "roles": ["tester"],
             "bio": "Seeded tester account for inbox and feedback verification.",
+            "locale": "zh-TW",
+        },
+        "dual_role_account": {
+            "display_name": f"Role-Aware Dual {label}",
+            "role": "developer",
+            "roles": ["developer", "tester"],
+            "bio": "Seeded dual-role account for workspace role switch verification.",
             "locale": "zh-TW",
         },
         "project": {
             "name": f"Owned Project Sandbox {label}",
             "description": (
                 "Seeded owned project for role-aware browser verification and manual QA."
+            ),
+        },
+        "dual_role_project": {
+            "name": f"Dual-Role Project Sandbox {label}",
+            "description": (
+                "Seeded project owned by a dual-role account to verify developer capability."
             ),
         },
         "qualified_campaign": {
@@ -245,6 +260,16 @@ def build_seed_payloads(label: str) -> dict[str, dict[str, Any]]:
             "locale": "zh-TW",
             "notes": "Seeded failing device profile for qualification and assignment guard verification.",
         },
+        "dual_role_device_profile": {
+            "name": f"Dual-Role QA Pixel Fold {label}",
+            "platform": "android",
+            "device_model": "Pixel Fold",
+            "os_name": "Android",
+            "os_version": "14.0",
+            "install_channel": "play-store",
+            "locale": "zh-TW",
+            "notes": "Seeded device profile owned by a dual-role account to verify tester capability.",
+        },
         "qualified_task": {
             "title": "Validate onboarding and pricing flow",
             "instruction_summary": (
@@ -305,7 +330,9 @@ def print_summary(
     health: dict[str, Any],
     developer_account: dict[str, Any],
     tester_account: dict[str, Any],
+    dual_role_account: dict[str, Any],
     project: dict[str, Any],
+    dual_role_project: dict[str, Any],
     qualified_campaign: dict[str, Any],
     drift_campaign: dict[str, Any],
     safety: dict[str, Any],
@@ -314,6 +341,7 @@ def print_summary(
     qualified_device_profile: dict[str, Any],
     accepted_request_device_profile: dict[str, Any],
     ineligible_device_profile: dict[str, Any],
+    dual_role_device_profile: dict[str, Any],
     qualified_task: dict[str, Any],
     drift_task: dict[str, Any],
     feedback: dict[str, Any],
@@ -334,12 +362,19 @@ def print_summary(
     print("")
     print("Current actors")
     print(
-        f"- developer: {developer_account['id']} ({developer_account['display_name']})"
+        f"- developer-only: {developer_account['id']} ({developer_account['display_name']})"
     )
-    print(f"- tester: {tester_account['id']} ({tester_account['display_name']})")
+    print(f"- tester-only: {tester_account['id']} ({tester_account['display_name']})")
+    print(
+        f"- dual-role: {dual_role_account['id']} ({dual_role_account['display_name']})"
+    )
     print("")
     print("Created owned records")
     print(f"- project: {project['id']} ({project['name']})")
+    print(
+        "- dual-role project: "
+        f"{dual_role_project['id']} ({dual_role_project['name']})"
+    )
     print(
         f"- qualified campaign: {qualified_campaign['id']} ({qualified_campaign['name']})"
     )
@@ -365,6 +400,10 @@ def print_summary(
         "- ineligible device profile: "
         f"{ineligible_device_profile['id']} ({ineligible_device_profile['name']})"
     )
+    print(
+        "- dual-role device profile: "
+        f"{dual_role_device_profile['id']} ({dual_role_device_profile['name']})"
+    )
     print(f"- qualified task: {qualified_task['id']} ({qualified_task['title']})")
     print(f"- drift task: {drift_task['id']} ({drift_task['title']})")
     print(
@@ -384,7 +423,9 @@ def print_summary(
     print("Frontend detail URLs")
     print(f"- developer account detail: {frontend}/accounts/{developer_account['id']}")
     print(f"- tester account detail: {frontend}/accounts/{tester_account['id']}")
+    print(f"- dual-role account detail: {frontend}/accounts/{dual_role_account['id']}")
     print(f"- project detail: {frontend}/projects/{project['id']}")
+    print(f"- dual-role project detail: {frontend}/projects/{dual_role_project['id']}")
     print(f"- qualified campaign detail: {frontend}/campaigns/{qualified_campaign['id']}")
     print(f"- drift campaign detail: {frontend}/campaigns/{drift_campaign['id']}")
     print(
@@ -406,6 +447,10 @@ def print_summary(
     print(
         "- accepted-request device profile detail: "
         f"{frontend}/device-profiles/{accepted_request_device_profile['id']}"
+    )
+    print(
+        "- dual-role device profile detail: "
+        f"{frontend}/device-profiles/{dual_role_device_profile['id']}"
     )
     print(f"- qualified task detail: {frontend}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {frontend}/tasks/{drift_task['id']}")
@@ -435,6 +480,7 @@ def print_summary(
     print(f"- developer task create form: {frontend}/campaigns/{qualified_campaign['id']}/tasks/new")
     print("")
     print("Role-aware workspace URLs")
+    print(f"- dashboard / workspace role switch: {frontend}/dashboard")
     print(f"- developer workspace projects: {frontend}/my/projects")
     print(f"- developer workspace campaigns: {frontend}/my/campaigns")
     print(f"- developer review queue: {frontend}/review/feedback")
@@ -445,7 +491,9 @@ def print_summary(
     print("API detail URLs")
     print(f"- developer account detail: {api_base}/accounts/{developer_account['id']}")
     print(f"- tester account detail: {api_base}/accounts/{tester_account['id']}")
+    print(f"- dual-role account detail: {api_base}/accounts/{dual_role_account['id']}")
     print(f"- project detail: {api_base}/projects/{project['id']}")
+    print(f"- dual-role project detail: {api_base}/projects/{dual_role_project['id']}")
     print(f"- qualified campaign detail: {api_base}/campaigns/{qualified_campaign['id']}")
     print(f"- drift campaign detail: {api_base}/campaigns/{drift_campaign['id']}")
     print(f"- safety detail: {api_base}/campaigns/{qualified_campaign['id']}/safety")
@@ -465,6 +513,10 @@ def print_summary(
         "- accepted-request device profile detail: "
         f"{api_base}/device-profiles/{accepted_request_device_profile['id']}"
     )
+    print(
+        "- dual-role device profile detail: "
+        f"{api_base}/device-profiles/{dual_role_device_profile['id']}"
+    )
     print(f"- qualified task detail: {api_base}/tasks/{qualified_task['id']}")
     print(f"- drift task detail: {api_base}/tasks/{drift_task['id']}")
     print(
@@ -480,7 +532,8 @@ def print_summary(
     )
     print("")
     print("Notes")
-    print("- Use the homepage Current Actor selector to switch between the seeded developer and tester.")
+    print("- Use the app shell Current Actor selector to switch between the seeded developer-only, tester-only, and dual-role accounts.")
+    print("- Use the dual-role account to verify the frontend workspace role switch. It owns one project and one device profile so both capabilities have visible fixtures.")
     print("- The seeded qualified campaign gives you two passing iOS device profiles and one failing Android device profile for qualification checks.")
     print("- Use the qualified campaign task form to verify assignment preview and ineligible assignment blocking.")
     print("- The drift campaign already contains an assigned task whose qualification now drifts after rule changes.")
@@ -519,11 +572,22 @@ def main() -> int:
             path="/accounts",
             payload=payloads["tester_account"],
         )
+        dual_role_account = post_resource(
+            config=config,
+            path="/accounts",
+            payload=payloads["dual_role_account"],
+        )
         project = post_resource(
             config=config,
             path="/projects",
             payload=payloads["project"],
             actor_id=developer_account["id"],
+        )
+        dual_role_project = post_resource(
+            config=config,
+            path="/projects",
+            payload=payloads["dual_role_project"],
+            actor_id=dual_role_account["id"],
         )
         qualified_campaign = post_resource(
             config=config,
@@ -578,6 +642,12 @@ def main() -> int:
             path="/device-profiles",
             payload=payloads["ineligible_device_profile"],
             actor_id=tester_account["id"],
+        )
+        dual_role_device_profile = post_resource(
+            config=config,
+            path="/device-profiles",
+            payload=payloads["dual_role_device_profile"],
+            actor_id=dual_role_account["id"],
         )
         qualified_task = post_resource(
             config=config,
@@ -654,7 +724,9 @@ def main() -> int:
             health=health,
             developer_account=developer_account,
             tester_account=tester_account,
+            dual_role_account=dual_role_account,
             project=project,
+            dual_role_project=dual_role_project,
             qualified_campaign=qualified_campaign,
             drift_campaign=drift_campaign,
             safety=safety,
@@ -663,6 +735,7 @@ def main() -> int:
             qualified_device_profile=qualified_device_profile,
             accepted_request_device_profile=accepted_request_device_profile,
             ineligible_device_profile=ineligible_device_profile,
+            dual_role_device_profile=dual_role_device_profile,
             qualified_task=qualified_task,
             drift_task=drift_task,
             feedback=feedback,

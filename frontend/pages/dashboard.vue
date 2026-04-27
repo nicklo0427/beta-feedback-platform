@@ -7,7 +7,13 @@ import {
   useAuthSessionPending,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  formatAccountRoleLabel,
+  formatAccountRolesLabel,
+  normalizeAccountRoles,
+  type AccountRole
+} from '~/features/accounts/types'
+import { useActiveWorkspaceRolePersistence } from '~/features/accounts/workspace-role'
 import { fetchCampaigns } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import { fetchFeedbackQueue } from '~/features/feedback/api'
@@ -60,8 +66,20 @@ const authSessionPending = useAuthSessionPending()
 const redirectingToLogin = ref(false)
 
 const sessionAccount = computed(() => authSession.value?.account ?? null)
-const actorId = computed(() => sessionAccount.value?.id ?? null)
-const isDeveloper = computed(() => sessionAccount.value?.role === 'developer')
+const activeWorkspaceRole = useActiveWorkspaceRolePersistence(sessionAccount)
+const dashboardWorkspaceRole = computed<AccountRole | null>(() => {
+  const availableRoles = normalizeAccountRoles(sessionAccount.value ?? {})
+
+  if (availableRoles.length === 0) {
+    return null
+  }
+
+  if (activeWorkspaceRole.value && availableRoles.includes(activeWorkspaceRole.value)) {
+    return activeWorkspaceRole.value
+  }
+
+  return availableRoles[0]
+})
 
 watch(
   [authSession, authSessionPending],
@@ -84,15 +102,16 @@ const {
   error: dashboardError,
   refresh: refreshDashboard
 } = useAsyncData(
-  () => `dashboard-${sessionAccount.value?.id ?? 'none'}-${sessionAccount.value?.role ?? 'none'}`,
+  () =>
+    `dashboard-${sessionAccount.value?.id ?? 'none'}-${dashboardWorkspaceRole.value ?? 'none'}`,
   async (): Promise<DashboardData> => {
-    if (!sessionAccount.value) {
+    if (!sessionAccount.value || !dashboardWorkspaceRole.value) {
       return null
     }
 
     const actorIdValue = sessionAccount.value.id
 
-    if (sessionAccount.value.role === 'developer') {
+    if (dashboardWorkspaceRole.value === 'developer') {
       const [projects, campaigns, feedbackQueue, participationQueue] =
         await Promise.all([
           fetchProjects({
@@ -149,7 +168,7 @@ const {
   },
   {
     server: false,
-    watch: [sessionAccount],
+    watch: [sessionAccount, dashboardWorkspaceRole],
     default: () => null
   }
 )
@@ -242,7 +261,15 @@ const testerRecentParticipationRequests = computed(
           </span>
           <span class="resource-shell__meta-chip">
             {{ t('dashboard.roleLabel') }}
-            {{ formatAccountRoleLabel(sessionAccount.role, locale) }}
+            {{ formatAccountRolesLabel(sessionAccount, locale) }}
+          </span>
+          <span
+            v-if="dashboardWorkspaceRole"
+            class="resource-shell__meta-chip"
+            data-testid="dashboard-active-workspace-role"
+          >
+            {{ t('dashboard.activeViewLabel') }}
+            {{ formatAccountRoleLabel(dashboardWorkspaceRole, locale) }}
           </span>
         </div>
       </header>

@@ -61,6 +61,11 @@ test.describe('ui shell foundation', () => {
     await expect(page.getByTestId('current-actor-select')).toBeVisible()
 
     await expect(page.getByTestId('app-shell-navigation')).toBeVisible()
+    await expect(page.getByTestId('app-shell-brand-icon')).toBeVisible()
+    await expect(page.getByTestId('app-shell-brand-icon')).toHaveAttribute(
+      'src',
+      /header-brand-icon\.webp$/
+    )
     await page.getByTestId('nav-projects').click()
     await expect(page).toHaveURL(/\/projects$/)
 

@@ -59,12 +59,12 @@ def test_project_service_create_rejects_non_developer_actor() -> None:
 
     error = exc_info.value
     assert error.status_code == status.HTTP_409_CONFLICT
-    assert error.code == "conflict"
+    assert error.code == "forbidden_actor_role"
     assert error.details == {
-        "resource": "project",
-        "account_id": tester.id,
-        "expected_role": "developer",
-        "actual_role": "tester",
+        "actor_id": tester.id,
+        "actor_role": "tester",
+        "actor_roles": ["tester"],
+        "required_role": "developer",
     }
 
 

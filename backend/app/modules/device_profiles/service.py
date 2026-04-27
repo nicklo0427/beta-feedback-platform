@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.device_profiles import repository
@@ -61,17 +62,11 @@ def _resolve_device_profile_owner_account_id(current_actor_id: str | None) -> st
         return None
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="conflict",
-            message="Tester account is required to own a device profile.",
-            details={
-                "resource": "device_profile",
-                "account_id": actor.id,
-                "expected_role": AccountRole.TESTER.value,
-                "actual_role": actor.role,
-            },
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester account is required to own a device profile.",
         )
 
     return actor.id

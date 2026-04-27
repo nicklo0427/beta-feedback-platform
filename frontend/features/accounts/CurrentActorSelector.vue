@@ -12,7 +12,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  formatAccountRoleLabel,
+  formatAccountRolesLabel
+} from '~/features/accounts/types'
+import { useActiveWorkspaceRole } from '~/features/accounts/workspace-role'
 import { useAppI18n } from '~/features/i18n/use-app-i18n'
 
 const props = withDefaults(
@@ -34,6 +38,7 @@ const currentActorId = useCurrentActorId()
 const authRuntimeMode = useAuthRuntimeMode()
 const authSession = useAuthSession()
 const authSessionPending = useAuthSessionPending()
+const activeWorkspaceRole = useActiveWorkspaceRole()
 const logoutPending = ref(false)
 const logoutError = ref<string | null>(null)
 const sessionOnlyMode = computed(() => authRuntimeMode.value === 'session_only')
@@ -79,17 +84,22 @@ const resolvedDescription = computed(() =>
 )
 const compactLabel = computed(() => {
   if (isAuthenticated.value && sessionAccount.value) {
-    return `${sessionAccount.value.display_name} · ${formatAccountRoleLabel(sessionAccount.value.role, locale.value)}`
+    return `${sessionAccount.value.display_name} · ${formatAccountRolesLabel(sessionAccount.value, locale.value)}`
   }
 
   if (selectedAccount.value) {
-    return `${selectedAccount.value.display_name} · ${formatAccountRoleLabel(selectedAccount.value.role, locale.value)}`
+    return `${selectedAccount.value.display_name} · ${formatAccountRolesLabel(selectedAccount.value, locale.value)}`
   }
 
   return sessionOnlyMode.value
     ? t('actor.compact.notSignedIn')
     : t('actor.compact.noActorSelected')
 })
+const activeWorkspaceRoleLabel = computed(() =>
+  activeWorkspaceRole.value
+    ? formatAccountRoleLabel(activeWorkspaceRole.value, locale.value)
+    : t('shell.workspace.statusPending')
+)
 
 watch(
   accounts,
@@ -239,7 +249,7 @@ async function handleLogout(): Promise<void> {
             :key="account.id"
             :value="account.id"
           >
-            {{ account.display_name }} · {{ formatAccountRoleLabel(account.role, locale) }}
+            {{ account.display_name }} · {{ formatAccountRolesLabel(account, locale) }}
           </option>
         </select>
       </label>
@@ -305,7 +315,17 @@ async function handleLogout(): Promise<void> {
         <div class="resource-key-value__row">
           <span class="resource-key-value__label">{{ t('actor.panel.role') }}</span>
           <span class="resource-key-value__value">
-            {{ formatAccountRoleLabel(sessionAccount.role, locale) }}
+            {{ formatAccountRolesLabel(sessionAccount, locale) }}
+          </span>
+        </div>
+        <div
+          v-if="activeWorkspaceRole"
+          class="resource-key-value__row"
+          data-testid="current-session-active-workspace-role"
+        >
+          <span class="resource-key-value__label">{{ t('shell.workspace.activeRoleLabel') }}</span>
+          <span class="resource-key-value__value">
+            {{ activeWorkspaceRoleLabel }}
           </span>
         </div>
         <div class="resource-key-value__row">
@@ -414,7 +434,7 @@ async function handleLogout(): Promise<void> {
             :key="account.id"
             :value="account.id"
           >
-            {{ account.display_name }} · {{ formatAccountRoleLabel(account.role, locale) }}
+            {{ account.display_name }} · {{ formatAccountRolesLabel(account, locale) }}
           </option>
         </select>
       </label>
@@ -431,7 +451,7 @@ async function handleLogout(): Promise<void> {
           <span class="resource-key-value__value">
             {{
               selectedAccount
-                ? formatAccountRoleLabel(selectedAccount.role, locale)
+                ? formatAccountRolesLabel(selectedAccount, locale)
                 : t('actor.panel.roleFallback')
             }}
           </span>

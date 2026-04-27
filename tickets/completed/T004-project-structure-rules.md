@@ -54,7 +54,7 @@ T004 - Project Structure Rules
 
 ## Deliverables
 
-- 更新後的 `tickets/T004-project-structure-rules.md`
+- 更新後的 `tickets/completed/T004-project-structure-rules.md`
 - 一份根目錄結構規範文件：`ARCHITECTURE.md`
 - 一套前端結構規範
 - 一套後端結構規範

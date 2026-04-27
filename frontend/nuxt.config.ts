@@ -2,6 +2,22 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  app: {
+    head: {
+      link: [
+        {
+          rel: 'icon',
+          type: 'image/webp',
+          href: '/brand/header-brand-icon.webp?v=20260424-131459'
+        },
+        {
+          rel: 'shortcut icon',
+          type: 'image/webp',
+          href: '/brand/header-brand-icon.webp?v=20260424-131459'
+        }
+      ]
+    }
+  },
   css: ['~/assets/scss/main.scss'],
   modules: ['@pinia/nuxt'],
   runtimeConfig: {

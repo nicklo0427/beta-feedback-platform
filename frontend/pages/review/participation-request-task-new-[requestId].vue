@@ -11,7 +11,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import {
   createTaskFromParticipationRequest,
@@ -48,7 +52,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isDeveloperActor = computed(() => currentActor.value?.role === 'developer')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isDeveloperActor = computed(() => accountHasRole(currentActor.value, 'developer'))
 
 const {
   data: participationRequest,
@@ -57,7 +64,7 @@ const {
   refresh
 } = useAsyncData(
   () =>
-    `participation-request-task-create-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `participation-request-task-create-${requestId.value}-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return null
@@ -207,7 +214,7 @@ async function handleSubmit(values: TaskFormValues): Promise<void> {
         <p class="resource-state__description">
           {{
             t('participationTaskCreate.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

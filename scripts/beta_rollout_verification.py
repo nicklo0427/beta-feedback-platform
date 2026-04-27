@@ -17,6 +17,7 @@ DEFAULT_PAGE_PATHS = [
     "/login",
     "/register",
     "/",
+    "/dashboard",
     "/projects",
     "/campaigns",
     "/tasks",
@@ -26,6 +27,7 @@ DEFAULT_PAGE_PATHS = [
 DEFAULT_KNOWN_LIMITATIONS = [
     "deploy 前仍需先執行 Alembic upgrade head",
     "X-Actor-Id 只保留作為 local QA / seed fallback，不是正式 beta identity model",
+    "active workspace role 只影響 frontend 視角，backend authorization 仍以 account roles 判斷",
     "目前 beta 僅支援 Web、Mobile Web、PWA、iOS、Android",
     "notification、search overhaul、auto matching、team/org model 尚未納入本輪 beta",
 ]

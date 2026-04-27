@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import { formatAccountRolesLabel } from '~/features/accounts/types'
 
 import { mockApiError, mockApiJson } from './support/api-mocks'
 
@@ -8,6 +8,7 @@ const accountListItem = {
   id: 'acct_123',
   display_name: 'Alice QA',
   role: 'tester',
+  roles: ['tester'],
   updated_at: '2026-04-05T09:00:00Z'
 }
 
@@ -15,6 +16,7 @@ const accountDetail = {
   id: 'acct_123',
   display_name: 'Alice QA',
   role: 'tester',
+  roles: ['tester'],
   bio: 'Mobile web tester',
   locale: 'zh-TW',
   created_at: '2026-04-05T08:00:00Z',
@@ -24,6 +26,7 @@ const accountDetail = {
 const testerAccountSummary = {
   account_id: 'acct_123',
   role: 'tester',
+  roles: ['tester'],
   developer_summary: null,
   tester_summary: {
     owned_device_profiles_count: 1,
@@ -63,6 +66,7 @@ const developerAccountDetail = {
   id: 'acct_dev_123',
   display_name: 'Build Owner',
   role: 'developer',
+  roles: ['developer'],
   bio: 'Owns release workflows',
   locale: 'zh-TW',
   created_at: '2026-04-05T08:00:00Z',
@@ -72,6 +76,7 @@ const developerAccountDetail = {
 const developerAccountSummary = {
   account_id: 'acct_dev_123',
   role: 'developer',
+  roles: ['developer'],
   developer_summary: {
     owned_projects_count: 2,
     owned_campaigns_count: 3,
@@ -101,6 +106,7 @@ const testerZeroStateDetail = {
   id: 'acct_zero_123',
   display_name: 'Zero Tester',
   role: 'tester',
+  roles: ['tester'],
   bio: null,
   locale: null,
   created_at: '2026-04-05T08:00:00Z',
@@ -110,6 +116,7 @@ const testerZeroStateDetail = {
 const testerZeroStateSummary = {
   account_id: 'acct_zero_123',
   role: 'tester',
+  roles: ['tester'],
   developer_summary: null,
   tester_summary: {
     owned_device_profiles_count: 0,
@@ -140,7 +147,7 @@ test.describe('accounts shell flows', () => {
     const accountCard = page.getByTestId('account-card-acct_123')
     await expect(accountCard).toBeVisible()
     await expect(accountCard).toContainText(accountListItem.display_name)
-    await expect(accountCard).toContainText(formatAccountRoleLabel(accountListItem.role))
+    await expect(accountCard).toContainText(formatAccountRolesLabel(accountListItem))
 
     await accountCard.click()
 
@@ -163,6 +170,7 @@ test.describe('accounts shell flows', () => {
       id: 'acct_456',
       display_name: 'Build Owner',
       role: 'developer',
+      roles: ['developer', 'tester'],
       bio: 'Owns release campaigns',
       locale: 'en-US',
       created_at: '2026-04-05T10:00:00Z',
@@ -182,6 +190,7 @@ test.describe('accounts shell flows', () => {
                 id: createdAccount.id,
                 display_name: createdAccount.display_name,
                 role: createdAccount.role,
+                roles: createdAccount.roles,
                 updated_at: createdAccount.updated_at
               }
             ],
@@ -207,6 +216,7 @@ test.describe('accounts shell flows', () => {
     await mockApiJson(page, '/accounts/acct_456/summary', {
       account_id: 'acct_456',
       role: 'developer',
+      roles: ['developer', 'tester'],
       developer_summary: {
         owned_projects_count: 0,
         owned_campaigns_count: 0,
@@ -226,7 +236,8 @@ test.describe('accounts shell flows', () => {
     await page.waitForLoadState('networkidle')
 
     await page.getByTestId('account-display-name-input').fill('Build Owner')
-    await page.getByTestId('account-role-select').selectOption('developer')
+    await expect(page.getByTestId('account-role-checkbox-developer')).toBeChecked()
+    await expect(page.getByTestId('account-role-checkbox-tester')).toBeChecked()
     await page.getByTestId('account-bio-input').fill('Owns release campaigns')
     await page.getByTestId('account-locale-input').fill('en-US')
     const createRequestPromise = page.waitForRequest((request) => {
@@ -238,6 +249,7 @@ test.describe('accounts shell flows', () => {
     expect(createRequest.postDataJSON()).toEqual({
       display_name: 'Build Owner',
       role: 'developer',
+      roles: ['developer', 'tester'],
       bio: 'Owns release campaigns',
       locale: 'en-US'
     })
@@ -284,7 +296,6 @@ test.describe('accounts shell flows', () => {
     )
 
     await page.getByTestId('account-display-name-input').fill('Builder')
-    await page.getByTestId('account-role-select').selectOption('developer')
     await page.getByTestId('account-submit').click()
 
     await expect(page.getByTestId('account-form-error')).toContainText(
@@ -372,6 +383,7 @@ test.describe('accounts shell flows', () => {
           id: developerAccountDetail.id,
           display_name: developerAccountDetail.display_name,
           role: developerAccountDetail.role,
+          roles: developerAccountDetail.roles,
           updated_at: developerAccountDetail.updated_at
         }
       ],
@@ -403,6 +415,7 @@ test.describe('accounts shell flows', () => {
           id: testerZeroStateDetail.id,
           display_name: testerZeroStateDetail.display_name,
           role: testerZeroStateDetail.role,
+          roles: testerZeroStateDetail.roles,
           updated_at: testerZeroStateDetail.updated_at
         }
       ],

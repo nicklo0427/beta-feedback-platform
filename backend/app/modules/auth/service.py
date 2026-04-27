@@ -105,6 +105,7 @@ def _to_authenticated_actor(account_id: str) -> AuthenticatedActor:
         id=account.id,
         display_name=account.display_name,
         role=account.role,
+        roles=account.roles,
         email=account.email,
         is_active=account.is_active,
     )
@@ -147,6 +148,7 @@ def register(payload: AuthRegisterRequest) -> tuple[str, AuthSessionResponse]:
         AccountCreate(
             display_name=payload.display_name,
             role=payload.role,
+            roles=payload.roles,
             bio=payload.bio,
             locale=payload.locale,
         ),

@@ -895,6 +895,7 @@ def test_feedback_create_rejects_developer_actor(client: TestClient) -> None:
         "details": {
             "actor_id": developer.id,
             "actor_role": "developer",
+            "actor_roles": ["developer"],
             "required_role": "tester",
         },
     }
@@ -958,6 +959,7 @@ def test_feedback_patch_rejects_tester_review_updates(client: TestClient) -> Non
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -1021,6 +1023,7 @@ def test_feedback_patch_rejects_developer_content_updates(client: TestClient) ->
         "details": {
             "actor_id": developer.id,
             "actor_role": "developer",
+            "actor_roles": ["developer"],
             "required_role": "tester",
         },
     }

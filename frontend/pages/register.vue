@@ -9,7 +9,11 @@ import {
   useAuthSessionPending,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  ACCOUNT_ROLE_OPTIONS,
+  formatAccountRoleLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { useAppI18n } from '~/features/i18n/use-app-i18n'
 
 definePageMeta({
@@ -17,13 +21,14 @@ definePageMeta({
 })
 
 const router = useRouter()
+const route = useRoute()
 useCurrentActorPersistence()
 const { locale, t } = useAppI18n()
 
 const authSession = useAuthSession()
 const authSessionPending = useAuthSessionPending()
 const displayName = ref('')
-const role = ref<AuthRole>('developer')
+const roles = ref<AuthRole[]>([...ACCOUNT_ROLE_OPTIONS])
 const email = ref('')
 const password = ref('')
 const submitting = ref(false)
@@ -32,6 +37,19 @@ const submitError = ref<string | null>(null)
 const isAuthenticated = computed(() => authSession.value !== null)
 const showingRedirectState = computed(
   () => authSessionPending.value || isAuthenticated.value || redirecting.value
+)
+
+watch(
+  () => route.query.role,
+  (queryRole) => {
+    roles.value =
+      queryRole === 'developer' || queryRole === 'tester'
+        ? [queryRole]
+        : [...ACCOUNT_ROLE_OPTIONS]
+  },
+  {
+    immediate: true
+  }
 )
 
 watch(
@@ -52,15 +70,23 @@ watch(
 async function handleSubmit(): Promise<void> {
   submitError.value = null
 
+  const selectedRoles = normalizeAccountRoles({ roles: roles.value })
+
   const payload: RegisterPayload = {
     display_name: displayName.value.trim(),
-    role: role.value,
+    role: selectedRoles[0] ?? 'developer',
+    roles: selectedRoles,
     email: email.value.trim().toLowerCase(),
     password: password.value.trim()
   }
 
   if (!payload.display_name || !payload.email || !payload.password) {
     submitError.value = t('auth.register.requiredError')
+    return
+  }
+
+  if (payload.roles.length === 0) {
+    submitError.value = t('auth.register.roleRequiredError')
     return
   }
 
@@ -77,6 +103,25 @@ async function handleSubmit(): Promise<void> {
   } finally {
     submitting.value = false
   }
+}
+
+function roleIsSelected(role: AuthRole): boolean {
+  return roles.value.includes(role)
+}
+
+function toggleRole(role: AuthRole): void {
+  if (submitting.value) {
+    return
+  }
+
+  if (roleIsSelected(role)) {
+    roles.value = roles.value.filter((selectedRole) => selectedRole !== role)
+    return
+  }
+
+  roles.value = normalizeAccountRoles({
+    roles: [...roles.value, role]
+  })
 }
 </script>
 
@@ -164,17 +209,40 @@ async function handleSubmit(): Promise<void> {
                 />
               </label>
 
-              <label class="resource-field">
-                <span class="resource-field__label">{{ t('auth.fields.role') }}</span>
-                <select
-                  v-model="role"
-                  class="resource-select"
-                  data-testid="register-role-select"
+              <fieldset class="resource-field">
+                <legend class="resource-field__label">{{ t('auth.fields.role') }}</legend>
+                <div
+                  class="resource-choice-grid"
+                  data-testid="register-role-options"
                 >
-                  <option value="developer">{{ formatAccountRoleLabel('developer', locale) }}</option>
-                  <option value="tester">{{ formatAccountRoleLabel('tester', locale) }}</option>
-                </select>
-              </label>
+                  <label
+                    v-for="roleOption in ACCOUNT_ROLE_OPTIONS"
+                    :key="roleOption"
+                    class="resource-choice-card"
+                  >
+                    <input
+                      :checked="roleIsSelected(roleOption)"
+                      :disabled="submitting"
+                      :data-testid="`register-role-checkbox-${roleOption}`"
+                      :name="`roles_${roleOption}`"
+                      type="checkbox"
+                      @change="toggleRole(roleOption)"
+                    >
+                    <span class="resource-choice-card__content">
+                      <span class="resource-choice-card__label">
+                        {{ formatAccountRoleLabel(roleOption, locale) }}
+                      </span>
+                      <span class="resource-choice-card__hint">
+                        {{
+                          roleOption === 'developer'
+                            ? t('auth.register.developerDescription')
+                            : t('auth.register.testerDescription')
+                        }}
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
             </div>
           </section>
 

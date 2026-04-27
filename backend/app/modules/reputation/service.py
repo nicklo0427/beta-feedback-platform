@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import status
 
 from app.common.exceptions import AppError
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.campaigns.service import ensure_campaign_exists
@@ -39,25 +40,6 @@ def _latest_timestamp(values: list[str | None]) -> str | None:
     if not normalized_values:
         return None
     return max(normalized_values)
-
-
-def _raise_forbidden_actor_role(
-    *,
-    actor_id: str,
-    actor_role: str,
-    required_role: str,
-    message: str,
-) -> None:
-    raise AppError(
-        status_code=status.HTTP_409_CONFLICT,
-        code="forbidden_actor_role",
-        message=message,
-        details={
-            "actor_id": actor_id,
-            "actor_role": actor_role,
-            "required_role": required_role,
-        },
-    )
 
 
 def _raise_ownership_mismatch(
@@ -108,20 +90,27 @@ def _ensure_campaign_reputation_read_visibility(
     actor_id = _ensure_current_actor(current_actor_id)
     actor = ensure_account_exists(actor_id)
 
-    if actor.role == AccountRole.DEVELOPER.value:
-        ensure_campaign_owned_by_actor(
-            campaign_id,
-            actor.id,
-            resource="campaign_reputation",
-        )
-        return
+    developer_error: AppError | None = None
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            ensure_campaign_owned_by_actor(
+                campaign_id,
+                actor.id,
+                resource="campaign_reputation",
+            )
+            return
+        except AppError as error:
+            if error.code != "ownership_mismatch":
+                raise
+            developer_error = error
 
-    if actor.role != AccountRole.TESTER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.TESTER.value,
-            message="Developer or tester role is required to read campaign reputation.",
+    if not account_has_role(actor, AccountRole.TESTER):
+        if developer_error is not None:
+            raise developer_error
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Developer or tester role is required to read campaign reputation.",
         )
 
     owned_device_profiles = [

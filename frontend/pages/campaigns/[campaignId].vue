@@ -8,7 +8,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { fetchCampaignDetail } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import {
@@ -95,7 +99,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isTesterActor = computed(() => currentActor.value?.role === 'tester')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isTesterActor = computed(() => accountHasRole(currentActor.value, 'tester'))
 
 const {
   data: qualificationResponse,
@@ -104,7 +111,7 @@ const {
   refresh: refreshQualification
 } = useAsyncData(
   () =>
-    `campaign-qualification-${campaignId.value}-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `campaign-qualification-${campaignId.value}-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isTesterActor.value) {
       return {
@@ -744,7 +751,7 @@ watch([campaignId, currentActorId], () => {
           <p class="resource-state__description">
             {{
               t('campaignDetail.qualificationRoleMismatchDescription', {
-                role: formatAccountRoleLabel(currentActor.role, locale)
+                role: formatAccountRolesLabel(currentActor, locale)
               })
             }}
           </p>
@@ -909,7 +916,7 @@ watch([campaignId, currentActorId], () => {
           <p class="resource-state__description">
             {{
               t('campaignDetail.participationRoleMismatchDescription', {
-                role: formatAccountRoleLabel(currentActor.role, locale)
+                role: formatAccountRolesLabel(currentActor, locale)
               })
             }}
           </p>

@@ -318,6 +318,7 @@ def test_campaigns_mine_filter_rejects_tester_actor(client: TestClient) -> None:
         "details": {
             "actor_id": tester_id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -421,6 +422,7 @@ def test_campaigns_qualified_for_me_rejects_non_tester_actor(client: TestClient)
         "details": {
             "actor_id": developer_id,
             "actor_role": "developer",
+            "actor_roles": ["developer"],
             "required_role": "tester",
         },
     }
@@ -474,6 +476,7 @@ def test_campaign_create_rejects_non_developer_actor(client: TestClient) -> None
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }

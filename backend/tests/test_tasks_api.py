@@ -639,6 +639,7 @@ def test_task_patch_rejects_tester_resolution_action(client: TestClient) -> None
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -1128,6 +1129,7 @@ def test_task_create_rejects_tester_actor(client: TestClient) -> None:
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -1293,6 +1295,7 @@ def test_task_patch_rejects_tester_updates_other_than_start(client: TestClient) 
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }

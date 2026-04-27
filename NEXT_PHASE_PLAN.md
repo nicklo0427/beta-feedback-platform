@@ -4,7 +4,7 @@
 
 目前 repo 已完成：
 
-- `T011` 到 `T094`
+- `T011` 到 `T101`
 - MVP 主流程閉環
 - role-aware collaboration baseline
 - qualification / assignment clarity baseline
@@ -12,175 +12,182 @@
 - Alembic schema lifecycle baseline
 - public beta ops / QA / rollout evidence baseline
 - 全站 UI/UX refresh baseline
-- `T082` 首頁登入前 / 登入後入口節奏調整
-- `T083` 首頁品牌視覺與 supporting visual panels
-- `T084` public / app layout split foundation
-- `T085` public homepage redesign
-- `T086` auth page 與 dashboard entry flow alignment
-- `T087` role-aware dashboard home
-- `T088` app shell redesign
-- `T089` high-frequency app template harmonization
-- `T090` responsive / docs / QA refresh baseline
-- `T091` dashboard entry flow / shell regression pass
-- `T092` public homepage conversion and product-flow polish
-- `T093` public copy simplification for non-technical users
-- `T094` in-product terminology simplification and helper copy
-
-這代表：
-
-- **功能型 MVP 已完成**
-- **repo 內的 public beta readiness baseline 已完成**
-- **public home、auth pages、登入後 `/dashboard` 與 app shell 已完成分層**
-- **下一步最值得先做的是決定要往 public trust/visual 深化，還是全站 i18n / terminology 擴張**
-
-## 1. 現在先做哪一件事
-
-如果你的目標是：
-
-- 讓 public landing 更像可對外展示的正式產品首頁
-- 把目前只覆蓋到主流程的 i18n / terminology 再往更多頁面擴張
-- 或開始補 launch 前最後一段 public beta hardening / release decision
-
-那下一個 phase 比較合理的方向會是三選一：
-
-- `Public landing trust / proof / visual system` 深化
-- `Full-site i18n and terminology expansion`
-- `Public beta rollout decision and post-beta hardening`
-
-目前不需要再重做 `T093 / T094` 的方向，因為這一批已完成：
-
-- public 面的人話化重寫
-- app 內主流程頁的術語降噪
-- CTA、state copy、helper text 與 i18n 對齊
-
-## 2. 剛完成的 Phase
-
-剛完成的 phase 為：
-
-- public layout 與 app layout 分離
-- public landing / auth pages 重設計
-- 新增登入後 `/dashboard`
-- app shell 比例、導覽層級、page frame 重設計
-- 高頻 app page template 對齊
-- responsive / QA / docs refresh
-- public homepage conversion 與 product-flow polish
+- public home、auth pages、登入後 `/dashboard` 與 app shell 分層
 - public copy simplification for non-technical users
 - in-product terminology simplification and helper copy
+- account roles data model / migration baseline
+- auth/session roles compatibility baseline
+- backend role guard capability baseline
+- frontend dual-role registration and account form baseline
+- active workspace role switch baseline
+- dashboard and workspace route adaptation baseline
+- dual-role QA / docs / seed / regression baseline
 
-## 3. 已完成 Tickets
+剛完成的 phase：
 
-### T084 - Public/App Layout Split Foundation
+- `Dual-Role Account and Workspace Mode`
 
-- 建立 `public layout` 與 `app layout`
-- `/`、`/login`、`/register` 掛到 public layout
-- 其他 app 內頁掛到 app layout
-- 保留既有 sidebar + topbar app shell 作為登入後基線
+這代表產品已從「單一角色帳號」推進到「同一帳號可同時發起試玩、也可參與試玩」的 baseline。下一輪正式進入 beta target environment rehearsal 與 post-beta hardening。
 
-### T085 - Public Homepage Redesign
+## 1. 剛完成的 Phase
 
-- 把 `/` 重做成純 public landing
-- 保留 `T083` 視覺資產
-- 移除首頁上的內部模組入口卡
-- 聚焦產品介紹、角色價值、流程與 auth CTA
+### Dual-Role Account and Workspace Mode
 
-### T086 - Auth Page and Entry Flow Alignment
+已完成：
 
-- `/login`、`/register` 對齊 public brand language
-- auth success redirect 統一進 `/dashboard`
-- 已登入進 auth 頁時自動導回 `/dashboard`
+- 帳號可同時具備 `developer` 與 `tester`
+- Account data model 已具備 `roles` 能力集合
+- Backend 權限已從 legacy `role` 判斷遷到 `roles` capability helper
+- Frontend 已新增 `開發者視角 / 測試者視角` 工作視角切換
+- `/dashboard` 與高頻 workspace routes 已適配 active workspace role 與 roles capability
+- seed、manual QA、README、launch checklist 已納入 developer-only / tester-only / dual-role 驗收路徑
+- legacy `role` 暫時保留相容，避免一次打破既有 API、tests、seed 與舊資料
 
-### T087 - Dashboard Home Build
+核心原則：
 
-- 新增 `/dashboard`
-- 成為登入後首頁
-- developer / tester 顯示不同 summary、queue、CTA
+- `roles` 是新的權限來源
+- `role` 是 legacy / primary fallback
+- `T095` 已完成資料模型與 migration
+- `T097` 已完成 backend role guard capability migration
+- `T096` 已完成 auth/register 與 session payload compatibility
+- `T098` 已完成 frontend roles type、registration 與 account form baseline
+- `T099` 已完成 frontend-only active workspace role switch
+- `T100` 已完成 dashboard 與主工作區的 dual-role route adaptation
+- `T101` 已完成 QA / docs / seed / regression 收斂
+- active workspace role 只影響 frontend UI，不作為 backend 授權依據
+- 不在本 phase 引入完整 RBAC framework
 
-### T088 - App Shell Redesign
+## 2. 已完成順序
 
-- 重新設計登入後 app shell
-- `Dashboard` 成為第一個主導航入口
-- sidebar、topbar、page frame 比例與密度收斂
+已完成：
 
-### T089 - Core App Template Harmonization
+1. `T095 - Account Roles Data Model and Migration`
+2. `T096 - Auth and Account API Roles Compatibility`
+3. `T097 - Backend Role Guard Refactor for Capabilities`
+4. `T098 - Frontend Types, Registration, and Account Forms for Roles`
+5. `T099 - Active Workspace Role Switch`
+6. `T100 - Dashboard and Workspace Route Adaptation`
+7. `T101 - Dual-Role QA, Docs, Seed, and Regression`
 
-- 高頻 app 頁面對齊新的 template 節奏
-- 聚焦 `/my/*`、`/review/*`、`/projects`、`/campaigns`、`/tasks`
-- 收斂 list / detail / workspace / context rail 結構
+## 3. Completed Tickets
 
-### T090 - Layout Responsive, QA, and Docs Refresh
+### T095 - Account Roles Data Model and Migration
 
-- 做 desktop-first responsive pass
-- 更新 README / MANUAL_QA / Playwright 驗收
-- 驗 public/home/auth/dashboard/app shell 路徑
+- Status: completed
+- 新增 `accounts.roles`
+- backfill 既有 `role` 到 `roles = [role]`
+- 保留 `role` 作為 legacy / primary fallback
+- 建立 roles validation baseline
 
-### T091 - Dashboard Entry Flow and Shell Regression Pass
+### T096 - Auth and Account API Roles Compatibility
 
-- 等 `T087` 到 `T090` 穩定後，集中補 dashboard / auth / shell 的 regression
-- 收斂 public home → auth → dashboard → app shell 的端到端驗收
-- 補 locale / theme persistence 與 responsive smoke
+- Status: completed
+- `/auth/register` 優先接受 `roles`
+- auth session account payload 帶 `roles`
+- 收斂 account API 已落地的 `role` / `roles` precedence 行為
+- legacy `role` 仍可傳入
+- account response 已在 `T095` 開始同時回傳 `role` 與 `roles`
 
-### T092 - Public Homepage Conversion and Product-Flow Polish
+### T097 - Backend Role Guard Refactor for Capabilities
 
-- 把首頁首屏改成 conversion-first 的雙目標 hero
-- 把 public landing section 重排成 trust / flow / role value / final CTA
-- 升級首頁品牌視覺與 `zh-TW / en` 文案
-- 保持 route 與 backend API 不變
+- Status: completed
+- 建立 backend role capability helper
+- 將 developer-only / tester-only 判斷改成檢查 `roles`
+- dual-role account 可通過兩邊能力檢查
+- `forbidden_actor_role` details 增加 `actor_roles`
 
-### T093 - Public Copy Simplification for Non-Technical Users
+### T098 - Frontend Types, Registration, and Account Forms for Roles
 
-- 把 `/`、`/login`、`/register` 與 public header 的語言改成沒有開發背景也看得懂的產品語言
-- 降低 `campaign`、`qualification`、`participation request` 等術語在登入前的理解成本
-- 對齊首頁、auth pages 與 public CTA 的 `zh-TW / en` 文案
+- Status: completed
+- frontend 新增 roles 型別與 formatter
+- `/register` 改成身份多選
+- account create/edit form 改成身份多選
+- query preselect 保留
 
-### T094 - In-Product Terminology Simplification and Helper Copy
+### T099 - Active Workspace Role Switch
 
-- 把 `/dashboard`、`/my/*`、`/review/*` 與高頻 detail 頁的主要標題、CTA、狀態文案改得更口語
-- 透過 helper copy 保留流程精準度，但降低理解門檻
-- 對齊主流程頁的狀態 label、錯誤訊息與中英文 i18n
+- Status: completed
+- app shell 新增 `開發者視角 / 測試者視角` 切換
+- active role 存 localStorage
+- 單身份帳號不顯示無用切換器
+- active role 不送 backend 作授權
 
-## 4. 下一個 Phase
+### T100 - Dashboard and Workspace Route Adaptation
 
-下一個 phase 建議先在下面三條裡選一條：
+- Status: completed
+- `/dashboard` 依 active workspace role 顯示不同工作區
+- dual-role account 不再被要求切換帳號
+- route mismatch 文案改成引導切換工作視角
+- developer-only / tester-only 頁面改看 capability
 
-- `Public Landing Trust and Visual Proof`
-- `Full-Site i18n and Terminology Expansion`
-- `Public Beta Launch Decision and Hardening`
+### T101 - Dual-Role QA, Docs, Seed, and Regression
 
-目標不再是回頭收同一批 copy，而是決定要：
+- Status: completed
+- seed 新增 dual-role、developer-only、tester-only 帳號
+- 更新 README / MANUAL_QA / PUBLIC_BETA_LAUNCH_CHECKLIST
+- 補 backend migration / API tests
+- 補 frontend E2E for dual-role login、workspace switch、developer flow、tester flow
 
-- 繼續強化 public 面的信任感、案例感與品牌視覺
-- 把目前已完成的 i18n / 非技術詞彙基線擴到剩下的 resource/detail/form 頁
-- 或回到 launch / rollout 角度，準備真正的 public beta 發佈決策
+## 4. Next Planned Tickets
 
-## 5. 建議順序
+### T102 - Target Beta Environment Rehearsal
 
-1. 決定下一輪是偏 `public marketing polish`、`full-site product language`，還是 `launch hardening`
-2. 再依選定方向拆成 `T095+`
+- Status: active
+- 在接近 public beta 的環境設定下跑 migration、session-only auth、health、smoke 與 rollout evidence
+- 驗證 `/`、`/login`、`/register`、`/dashboard` 在 target env 可用
+- 產出 go / no-go evidence pack
+
+### T103 - Launch Blocker Fix Pass
+
+- Status: active
+- 修復 `T102` rehearsal 暴露出的 blocker
+- 補對應 backend / frontend tests
+- 重跑 smoke、rollout verification 與 regression
+
+### T104 - Beta Onboarding Polish
+
+- Status: active
+- 優化首次註冊後 dashboard 與 empty state 引導
+- 讓 developer / tester / dual-role 使用者更快知道下一步
+- 強化 workspace role switch helper copy
+
+### T105 - Operational Safety Baseline
+
+- Status: active
+- 補齊 beta 期間最小 runbook、seed safety、migration / backup 注意事項
+- 確認 health、smoke、evidence pack 與故障排查流程可直接使用
+
+## 5. 下一步建議
+
+下一輪建議不要再擴角色模型，而是回到 public beta readiness 的最後現場驗證：
+
+1. 在目標 beta 環境跑一次完整 `public_beta_smoke.py`
+2. 跑 `beta_rollout_verification.py` 產出 evidence pack
+3. 用 [MANUAL_QA.md](/Users/lowhaijer/projects/beta-feedback-platform/MANUAL_QA.md) 的 dual-role 與主流程清單做人工驗收
+4. 把 rehearsal 暴露出的 blocker 拆成 post-beta hardening tickets
 
 ## 6. 為什麼這樣排
 
-- `T093 / T094` 已先把對非技術背景最重要的理解門檻降下來
-- 下一步如果還留在同一層 copy 微調，收益會開始變小
-- 比較值得的是選擇一條新的主線，避免 roadmap 只剩零碎修飾
+- 先做資料模型，讓後續 API 和權限有穩定基礎
+- 再做 API compatibility，避免 frontend 與 tests 必須一次全部改完
+- backend capability guard 應在 frontend workspace switch 前完成，確保安全模型先穩
+- frontend registration / forms 再接上新模型
+- active workspace role 最後接 dashboard / routes，避免 UI 視角和 backend 權限互相混淆
+- 最後用 QA / docs / seed 收斂整個 phase
+- 接著先做 target environment rehearsal，避免繼續新增功能卻不知道 beta 環境是否真的可承載
+- blocker fix 應接在 rehearsal 後，onboarding polish 和 operational safety 再跟上
 
 ## 7. 這一輪先不要做的事
 
-以下項目仍暫不建議在這個 phase 啟動：
-
-- backend auth redesign
-- RBAC framework 擴張
-- notification system
-- 搜尋 overhaul
-- auto matching
-- developer candidate ranking
-- organization / team model
-- locale-prefixed i18n routing
-- 全站插畫系統 overhaul
-- landing 頁以外的大型 marketing site 擴張
-- backend-side i18n
-- 全站一次性文案大重寫
-- 資料模型重新命名
+- 不移除 legacy `role`
+- 不新增完整 RBAC framework
+- 不新增 organization / team model
+- 不新增 notification system
+- 不新增 auto matching
+- 不重做 app navigation IA
+- 不做 backend-side i18n
+- 不做全站文案大重寫
 
 ## 8. 一句話結論
 
-`T084` 到 `T094` 已把 public landing、auth pages、登入後 `/dashboard`、app shell 與高頻主流程頁的語言收斂到非技術背景也較容易理解；下一步該做的不是重做同一批文案，而是決定要往 `public trust`、`full-site i18n`，還是 `launch hardening` 前進。
+`T095-T101` 已把產品從「單一角色帳號」推進到「同一帳號可同時發起試玩、也可參與試玩」；`T102-T105` 會把重點轉向目標環境 rehearsal、blocker 修復、onboarding polish 與 operational safety。

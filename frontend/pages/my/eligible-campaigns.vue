@@ -7,7 +7,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { fetchCampaigns } from '~/features/campaigns/api'
 import { formatCampaignStatusLabel } from '~/features/campaigns/types'
 import ParticipationRequestForm from '~/features/participation-requests/ParticipationRequestForm.vue'
@@ -41,7 +45,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isTesterActor = computed(() => currentActor.value?.role === 'tester')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isTesterActor = computed(() => accountHasRole(currentActor.value, 'tester'))
 
 const {
   data: campaignResponse,
@@ -50,7 +57,7 @@ const {
   refresh: refreshCampaigns
 } = useAsyncData(
   () =>
-    `my-eligible-campaigns-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `my-eligible-campaigns-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isTesterActor.value) {
       return {
@@ -227,7 +234,7 @@ watch([currentActorId, currentActor], () => {
         <p class="resource-state__description">
           {{
             t('myEligibleCampaigns.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

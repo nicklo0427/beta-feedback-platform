@@ -67,6 +67,10 @@ const MESSAGES = {
         description: '這裡會顯示目前登入中的帳號與角色，幫你確認正在用哪個工作視角推進流程。',
         noSession: '尚未同步 session',
         roleLabel: '目前角色',
+        activeRoleLabel: '工作視角',
+        switchAria: '切換工作視角',
+        switchHint: '只會調整前端工作區呈現，不會修改帳號身份或後端權限。',
+        singleHint: '這個帳號目前只有一種身份，因此不需要切換視角。',
         statusReady: '已登入，準備繼續',
         statusPending: '同步中',
         publicHome: '返回公開首頁'
@@ -133,21 +137,21 @@ const MESSAGES = {
       description:
         '這是一個跨平台 Beta 測試媒合與回饋管理平台，讓開發者能在同一個系統內完成測試招募、資格條件設定、任務派發、結構化回饋整理，以及第一版信譽摘要。',
       guest: {
-        eyebrow: 'Public Beta Entry',
-        promiseTitle: '找人試用、收回饋、整理下一步，都放在同一個地方。',
+        eyebrow: '給 vibe coder 與好奇的試用者',
+        promiseTitle: '做了新東西，找人試玩；想發現有趣作品，也能在這裡開始。',
         description:
-          '不用自己拼表單、訊息、試用名單和回饋整理。你可以在同一個工作區發起測試、找到適合的人、安排試用任務，並收回整理好的意見。',
+          '給做出網站、App、小遊戲的人找真實試玩者，也給想玩新東西的人找到下一個有趣作品。',
         flowHint:
-          '先建立測試活動，再讓合適的人參與；完成試用後，回饋會直接留在同一條流程裡，不用再自己到處整理。',
+          '發起試玩、找到合適的人、收回反應和建議，最後整理成下一步。',
         actions: {
           login: '登入工作區',
-          register: '建立帳號',
-          learnMore: '了解如何運作'
+          register: '開始找人試玩',
+          learnMore: '看看怎麼玩'
         },
         proof: {
-          workflow: '從活動到回饋',
-          review: '邀請、安排、整理',
-          crossPlatform: 'Web / iOS / Android'
+          workflow: '網站、App、小遊戲',
+          review: '真實試玩與建議',
+          crossPlatform: '從找人到整理回饋'
         },
         cards: {
           developerLabel: '發起測試的人',
@@ -180,29 +184,59 @@ const MESSAGES = {
           register: '建立帳號'
         },
         visuals: {
-          heroLabel: '品牌主視覺',
-          heroTitle: '讓找人試用、安排任務和收回饋，看起來像同一套產品體驗',
-          heroDescription:
-            '這張主視覺把發起測試、參與試用與整理回饋放進同一個畫面，讓第一次看到的人也能馬上知道這個產品是做什麼的。',
           heroAlt:
-            'beta 測試協作平台首頁主視覺，呈現建立測試活動、安排試用與整理回饋的產品化插畫情境。'
+            '首頁主視覺插畫，描繪發起測試的人與參與測試的人一起查看任務、回饋與測試進度的協作場景。'
         }
       },
       trust: {
-        eyebrow: 'Professional signal',
-        title: '先讓人放心，再讓人願意開始',
+        eyebrow: '可信試用訊號',
+        title: '先講清楚，再讓人放心開始',
         description:
-          '首頁先回答兩件事：這個工具到底是拿來做什麼的？以及它能不能幫你更輕鬆地管理試用與回饋。',
-        visualLabel: 'Operations storyboard',
-        visualTitle: '把找人、安排、收回饋整理成一個更清楚的工作畫面',
-        visualDescription:
-          '這張輔助視覺把參與審查、安排任務與回饋整理放在同一張圖裡，讓人不用懂技術名詞，也知道這是一套完整流程。',
+          '這裡先把邊界、風險與支援範圍說清楚：它不是互刷或灌量工具，而是幫你用比較正式的方法找人試用、收回饋、整理下一步。',
         visualAlt:
-          '首頁信任區的輔助視覺，描繪參與審查、任務安排與回饋整理的產品化場景。',
+          '首頁信任區插畫，描繪團隊一起查看回饋、確認狀態與整理決策的協作情境。',
+        signals: {
+          notShortcut: {
+            label: '不是捷徑',
+            title: '不是互刷或換評',
+            summary: '重點不是衝數字，而是讓真實試用、清楚任務與可整理的建議留在同一條流程裡。',
+            imageAlt:
+              '可信試用訊號區塊插畫，呈現不是互刷或換評，而是用正式流程管理試用與回饋。',
+          },
+          safetyFirst: {
+            label: '安全優先',
+            title: '官方管道優先',
+            summary: '優先使用官方測試與分發方式，讓來源、風險提示和審查判斷都能被看見。',
+            details: {
+              officialChannels:
+                '優先採用官方測試與分發方式，不鼓勵來源不明安裝檔或要求參與者關閉安全防護。',
+              sourceTrace:
+                '把來源標示、風險提示與測試條件留在活動裡，讓參與者在開始前就知道自己要試什麼。',
+              reviewDecision:
+                '把審查決策和下一步整理回同一個流程，不用散在私訊、表單、截圖或零碎筆記裡。'
+            },
+            imageAlt:
+              '可信試用訊號區塊插畫，呈現官方測試與分發管道、來源標示、風險提示與審查決策。',
+          },
+          platforms: {
+            label: '支援平台',
+            title: '跨平台試用管理',
+            summary: '網站、App、小遊戲都可以用同一套節奏安排試用、任務與回饋。',
+            details: {
+              web: '適合 Web、Mobile Web 與 PWA，讓網站、互動工具或新做出來的 side project 都能被清楚試用。',
+              mobile:
+                '支援 iOS 與 Android 類型的測試活動，可以記錄裝置條件、參與資格、任務與回饋狀態。',
+              games:
+                '小遊戲、原型作品或 vibe coding 做出的新功能，也能用活動、任務和回饋串成容易追蹤的流程。'
+            },
+            imageAlt:
+              '可信試用訊號區塊插畫，呈現網站、App 與遊戲等跨平台試用與回饋管理。',
+          }
+        },
         cards: {
-          notWhatLabel: 'Not a shortcut',
+          notWhatLabel: '不是捷徑',
           notWhatValue: '不是互刷或換評',
-          safetyLabel: 'Safety-first',
+          safetyLabel: '安全優先',
           safetyValue: '官方管道優先',
           safetyDescription:
             '優先採用官方測試與分發方式，讓來源標示、風險提示與審查決策都保留在流程裡。',
@@ -328,10 +362,29 @@ const MESSAGES = {
         }
       },
       flow: {
-        eyebrow: 'Product flow',
+        eyebrow: '產品流程',
         title: '怎麼運作',
         description:
-          '用五個步驟看懂：從發起測試到收到回饋，中間不用再靠一堆外部工具拼起來。',
+          '不用懂專案管理或測試術語。你只要看懂三件事：做了東西、找人試用、把回饋整理成下一步。',
+        visualAlt:
+          '產品流程插畫，呈現創作者發起試玩、好奇的試用者加入，最後把回饋整理成下一步。',
+        stages: {
+          create: {
+            title: '發起試玩',
+            description: '整理你的網站、App 或小遊戲，說清楚這次想確認什麼問題。',
+            imageAlt: '產品流程第一階段插畫，呈現創作者整理剛做好的作品，準備發起試玩。'
+          },
+          invite: {
+            title: '找人試用',
+            description: '讓合適的人看懂條件、裝置需求，以及實際要試的內容。',
+            imageAlt: '產品流程第二階段插畫，呈現好奇的試用者正在查看並加入新的試玩。'
+          },
+          learn: {
+            title: '收回饋，整理下一步',
+            description: '把反應、問題、建議和決策留在同一條紀錄裡，不再散在訊息和表單中。',
+            imageAlt: '產品流程第三階段插畫，呈現回饋被整理成清楚的下一步與決策。'
+          }
+        },
         projectTitle: '建立測試主題',
         projectDescription: '先整理這次要找人試用的是什麼。',
         campaignTitle: '發佈測試活動',
@@ -342,30 +395,50 @@ const MESSAGES = {
         taskDescription: '把要試的內容和下一步交代清楚。',
         feedbackTitle: '收到回饋',
         feedbackDescription: '把感受、問題與建議收回來，留在同一條流程裡。',
-        outcomeLabel: 'Shared record',
-        outcomeTitle: '同一條流程，讓你不用再自己整理訊息和表單',
+        outcomeLabel: '共享紀錄',
+        outcomeTitle: '從試玩到下一步，都留在同一個地方',
         outcomeDescription:
-          '當活動、參與、任務與回饋都留在一起時，你就不需要再把訊息、名單和意見拆在不同工具裡整理。'
+          '當試用條件、參與者、任務和回饋都接在一起，你就不需要再把名單、訊息和意見拆到不同工具裡整理。'
       },
       roles: {
-        eyebrow: 'Role value',
-        title: '不管你是發起的人，還是參與的人，都知道下一步要做什麼',
+        eyebrow: '適合這樣開始',
+        title: '不管你是想找人試玩，還是想找新東西來試，都能在這裡接上',
         description:
-          '這個工具不是只有管理活動，也不是只有接任務；它同時照顧發起測試的人與參與試用的人。',
-        developerLabel: '發起測試的人',
-        developerValue: '發佈、篩選、安排',
-        developerDescription:
-          '管理測試活動、挑選合適的參與者、安排試用任務，並把回饋整理成清楚的下一步。',
-        testerLabel: '參與測試的人',
-        testerValue: '報名、試用、回饋',
-        testerDescription:
-          '用自己的裝置報名參與、完成試用任務，並把感受和問題回報回來，不需要一直切換工具。',
-        visualLabel: 'Tester-side visual',
-        visualTitle: '把裝置情境、試用任務與回饋提交收進同一個參與視角',
-        visualDescription:
-          '這張輔助視覺讓參與者的裝置情境、試用任務與回饋提交看起來像一段完整旅程，而不是零散步驟。',
-        visualAlt:
-          '首頁角色價值區的輔助視覺，呈現參與者用不同裝置試用產品、完成任務並提交回饋的產品化插畫。'
+          '一邊幫你把試玩流程整理好，一邊讓想參與的人知道怎麼加入、怎麼回饋，兩邊都不用再靠零散訊息硬湊。',
+        items: {
+          developer: {
+            label: '發起測試的人',
+            title: '把想確認的問題整理好，再把合適的人接進來',
+            description:
+              '適合剛做完網站、App 或小遊戲，想找人試玩、收建議，並把下一步整理清楚的人。',
+            bullets: {
+              launch: '快速發起試玩，不用自己再拼表單、名單和訊息。',
+              match: '先看參與條件與裝置情況，再決定找誰來試比較適合。',
+              organize: '收到回饋後，直接把問題、建議和下一步留在同一條流程裡。'
+            },
+            cta: '我是想找人試玩的',
+            imageAlt:
+              '角色區開發者插畫，描繪剛做完產品的人正在整理試玩重點並準備邀請合適的參與者。'
+          },
+          tester: {
+            label: '參與測試的人',
+            title: '找到有趣的新作品，安心加入，試完再把感受說回來',
+            description:
+              '適合想找新網站、App 或小遊戲來試的人，加入後能清楚知道要做什麼，也知道回饋會被好好接住。',
+            bullets: {
+              discover: '看到感興趣的試玩內容時，可以先理解條件、平台和這次要試什麼。',
+              join: '用自己手上的裝置安心加入，不需要先懂一堆流程或切很多工具。',
+              respond: '試完後把喜歡、不順或卡住的地方回報回來，讓對方真的知道下一步。'
+            },
+            cta: '我是想參與試玩的',
+            imageAlt:
+              '角色區測試者插畫，描繪好奇的參與者正在挑選有趣的新產品並準備加入試用。'
+          }
+        },
+        handoffLabel: '同一條流程',
+        handoffTitle: '發起的人知道要問什麼，參與的人知道要回什麼',
+        handoffDescription:
+          '當兩邊都在同一個工作流裡，試玩條件、過程和回饋就比較容易接起來，也比較容易真的變成下一步。'
       },
       safety: {
         title: '安全與信任原則',
@@ -421,18 +494,19 @@ const MESSAGES = {
         panelDescription:
           '先建立帳號，接著就能直接進到工作區。',
         profileSectionTitle: '帳號基本資料',
-        profileSectionDescription: '先選一個比較接近你的使用方式，之後工作區會依照這個角色顯示。',
+        profileSectionDescription: '可以選一個或兩個身份，之後工作區會依照你的使用方式顯示。',
         authSectionTitle: '登入資訊',
         authSectionDescription: '這組 Email 和密碼之後會直接用來登入。',
         submit: '註冊並登入',
         submitting: '註冊中...',
         goLogin: '已有帳號，前往登入',
         requiredError: '顯示名稱、Email 和密碼都為必填。',
+        roleRequiredError: '請至少選擇一種身份。',
         unavailableError: '目前無法註冊。'
       },
       fields: {
         displayName: '顯示名稱',
-        role: '角色',
+        role: '身份',
         email: 'Email',
         password: '密碼'
       },
@@ -451,11 +525,12 @@ const MESSAGES = {
       redirectTitle: '需要先登入',
       redirectDescription: '這個入口只提供已登入使用者使用，我們正在帶你前往登入頁。',
       dataLoadingTitle: '正在整理你的工作區摘要',
-      dataLoadingDescription: '正在載入與你角色相符的摘要、佇列與下一步入口。',
+      dataLoadingDescription: '正在載入與目前工作視角相符的摘要、佇列與下一步入口。',
       errorTitle: '目前無法載入工作區首頁',
       errorFallback: '目前無法載入工作區首頁，請稍後再試一次。',
       sessionLabel: '登入帳號',
-      roleLabel: '角色',
+      roleLabel: '帳號身份',
+      activeViewLabel: '目前視角',
       summaryTitle: '先看重點',
       summaryDescription: '先快速掌握今天手上的工作、待處理項目與目前進度。',
       nextActionsTitle: '接下來可以做什麼',
@@ -664,7 +739,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。',
       roleMismatchTitle: '測試者收件匣需要測試者帳號',
-      roleMismatchDescription: '目前選到的是{{role}}帳號。請切換到測試者帳號，再查看已指派任務收件匣。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要測試者身份；若你已經是雙身份帳號，請在工作區切換成測試者視角。',
       filtersTitle: '依目前進度篩選',
       currentAccount: '目前帳號',
       currentStatus: '狀態',
@@ -710,7 +785,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。',
       roleMismatchTitle: '這個頁面需要測試者帳號',
-      roleMismatchDescription: '目前選到的是{{role}}帳號。請切換到測試者帳號，再查看符合資格的活動。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要測試者身份；若你已經是雙身份帳號，請在工作區切換成測試者視角。',
       loadingTitle: '載入符合資格的活動中',
       loadingDescription: '正在依據目前操作帳號與其擁有的裝置設定檔推導符合資格的活動。',
       errorTitle: '無法載入符合資格的活動',
@@ -740,7 +815,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。',
       roleMismatchTitle: '參與申請工作區需要測試者帳號',
-      roleMismatchDescription: '你現在使用的是{{role}}帳號。切換成測試者帳號後，才能查看我的參與申請。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要測試者身份；若你已經是雙身份帳號，請在工作區切換成測試者視角。',
       currentAccount: '目前帳號',
       requestsCount: '參與申請',
       loadingTitle: '載入我的參與申請中',
@@ -780,7 +855,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。',
       roleMismatchTitle: '查看回饋需要發起測試的人帳號',
-      roleMismatchDescription: '你現在使用的是{{role}}帳號。切換成發起測試的人帳號後，才能查看這裡的回饋。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要發起測試的人身份；若你已經是雙身份帳號，請在工作區切換成開發者視角。',
       filtersTitle: '先看哪一類回饋',
       currentAccount: '現在使用的帳號',
       reviewLabel: '回饋進度',
@@ -809,7 +884,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。',
       roleMismatchTitle: '查看參與申請需要發起測試的人帳號',
-      roleMismatchDescription: '你現在使用的是{{role}}帳號。切換成發起測試的人帳號後，才能查看這裡的申請。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要發起測試的人身份；若你已經是雙身份帳號，請在工作區切換成開發者視角。',
       summaryTitle: '申請總覽',
       currentAccount: '現在使用的帳號',
       queueCount: '等待處理 / 安排任務',
@@ -853,7 +928,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。',
       roleMismatchTitle: '查看申請詳情需要發起測試的人帳號',
-      roleMismatchDescription: '你現在使用的是{{role}}帳號。切換成發起測試的人帳號後，才能查看這筆申請的完整資訊。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要發起測試的人身份；若你已經是雙身份帳號，請在工作區切換成開發者視角。',
       loadingTitle: '載入參與申請詳情中',
       loadingDescription: '正在整理申請人、裝置情況和這次活動的背景。',
       errorTitle: '無法載入參與申請詳情',
@@ -929,7 +1004,7 @@ const MESSAGES = {
       actorMissingTitle: '找不到已選擇的帳號',
       actorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的開發者帳號。',
       roleMismatchTitle: '建立任務需要開發者帳號',
-      roleMismatchDescription: '你現在使用的是{{role}}帳號。切換成開發者帳號後，才能從這筆參與申請建立任務。',
+      roleMismatchDescription: '目前帳號身份是{{role}}。這個頁面需要開發者身份；若你已經是雙身份帳號，請在工作區切換成開發者視角。',
       loadingTitle: '載入參與申請中',
       loadingDescription: '正在整理活動與裝置設定檔上下文。',
       errorTitle: '無法載入建立任務流程',
@@ -1158,7 +1233,7 @@ const MESSAGES = {
       qualificationActorMissingTitle: '找不到已選擇的帳號',
       qualificationActorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。',
       qualificationRoleMismatchTitle: '資格檢查需要測試者帳號',
-      qualificationRoleMismatchDescription: '目前選到的是{{role}}帳號。請切換到測試者帳號，再查看是否符合這個活動的資格條件。',
+      qualificationRoleMismatchDescription: '目前帳號身份是{{role}}。這裡需要測試者身份；若你已經是雙身份帳號，請在工作區切換成測試者視角。',
       qualificationCurrentAccount: '目前帳號',
       qualificationResultsLabel: '裝置檢查結果',
       qualificationLoadingTitle: '載入資格檢查結果中',
@@ -1183,7 +1258,7 @@ const MESSAGES = {
       participationActorMissingTitle: '找不到已選擇的帳號',
       participationActorMissingDescription: '目前找不到你選擇的帳號，請重新選擇一筆可用的測試者帳號。',
       participationRoleMismatchTitle: '報名參加需要測試者帳號',
-      participationRoleMismatchDescription: '你現在使用的是{{role}}帳號。切換成測試者帳號後，才能送出這次活動的參與申請。',
+      participationRoleMismatchDescription: '目前帳號身份是{{role}}。這裡需要測試者身份；若你已經是雙身份帳號，請在工作區切換成測試者視角後再送出申請。',
       participationLoadingTitle: '載入可用裝置中',
       participationLoadingDescription: '正在整理現在符合條件、可以拿來送出申請的裝置。',
       participationErrorTitle: '無法準備參與申請表單',
@@ -1263,6 +1338,10 @@ const MESSAGES = {
         description: 'This area reflects the signed-in account and role so you can confirm the current operating lens.',
         noSession: 'Session not synced yet',
         roleLabel: 'Current role',
+        activeRoleLabel: 'Workspace view',
+        switchAria: 'Switch workspace view',
+        switchHint: 'This only changes the frontend workspace lens. It does not edit account roles or backend permissions.',
+        singleHint: 'This account has one identity, so there is no workspace view to switch.',
         statusReady: 'Signed in and ready',
         statusPending: 'Syncing',
         publicHome: 'Back to public home'
@@ -1328,21 +1407,21 @@ const MESSAGES = {
       description:
         'A cross-platform beta testing coordination and feedback platform where developers can recruit testers, define qualification rules, dispatch tasks, organize structured feedback, and build an initial trust signal in one place.',
       guest: {
-        eyebrow: 'Public beta entry',
-        promiseTitle: 'Find testers, collect feedback, and decide what to do next in one place.',
+        eyebrow: 'For vibe coders and curious testers',
+        promiseTitle: 'Built something new? Find people to try it. Want to discover fun new projects? Start here.',
         description:
-          'You do not need to juggle forms, messages, tester lists, and feedback notes by hand. Start a test, invite the right people, assign work, and keep the feedback organized in one workspace.',
+          'For people who built a website, app, or small game and want real reactions, and for curious testers looking for the next fun thing to try.',
         flowHint:
-          'Start a testing run, let the right people join, and keep every task plus every piece of feedback in one clear flow.',
+          'Start a playtest, find the right people, collect reactions and suggestions, then turn them into clearer next steps.',
         actions: {
           login: 'Sign in to workspace',
-          register: 'Create account',
+          register: 'Find people to try it',
           learnMore: 'See how it works'
         },
         proof: {
-          workflow: 'From test run to feedback',
-          review: 'Invite, assign, organize',
-          crossPlatform: 'Web / iOS / Android'
+          workflow: 'Websites, apps, small games',
+          review: 'Real playtesting and suggestions',
+          crossPlatform: 'From finding people to organized feedback'
         },
         cards: {
           developerLabel: 'People running the test',
@@ -1375,29 +1454,59 @@ const MESSAGES = {
           register: 'Create account'
         },
         visuals: {
-          heroLabel: 'Brand visual',
-          heroTitle: 'Make recruiting testers, assigning work, and collecting feedback feel like one product',
-          heroDescription:
-            'The hero visual brings together test setup, participation, and feedback so people can understand the product at a glance.',
           heroAlt:
-            'Homepage hero visual for the beta testing collaboration platform, showing test setup, participation, and feedback in one polished product illustration.'
+            'Homepage illustration showing people reviewing test tasks, product progress, and feedback together in one collaborative scene.'
         }
       },
       trust: {
-        eyebrow: 'Professional signal',
-        title: 'Build trust first, then make the next step obvious',
+        eyebrow: 'Trust signals',
+        title: 'Clear boundaries first, then a safer way to start',
         description:
-          'The homepage should answer two simple questions quickly: what is this for, and can it help me run product tests more easily?',
-        visualLabel: 'Operations storyboard',
-        visualTitle: 'Show recruiting, assigning, and feedback as one clear workflow',
-        visualDescription:
-          'This supporting visual keeps participation review, task setup, and feedback organization in one clear picture so the product feels easier to trust.',
+          'This section sets expectations before people join: the platform is not for rating swaps or traffic inflation. It helps creators find testers, collect feedback, and keep next steps organized.',
         visualAlt:
-          'Supporting visual in the homepage trust section, showing participation review, task setup, and feedback organization in a polished product scene.',
+          'Supporting illustration in the homepage trust section, showing people reviewing feedback, status, and decisions together.',
+        signals: {
+          notShortcut: {
+            label: 'Not a Shortcut',
+            title: 'Not a review exchange',
+            summary: 'The goal is not to inflate numbers. It is to keep real testing, clear tasks, and useful feedback in one workflow.',
+            imageAlt:
+              'Trust signal illustration showing a structured testing and feedback flow rather than rating swaps or review exchanges.',
+          },
+          safetyFirst: {
+            label: 'Safety First',
+            title: 'Official channels first',
+            summary: 'Prefer official testing and distribution paths so source, risk cues, and review decisions stay visible.',
+            details: {
+              officialChannels:
+                'Prefer official testing and distribution methods instead of unknown install files or unsafe device instructions.',
+              sourceTrace:
+                'Keep source labels, risk cues, and testing conditions inside the campaign so participants know what they are trying before they begin.',
+              reviewDecision:
+                'Keep review decisions and next steps in one workflow instead of scattering them across DMs, forms, screenshots, or loose notes.'
+            },
+            imageAlt:
+              'Trust signal illustration showing official testing channels, source labels, risk cues, and review checkpoints.',
+          },
+          platforms: {
+            label: 'Supported Platforms',
+            title: 'Cross-platform test management',
+            summary: 'Websites, apps, and small games can use the same rhythm for trials, tasks, and feedback.',
+            details: {
+              web: 'Works for Web, Mobile Web, and PWA projects, from interactive tools to fresh side projects that need real usage feedback.',
+              mobile:
+                'Supports iOS and Android testing flows with device conditions, participation rules, tasks, and feedback status kept visible.',
+              games:
+                'Small games, prototypes, and vibe-coded features can be organized into campaigns, tasks, and feedback that are easy to follow.'
+            },
+            imageAlt:
+              'Trust signal illustration showing cross-platform testing and feedback management across websites, apps, and games.',
+          }
+        },
         cards: {
-          notWhatLabel: 'Not a shortcut',
+          notWhatLabel: 'Not a Shortcut',
           notWhatValue: 'Not a review exchange',
-          safetyLabel: 'Safety-first',
+          safetyLabel: 'Safety First',
           safetyValue: 'Official channels first',
           safetyDescription:
             'Prefer official testing and distribution paths so source labels, risk signals, and review decisions remain inside the workflow.',
@@ -1523,7 +1632,26 @@ const MESSAGES = {
         eyebrow: 'Product flow',
         title: 'How it works',
         description:
-          'Keep the homepage focused on the five steps people need to understand: start a test, find the right participants, assign work, and collect feedback.',
+          'No testing jargon required. The flow is simple: share what you built, find people to try it, then turn feedback into clearer next steps.',
+        visualAlt:
+          'Product flow illustration showing a creator starting a playtest, curious testers joining, and feedback becoming organized next steps.',
+        stages: {
+          create: {
+            title: 'Start a playtest',
+            description: 'Frame the website, app, or small game you built and what you want to learn from this round.',
+            imageAlt: 'Product flow stage one illustration showing a creator preparing a new project for playtesting.'
+          },
+          invite: {
+            title: 'Find people to try it',
+            description: 'Help the right people understand the conditions, device needs, and what they should try.',
+            imageAlt: 'Product flow stage two illustration showing curious testers discovering and joining a new trial.'
+          },
+          learn: {
+            title: 'Collect feedback and decide next',
+            description: 'Keep reactions, issues, suggestions, and decisions in one shared record instead of scattered messages.',
+            imageAlt: 'Product flow stage three illustration showing feedback being organized into clear next steps.'
+          }
+        },
         projectTitle: 'Define the test focus',
         projectDescription: 'Start by deciding what part of the product you want people to try.',
         campaignTitle: 'Launch a testing run',
@@ -1535,29 +1663,49 @@ const MESSAGES = {
         feedbackTitle: 'Collect feedback',
         feedbackDescription: 'Bring back reactions, issues, and ideas without losing the context.',
         outcomeLabel: 'Shared record',
-        outcomeTitle: 'One shared flow means less manual cleanup',
+        outcomeTitle: 'From trial to next step, everything stays connected',
         outcomeDescription:
-          'When the test run, participants, tasks, and feedback stay connected, your team does not have to stitch the process together across different tools.'
+          'When conditions, participants, tasks, and feedback stay connected, you do not have to stitch lists, messages, and notes together by hand.'
       },
       roles: {
-        eyebrow: 'Role value',
-        title: 'Whether you run the test or join it, the next step stays clear',
+        eyebrow: 'Who it helps',
+        title: 'Whether you want people to try your build or want something new to explore, both sides can start here',
         description:
-          'This product is not only about managing test runs, and not only about picking up tasks. It supports the people running tests and the people joining them.',
-        developerLabel: 'People running the test',
-        developerValue: 'Launch, choose, assign',
-        developerDescription:
-          'Manage testing runs, choose the right participants, assign work, and turn feedback into clear next steps.',
-        testerLabel: 'People joining the test',
-        testerValue: 'Join, try, respond',
-        testerDescription:
-          'Join with your own devices, complete the assigned task, and send clear feedback without bouncing between different tools.',
-        visualLabel: 'Tester-side visual',
-        visualTitle: 'Keep device context, test work, and feedback in one view',
-        visualDescription:
-          'This supporting visual makes the participant journey feel like one complete flow instead of a set of isolated steps.',
-        visualAlt:
-          'Supporting visual in the homepage role-value section, showing participants joining through multiple devices, completing tasks, and sending feedback in a product-style illustration.'
+          'It helps the person setting up the trial and the person joining it, so neither side has to piece the experience together from scattered messages.',
+        items: {
+          developer: {
+            label: 'People running the trial',
+            title: 'Set up what you want to learn, then bring the right people into the flow',
+            description:
+              'Made for creators who just shipped a website, app, or small game and want thoughtful trial feedback without building the process by hand.',
+            bullets: {
+              launch: 'Start a trial quickly instead of stitching forms, lists, and messages together yourself.',
+              match: 'Check fit, device context, and participation conditions before deciding who should try it.',
+              organize: 'Turn responses into issues, ideas, and next steps without losing the thread.'
+            },
+            cta: 'I want people to try my build',
+            imageAlt:
+              'Developer-side role illustration showing a creator organizing a new trial and preparing to invite the right participants.'
+          },
+          tester: {
+            label: 'People joining the trial',
+            title: 'Find something interesting to try, join with confidence, and send back what you noticed',
+            description:
+              'Made for curious people who want to try new websites, apps, or games and give useful feedback without getting lost in the process.',
+            bullets: {
+              discover: 'See what looks interesting, what platform it fits, and what this round is actually asking for.',
+              join: 'Join with your own device and understand the task without needing a technical background.',
+              respond: 'Send back what felt fun, confusing, or broken so the creator can act on it.'
+            },
+            cta: 'I want to join playtests',
+            imageAlt:
+              'Tester-side role illustration showing a curious participant discovering a new product and preparing to join the trial.'
+          }
+        },
+        handoffLabel: 'One shared flow',
+        handoffTitle: 'The creator knows what to ask, and the participant knows what to send back',
+        handoffDescription:
+          'When both sides stay in the same workflow, the conditions, the trial itself, and the feedback are easier to connect and easier to turn into a real next step.'
       },
       safety: {
         title: 'Safety and trust principles',
@@ -1613,18 +1761,19 @@ const MESSAGES = {
         panelDescription:
           'Create your account, then go straight into the workspace.',
         profileSectionTitle: 'Account basics',
-        profileSectionDescription: 'Pick the role that fits you best, and the workspace will adjust to that path.',
+        profileSectionDescription: 'Choose one or both identities, and the workspace will adapt to how you want to use it.',
         authSectionTitle: 'Sign-in details',
         authSectionDescription: 'These details are what you will use to sign in later.',
         submit: 'Register and sign in',
         submitting: 'Registering...',
         goLogin: 'Already have an account? Sign in',
         requiredError: 'Display name, email, and password are all required.',
+        roleRequiredError: 'Choose at least one identity.',
         unavailableError: 'Unable to register right now.'
       },
       fields: {
         displayName: 'Display name',
-        role: 'Role',
+        role: 'Identity',
         email: 'Email',
         password: 'Password'
       },
@@ -1643,11 +1792,12 @@ const MESSAGES = {
       redirectTitle: 'You need to sign in first',
       redirectDescription: 'This entry is only available to signed-in users. We are taking you to the login page now.',
       dataLoadingTitle: 'Loading your workspace summary',
-      dataLoadingDescription: 'Collecting the role-aware summary, queues, and next-step entry points for this account.',
+      dataLoadingDescription: 'Collecting the summary, queues, and next-step entry points for the active workspace view.',
       errorTitle: 'Unable to load the workspace home',
       errorFallback: 'Unable to load the workspace home right now. Please try again shortly.',
       sessionLabel: 'Signed-in account',
-      roleLabel: 'Role',
+      roleLabel: 'Account identities',
+      activeViewLabel: 'Current view',
       summaryTitle: 'Start with the essentials',
       summaryDescription: 'See your current work, what needs attention, and what is already moving.',
       nextActionsTitle: 'Continue from here',
@@ -1856,7 +2006,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another tester account.',
       roleMismatchTitle: 'The tester inbox requires a tester account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a tester account to view assigned work.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires tester access; if this is a dual-role account, switch to the tester workspace view.',
       filtersTitle: 'Filter by progress',
       currentAccount: 'Current account',
       currentStatus: 'Status',
@@ -1902,7 +2052,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another tester account.',
       roleMismatchTitle: 'Eligible campaigns require a tester account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a tester account to review eligible campaigns.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires tester access; if this is a dual-role account, switch to the tester workspace view.',
       loadingTitle: 'Loading eligible campaigns',
       loadingDescription: 'Deriving campaigns from the current actor and owned device profiles.',
       errorTitle: 'Unable to load eligible campaigns',
@@ -1932,7 +2082,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another tester account.',
       roleMismatchTitle: 'Join requests require a tester account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a tester account to review your requests.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires tester access; if this is a dual-role account, switch to the tester workspace view.',
       currentAccount: 'Current account',
       requestsCount: 'Join requests',
       loadingTitle: 'Loading my join requests',
@@ -1972,7 +2122,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another developer account.',
       roleMismatchTitle: 'Feedback review requires a developer account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a developer account to review feedback.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires developer access; if this is a dual-role account, switch to the developer workspace view.',
       filtersTitle: 'Filter by feedback status',
       currentAccount: 'Current account',
       reviewLabel: 'Current status',
@@ -2001,7 +2151,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another developer account.',
       roleMismatchTitle: 'Participation review requires a developer account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a developer account to review participation requests.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires developer access; if this is a dual-role account, switch to the developer workspace view.',
       summaryTitle: 'Request overview',
       currentAccount: 'Current account',
       queueCount: 'Needs review / task setup',
@@ -2045,7 +2195,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another developer account.',
       roleMismatchTitle: 'Join request detail requires a developer account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a developer account to review this request.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires developer access; if this is a dual-role account, switch to the developer workspace view.',
       loadingTitle: 'Loading join request detail',
       loadingDescription: 'Collecting the person, device, fit, and testing-run context.',
       errorTitle: 'Unable to load join request detail',
@@ -2121,7 +2271,7 @@ const MESSAGES = {
       actorMissingTitle: 'The selected account could not be found',
       actorMissingDescription: 'The selected account is no longer available. Choose another developer account.',
       roleMismatchTitle: 'Task creation requires a developer account',
-      roleMismatchDescription: 'The current actor is a {{role}} account. Switch to a developer account before creating a task from this participation request.',
+      roleMismatchDescription: 'The current account identities are {{role}}. This page requires developer access; if this is a dual-role account, switch to the developer workspace view before creating a task.',
       loadingTitle: 'Loading participation request',
       loadingDescription: 'Collecting campaign and device context.',
       errorTitle: 'Unable to load the task creation flow',
@@ -2350,7 +2500,7 @@ const MESSAGES = {
       qualificationActorMissingTitle: 'The selected account could not be found',
       qualificationActorMissingDescription: 'The selected account is no longer available. Choose another tester account.',
       qualificationRoleMismatchTitle: 'Qualification requires a tester account',
-      qualificationRoleMismatchDescription: 'The current actor is a {{role}} account. Switch to a tester account to view qualification results for this campaign.',
+      qualificationRoleMismatchDescription: 'The current account identities are {{role}}. This area requires tester access; if this is a dual-role account, switch to the tester workspace view.',
       qualificationCurrentAccount: 'Current account',
       qualificationResultsLabel: 'Device check',
       qualificationLoadingTitle: 'Loading qualification results',
@@ -2375,7 +2525,7 @@ const MESSAGES = {
       participationActorMissingTitle: 'The selected account could not be found',
       participationActorMissingDescription: 'The selected account is no longer available. Choose another tester account.',
       participationRoleMismatchTitle: 'Participation requires a tester account',
-      participationRoleMismatchDescription: 'The current actor is a {{role}} account. Switch to a tester account before sending a participation request.',
+      participationRoleMismatchDescription: 'The current account identities are {{role}}. This area requires tester access; if this is a dual-role account, switch to the tester workspace view before sending a request.',
       participationLoadingTitle: 'Loading eligible device profiles',
       participationLoadingDescription: 'Preparing the devices that can be used for a join request right now.',
       participationErrorTitle: 'Unable to prepare the join form',

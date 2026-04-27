@@ -35,6 +35,17 @@ test('switches the shell locale to English and persists across routes', async ({
 
   await page.goto('/login')
 
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByTestId('locale-select')).toHaveValue('en')
+  await expect(page.getByTestId('home-guest-visual').locator('img')).toHaveAttribute(
+    'src',
+    /hero-people-collaboration\.webp$/
+  )
+  await expect(page.getByTestId('home-product-flow-section')).toContainText('Start a playtest')
+
+  await page.goto('/login')
+
   await expect(
     page.getByRole('heading', { name: 'Sign in and continue' })
   ).toBeVisible()

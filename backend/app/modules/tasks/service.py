@@ -9,6 +9,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
@@ -167,6 +168,10 @@ def _build_task_resolution_context(
     )
 
 
+def _is_ownership_mismatch(error: AppError) -> bool:
+    return error.code == "ownership_mismatch"
+
+
 def _ensure_task_read_visibility(
     task: TaskRecord,
     current_actor_id: str | None,
@@ -182,25 +187,35 @@ def _ensure_task_read_visibility(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
-        return ensure_task_owned_by_developer(
-            task.id,
-            current_actor_id,
-            resource="task",
-        )
+    developer_error: AppError | None = None
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            return ensure_task_owned_by_developer(
+                task.id,
+                current_actor_id,
+                resource="task",
+            )
+        except AppError as error:
+            if not _is_ownership_mismatch(error):
+                raise
+            developer_error = error
 
-    if actor.role == AccountRole.TESTER.value:
-        return ensure_task_owned_by_tester(
-            task.id,
-            current_actor_id,
-            resource="task",
-        )
+    if account_has_role(actor, AccountRole.TESTER):
+        try:
+            return ensure_task_owned_by_tester(
+                task.id,
+                current_actor_id,
+                resource="task",
+            )
+        except AppError as error:
+            if developer_error is not None and _is_ownership_mismatch(error):
+                raise developer_error
+            raise
 
-    _raise_forbidden_actor_role(
-        actor_id=actor.id,
-        actor_role=actor.role,
-        required_role=AccountRole.DEVELOPER.value,
-        message="Developer or tester role is required to view this task.",
+    raise_forbidden_actor_role(
+        actor,
+        AccountRole.DEVELOPER,
+        "Developer or tester role is required to view this task.",
     )
     return task
 
@@ -250,25 +265,6 @@ def _validate_status_transition(current_status: str, next_status: str) -> None:
         )
 
 
-def _raise_forbidden_actor_role(
-    *,
-    actor_id: str,
-    actor_role: str,
-    required_role: str,
-    message: str,
-) -> None:
-    raise AppError(
-        status_code=status.HTTP_409_CONFLICT,
-        code="forbidden_actor_role",
-        message=message,
-        details={
-            "actor_id": actor_id,
-            "actor_role": actor_role,
-            "required_role": required_role,
-        },
-    )
-
-
 def _raise_ownership_mismatch(
     actor_id: str,
     resource: str,
@@ -291,12 +287,11 @@ def _ensure_tester_actor(current_actor_id: str | None):
         return None
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.TESTER.value,
-            message="Tester role is required for this operation.",
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required for this operation.",
         )
 
     return actor
@@ -365,12 +360,11 @@ def _ensure_resolution_payload_allowed(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Developer role is required to resolve a task.",
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required to resolve a task.",
         )
 
     ensure_task_owned_by_developer(
@@ -464,12 +458,11 @@ def _resolve_owned_campaign_ids_for_actor(current_actor_id: str) -> set[str]:
     from app.modules.projects import repository as projects_repository
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Developer role is required to read owned tasks.",
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required to read owned tasks.",
         )
 
     owned_project_ids = {
@@ -500,29 +493,42 @@ def _filter_task_records_for_actor(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
+    filtered_records_by_id: dict[str, TaskRecord] = {}
+    if account_has_role(actor, AccountRole.DEVELOPER):
         owned_campaign_ids = _resolve_owned_campaign_ids_for_actor(current_actor_id)
-        return [
-            record
-            for record in records
-            if record.campaign_id in owned_campaign_ids
-        ]
+        filtered_records_by_id.update(
+            {
+                record.id: record
+                for record in records
+                if record.campaign_id in owned_campaign_ids
+            }
+        )
 
-    if actor.role == AccountRole.TESTER.value:
+    if account_has_role(actor, AccountRole.TESTER):
         owned_device_profile_ids = _resolve_owned_device_profile_ids_for_actor(
             current_actor_id
         )
-        return [
-            record
-            for record in records
-            if record.device_profile_id in owned_device_profile_ids
-        ]
+        filtered_records_by_id.update(
+            {
+                record.id: record
+                for record in records
+                if record.device_profile_id in owned_device_profile_ids
+            }
+        )
 
-    _raise_forbidden_actor_role(
-        actor_id=actor.id,
-        actor_role=actor.role,
-        required_role=AccountRole.DEVELOPER.value,
-        message="Developer or tester role is required to read tasks.",
+    if filtered_records_by_id:
+        return list(filtered_records_by_id.values())
+
+    if account_has_role(actor, AccountRole.DEVELOPER) or account_has_role(
+        actor,
+        AccountRole.TESTER,
+    ):
+        return []
+
+    raise_forbidden_actor_role(
+        actor,
+        AccountRole.DEVELOPER,
+        "Developer or tester role is required to read tasks.",
     )
     return records
 
@@ -591,19 +597,26 @@ def _guard_task_update_for_actor(
         return current
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
-        return ensure_task_owned_by_developer(
-            current.id,
-            current_actor_id,
-            resource="task",
-        )
+    developer_error: AppError | None = None
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            return ensure_task_owned_by_developer(
+                current.id,
+                current_actor_id,
+                resource="task",
+            )
+        except AppError as error:
+            if not _is_ownership_mismatch(error):
+                raise
+            developer_error = error
 
-    if actor.role != AccountRole.TESTER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Developer role is required for this operation.",
+    if not account_has_role(actor, AccountRole.TESTER):
+        if developer_error is not None:
+            raise developer_error
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required for this operation.",
         )
 
     owned_task = ensure_task_owned_by_tester(
@@ -621,11 +634,10 @@ def _guard_task_update_for_actor(
         or current.status != TaskStatus.ASSIGNED.value
         or next_status not in _TESTER_MUTATION_ALLOWED_STATUSES
     ):
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Tester can only start assigned tasks they own.",
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Tester can only start assigned tasks they own.",
         )
 
     return owned_task
@@ -765,7 +777,7 @@ def update_task(
         and next_status in _TASKS_REQUIRING_ASSIGNMENT
     )
     if (
-        actor is None or actor.role == AccountRole.DEVELOPER.value
+        actor is None or account_has_role(actor, AccountRole.DEVELOPER)
     ) and next_device_profile_id is not None and (
         assignment_changed or status_entered_assignment
     ):

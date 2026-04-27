@@ -14,6 +14,7 @@ class AccountEntity(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
     role: Mapped[str] = mapped_column(String, nullable=False)
+    roles: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     locale: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     created_at: Mapped[str] = mapped_column(String, nullable=False)

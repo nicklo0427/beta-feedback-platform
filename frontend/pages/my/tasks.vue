@@ -7,7 +7,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { useAppI18n } from '~/features/i18n/use-app-i18n'
 import { fetchTasks, startAssignedTask } from '~/features/tasks/api'
 import {
@@ -49,7 +53,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isTesterActor = computed(() => currentActor.value?.role === 'tester')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isTesterActor = computed(() => accountHasRole(currentActor.value, 'tester'))
 
 const {
   data: taskResponse,
@@ -58,7 +65,7 @@ const {
   refresh: refreshTasks
 } = useAsyncData(
   () =>
-    `my-tasks-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}-${activeStatus.value}`,
+    `my-tasks-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}-${activeStatus.value}`,
   async () => {
     if (!currentActorId.value || !isTesterActor.value) {
       return {
@@ -181,7 +188,7 @@ async function handleStartTask(taskId: string): Promise<void> {
         <p class="resource-state__description">
           {{
             t('myTasks.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

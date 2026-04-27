@@ -9,6 +9,7 @@ class AccountRecord:
     id: str
     display_name: str
     role: str
+    roles: list[str]
     bio: Optional[str]
     locale: Optional[str]
     created_at: str

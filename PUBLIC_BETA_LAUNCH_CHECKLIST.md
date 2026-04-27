@@ -36,6 +36,7 @@
 - [ ] frontend `npm run typecheck` 成功
 - [ ] frontend `npm run build` 成功
 - [ ] frontend Playwright 全量成功
+- [ ] [DUAL_ROLE_TEST_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/DUAL_ROLE_TEST_PLAN.md) 的 T095-T101 測試矩陣已完成
 - [ ] [MANUAL_QA.md](/Users/lowhaijer/projects/beta-feedback-platform/MANUAL_QA.md) 的 public beta 必驗案例完成
 - [ ] 已知限制已整理並可對外說明
 - [ ] [OPS_RUNBOOK.md](/Users/lowhaijer/projects/beta-feedback-platform/OPS_RUNBOOK.md) 中的啟動與排查步驟可直接使用
@@ -73,6 +74,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - [ ] backend health 成功
 - [ ] frontend shell 成功
 - [ ] register 成功
+- [ ] register / auth `me` 會回傳 `roles`，且 dual-role payload 可保留 `developer / tester`
 - [ ] auth `me` 成功
 - [ ] logout 後 `me` 回 `401`
 - [ ] session cookie 可直接建立 project
@@ -119,6 +121,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 - [ ] 執行 [scripts/seed_demo_data.py](/Users/lowhaijer/projects/beta-feedback-platform/scripts/seed_demo_data.py) 成功
 - [ ] 依 [LOCAL_DEMO_SEED.md](/Users/lowhaijer/projects/beta-feedback-platform/LOCAL_DEMO_SEED.md) 確認 fixture graph 正常
+- [ ] seed fixture 內可看到 developer-only、tester-only、dual-role 三種帳號
 - [ ] 依 [MANUAL_QA.md](/Users/lowhaijer/projects/beta-feedback-platform/MANUAL_QA.md) 完成 qualification / participation / request-to-task / feedback regression
 
 ## 6. Public Beta 必驗案例
@@ -126,6 +129,7 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 上線前至少要完成以下人工驗收：
 
 - [ ] login / register / logout
+- [ ] dual-role register、app shell 工作視角切換與 `/dashboard` 開發者 / 測試者視角切換
 - [ ] session-only 模式下的 homepage 與 account summary
 - [ ] project create / campaign create
 - [ ] tester feedback submit / developer review
@@ -133,6 +137,16 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 - [ ] participation-linked task detail 在正確 actor 下可讀
 - [ ] 非本人 / 非擁有者讀取敏感 detail 會出現正確 error state
 - [ ] backend 關掉時，frontend 會顯示可理解的錯誤狀態，而不是白頁
+
+### 6.1 Dual-Role Account 必驗
+
+完整測試方式與預期結果請看 [DUAL_ROLE_TEST_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/DUAL_ROLE_TEST_PLAN.md)。
+
+- [ ] `roles` 是權限來源，legacy `role` 只作為 primary fallback / 相容欄位
+- [ ] dual-role account 可在同一 session 進入 developer-only 與 tester-only 主流程頁
+- [ ] single-role account 缺少 capability 時仍看到清楚 role mismatch / permission state
+- [ ] active workspace role 只影響 frontend 視角，不會送到 backend 當授權依據
+- [ ] active workspace role localStorage persistence 正常，重新整理後仍保留可用視角
 
 ## 7. Known Limitations To State Clearly
 

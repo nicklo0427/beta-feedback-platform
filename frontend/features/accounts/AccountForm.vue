@@ -4,6 +4,7 @@ import { reactive, ref, watch } from 'vue'
 import {
   ACCOUNT_ROLE_OPTIONS,
   formatAccountRoleLabel,
+  normalizeAccountRoles,
   type AccountFormValues
 } from '~/features/accounts/types'
 
@@ -28,13 +29,17 @@ const emit = defineEmits<{
 
 const validationMessage = ref<string | null>(null)
 const values = reactive<AccountFormValues>({
-  ...props.initialValues
+  ...props.initialValues,
+  roles: [...props.initialValues.roles]
 })
 
 watch(
   () => props.initialValues,
   (nextValues) => {
-    Object.assign(values, nextValues)
+    Object.assign(values, {
+      ...nextValues,
+      roles: [...nextValues.roles]
+    })
     validationMessage.value = null
   },
   {
@@ -48,8 +53,8 @@ function validateForm(): boolean {
     return false
   }
 
-  if (!values.role.trim()) {
-    validationMessage.value = '角色為必填。'
+  if (values.roles.length === 0) {
+    validationMessage.value = '請至少選擇一種身份。'
     return false
   }
 
@@ -62,7 +67,29 @@ function handleSubmit(): void {
     return
   }
 
-  emit('submit', { ...values })
+  emit('submit', {
+    ...values,
+    roles: normalizeAccountRoles({ roles: values.roles })
+  })
+}
+
+function roleIsSelected(role: AccountFormValues['roles'][number]): boolean {
+  return values.roles.includes(role)
+}
+
+function toggleRole(role: AccountFormValues['roles'][number]): void {
+  if (props.pending) {
+    return
+  }
+
+  if (roleIsSelected(role)) {
+    values.roles = values.roles.filter((selectedRole) => selectedRole !== role)
+    return
+  }
+
+  values.roles = normalizeAccountRoles({
+    roles: [...values.roles, role]
+  })
 }
 </script>
 
@@ -101,25 +128,40 @@ function handleSubmit(): void {
           >
         </label>
 
-        <label class="resource-field">
-          <span class="resource-field__label">角色</span>
-          <select
-            v-model="values.role"
-            class="resource-select"
-            data-testid="account-role-select"
-            name="role"
-            :disabled="pending"
+        <fieldset class="resource-field">
+          <legend class="resource-field__label">身份</legend>
+          <div
+            class="resource-choice-grid"
+            data-testid="account-role-options"
           >
-            <option value="">請選擇角色</option>
-            <option
+            <label
               v-for="role in ACCOUNT_ROLE_OPTIONS"
               :key="role"
-              :value="role"
+              class="resource-choice-card"
             >
-              {{ formatAccountRoleLabel(role) }}
-            </option>
-          </select>
-        </label>
+              <input
+                :checked="roleIsSelected(role)"
+                :disabled="pending"
+                :data-testid="`account-role-checkbox-${role}`"
+                :name="`roles_${role}`"
+                type="checkbox"
+                @change="toggleRole(role)"
+              >
+              <span class="resource-choice-card__content">
+                <span class="resource-choice-card__label">
+                  {{ formatAccountRoleLabel(role) }}
+                </span>
+                <span class="resource-choice-card__hint">
+                  {{
+                    role === 'developer'
+                      ? '可以發起試玩、管理活動並審閱回饋。'
+                      : '可以加入試用、管理裝置並提交回饋。'
+                  }}
+                </span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
 
         <label class="resource-field">
           <span class="resource-field__label">語系</span>

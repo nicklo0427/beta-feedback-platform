@@ -6,7 +6,15 @@ import {
   useAuthSession,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  formatAccountRoleLabel,
+  formatAccountRolesLabel,
+  type AccountRole
+} from '~/features/accounts/types'
+import {
+  useActiveWorkspaceRolePersistence,
+  useWorkspaceRoleOptions
+} from '~/features/accounts/workspace-role'
 import {
   type AppLocale,
   setAppLocale,
@@ -27,6 +35,15 @@ const localeOptions = useAppLocaleOptions()
 const mobileNavigationOpen = ref(false)
 const selectedLocale = ref(locale.value)
 const authSession = useAuthSession()
+const sessionAccount = computed(() => authSession.value?.account ?? null)
+const workspaceRoleOptions = useWorkspaceRoleOptions(sessionAccount)
+const activeWorkspaceRole = useActiveWorkspaceRolePersistence(sessionAccount)
+const showWorkspaceRoleSwitch = computed(() => workspaceRoleOptions.value.length > 1)
+const activeWorkspaceRoleLabel = computed(() =>
+  activeWorkspaceRole.value
+    ? formatAccountRoleLabel(activeWorkspaceRole.value, locale.value)
+    : t('shell.workspace.statusPending')
+)
 
 type NavigationItem = {
   label: string
@@ -159,8 +176,6 @@ const navigationGroups = computed<NavigationGroup[]>(() => {
   ]
 })
 
-const sessionAccount = computed(() => authSession.value?.account ?? null)
-
 const matchedNavigation = computed(() => {
   const matchedItem = navigationGroups.value
     .flatMap((group) => group.items.map((item) => ({ group, item })))
@@ -228,6 +243,14 @@ function toggleMobileNavigation(): void {
   mobileNavigationOpen.value = !mobileNavigationOpen.value
 }
 
+function setActiveWorkspaceRole(role: AccountRole): void {
+  if (!workspaceRoleOptions.value.includes(role)) {
+    return
+  }
+
+  activeWorkspaceRole.value = role
+}
+
 useHead(() => ({
   titleTemplate: (titleChunk) =>
     titleChunk ? `${titleChunk} | beta-feedback-platform` : 'beta-feedback-platform',
@@ -273,9 +296,17 @@ useHead(() => ({
     >
       <div class="app-navigation__surface">
         <NuxtLink class="app-brand app-brand--nav" to="/dashboard">
-          <span class="app-brand__eyebrow">{{ t('shell.brand.eyebrow') }}</span>
-          <span class="app-brand__title">beta-feedback-platform</span>
-          <span class="app-brand__description">{{ t('shell.brand.description') }}</span>
+          <span class="app-brand__icon" aria-hidden="true">
+            <img
+              class="app-brand__icon-image"
+              :src="'/brand/header-brand-icon.webp'"
+              alt=""
+              data-testid="app-shell-brand-icon"
+            >
+          </span>
+          <span class="app-brand__copy">
+            <span class="app-brand__title">beta-feedback-platform</span>
+          </span>
         </NuxtLink>
 
         <section class="app-navigation__context" data-testid="app-shell-context">
@@ -291,7 +322,7 @@ useHead(() => ({
               {{ t('shell.workspace.roleLabel') }}
               {{
                 sessionAccount
-                  ? formatAccountRoleLabel(sessionAccount.role, locale)
+                  ? formatAccountRolesLabel(sessionAccount, locale)
                   : t('shell.workspace.statusPending')
               }}
             </span>
@@ -299,6 +330,51 @@ useHead(() => ({
               {{ sessionAccount ? t('shell.workspace.statusReady') : t('shell.workspace.statusPending') }}
             </span>
           </div>
+          <section
+            v-if="sessionAccount"
+            class="app-workspace-role"
+            data-testid="active-workspace-role-panel"
+          >
+            <span class="app-workspace-role__label">
+              {{ t('shell.workspace.activeRoleLabel') }}
+            </span>
+            <div
+              v-if="showWorkspaceRoleSwitch"
+              class="app-workspace-role__switch"
+              role="group"
+              :aria-label="t('shell.workspace.switchAria')"
+              data-testid="active-workspace-role-switch"
+            >
+              <button
+                v-for="role in workspaceRoleOptions"
+                :key="role"
+                class="app-workspace-role__option"
+                :class="{
+                  'app-workspace-role__option--active': activeWorkspaceRole === role
+                }"
+                type="button"
+                :aria-pressed="activeWorkspaceRole === role"
+                :data-testid="`active-workspace-role-option-${role}`"
+                @click="setActiveWorkspaceRole(role)"
+              >
+                {{ formatAccountRoleLabel(role, locale) }}
+              </button>
+            </div>
+            <span
+              v-else
+              class="resource-card__chip"
+              data-testid="active-workspace-role-single"
+            >
+              {{ activeWorkspaceRoleLabel }}
+            </span>
+            <p class="app-workspace-role__hint">
+              {{
+                showWorkspaceRoleSwitch
+                  ? t('shell.workspace.switchHint')
+                  : t('shell.workspace.singleHint')
+              }}
+            </p>
+          </section>
         </section>
 
         <nav class="app-navigation__groups" :aria-label="t('shell.actions.navigation')">
@@ -359,7 +435,14 @@ useHead(() => ({
                 v-if="sessionAccount"
                 class="resource-card__chip app-topbar__session-chip"
               >
-                {{ formatAccountRoleLabel(sessionAccount.role, locale) }}
+                {{ formatAccountRolesLabel(sessionAccount, locale) }}
+              </span>
+              <span
+                v-if="sessionAccount && activeWorkspaceRole"
+                class="resource-card__chip app-topbar__session-chip"
+                data-testid="active-workspace-role-chip"
+              >
+                {{ t('shell.workspace.activeRoleLabel') }} {{ activeWorkspaceRoleLabel }}
               </span>
             </div>
             <p class="app-topbar__description">{{ pageDescription }}</p>

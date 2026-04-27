@@ -29,6 +29,33 @@ def sqlite_database_url(database_path: Path) -> str:
     return f"sqlite+pysqlite:////{database_path.as_posix().lstrip('/')}"
 
 
+def run_alembic_upgrade(
+    database_path: Path,
+    revision: str,
+) -> subprocess.CompletedProcess[str]:
+    backend_root = Path(__file__).resolve().parents[1]
+    env = {
+        **os.environ,
+        "BFP_DATABASE_URL": sqlite_database_url(database_path),
+        "PYTHONPATH": str(backend_root),
+    }
+    return subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "alembic",
+            "-c",
+            str(backend_root / "alembic.ini"),
+            "upgrade",
+            revision,
+        ],
+        cwd=backend_root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
 @pytest.fixture
 def persistent_database(tmp_path, monkeypatch) -> Generator[str, None, None]:
     database_path = tmp_path / "bfp-persistence.sqlite3"
@@ -56,27 +83,7 @@ def persistent_database(tmp_path, monkeypatch) -> Generator[str, None, None]:
 def test_alembic_upgrade_command_creates_core_tables(
     persistent_database: str,
 ) -> None:
-    backend_root = Path(__file__).resolve().parents[1]
-    env = {
-        **os.environ,
-        "BFP_DATABASE_URL": sqlite_database_url(Path(persistent_database)),
-        "PYTHONPATH": str(backend_root),
-    }
-    command_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "alembic",
-            "-c",
-            str(backend_root / "alembic.ini"),
-            "upgrade",
-            "head",
-        ],
-        cwd=backend_root,
-        env=env,
-        capture_output=True,
-        text=True,
-    )
+    command_result = run_alembic_upgrade(Path(persistent_database), "head")
 
     assert command_result.returncode == 0, command_result.stderr
 
@@ -101,6 +108,63 @@ def test_alembic_upgrade_command_creates_core_tables(
         "feedback",
         "participation_requests",
     }.issubset(table_names)
+
+
+def test_account_roles_migration_backfills_legacy_role(
+    persistent_database: str,
+) -> None:
+    database_path = Path(persistent_database)
+    command_result = run_alembic_upgrade(database_path, "20260412_000003")
+
+    assert command_result.returncode == 0, command_result.stderr
+
+    connection = sqlite3.connect(persistent_database)
+    try:
+        connection.execute(
+            """
+            INSERT INTO accounts (
+                id,
+                display_name,
+                role,
+                bio,
+                locale,
+                created_at,
+                updated_at,
+                email,
+                password_hash,
+                is_active
+            )
+            VALUES (
+                'acct_legacy',
+                'Legacy Tester',
+                'tester',
+                NULL,
+                NULL,
+                '2026-04-27T00:00:00Z',
+                '2026-04-27T00:00:00Z',
+                NULL,
+                NULL,
+                1
+            )
+            """
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    command_result = run_alembic_upgrade(database_path, "head")
+
+    assert command_result.returncode == 0, command_result.stderr
+
+    connection = sqlite3.connect(persistent_database)
+    try:
+        roles = connection.execute(
+            "SELECT roles FROM accounts WHERE id = 'acct_legacy'"
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+    assert roles == '["tester"]'
 
 
 def test_persistence_mode_keeps_core_flow_data_after_runtime_reset(

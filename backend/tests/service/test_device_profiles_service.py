@@ -84,12 +84,12 @@ def test_device_profile_service_create_rejects_non_tester_actor() -> None:
 
     error = exc_info.value
     assert error.status_code == status.HTTP_409_CONFLICT
-    assert error.code == "conflict"
+    assert error.code == "forbidden_actor_role"
     assert error.details == {
-        "resource": "device_profile",
-        "account_id": developer.id,
-        "expected_role": "tester",
-        "actual_role": "developer",
+        "actor_id": developer.id,
+        "actor_role": "developer",
+        "actor_roles": ["developer"],
+        "required_role": "tester",
     }
 
 

@@ -11,11 +11,16 @@ from app.modules.accounts.models import AccountRecord
 _ACCOUNTS: dict[str, AccountRecord] = {}
 
 
+def _normalize_record_roles(role: str, roles: list[str] | None) -> list[str]:
+    return list(roles) if roles else [role]
+
+
 def _to_record(entity: AccountEntity) -> AccountRecord:
     return AccountRecord(
         id=entity.id,
         display_name=entity.display_name,
         role=entity.role,
+        roles=_normalize_record_roles(entity.role, entity.roles),
         bio=entity.bio,
         locale=entity.locale,
         created_at=entity.created_at,
@@ -31,6 +36,7 @@ def _to_entity(record: AccountRecord) -> AccountEntity:
         id=record.id,
         display_name=record.display_name,
         role=record.role,
+        roles=_normalize_record_roles(record.role, record.roles),
         bio=record.bio,
         locale=record.locale,
         created_at=record.created_at,

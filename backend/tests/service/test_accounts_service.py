@@ -47,6 +47,20 @@ def test_account_service_create_and_list_returns_expected_items() -> None:
     assert listed_accounts.items[0].id == created_account.id
     assert listed_accounts.items[0].display_name == "Alice QA"
     assert listed_accounts.items[0].role == AccountRole.TESTER
+    assert listed_accounts.items[0].roles == [AccountRole.TESTER]
+
+
+def test_account_service_create_can_store_dual_roles() -> None:
+    created_account = create_account(
+        AccountCreate(
+            display_name="Dual Role User",
+            role=AccountRole.DEVELOPER,
+            roles=[AccountRole.DEVELOPER, AccountRole.TESTER],
+        )
+    )
+
+    assert created_account.role == AccountRole.DEVELOPER
+    assert created_account.roles == [AccountRole.DEVELOPER, AccountRole.TESTER]
 
 
 def test_account_service_ensure_exists_raises_not_found() -> None:
@@ -82,9 +96,28 @@ def test_account_service_update_changes_only_provided_fields() -> None:
 
     assert updated_account.id == created_account.id
     assert updated_account.role == AccountRole.TESTER
+    assert updated_account.roles == [AccountRole.TESTER]
     assert updated_account.display_name == "Alice Mobile QA"
     assert updated_account.bio == "Updated bio"
     assert updated_account.locale == "en-US"
+
+
+def test_account_service_update_roles_can_change_primary_fallback() -> None:
+    created_account = create_account(
+        AccountCreate(
+            display_name="Dual Role User",
+            role=AccountRole.DEVELOPER,
+            roles=[AccountRole.DEVELOPER, AccountRole.TESTER],
+        )
+    )
+
+    updated_account = update_account(
+        created_account.id,
+        AccountUpdate(roles=[AccountRole.TESTER]),
+    )
+
+    assert updated_account.role == AccountRole.TESTER
+    assert updated_account.roles == [AccountRole.TESTER]
 
 
 def test_account_service_delete_removes_the_resource() -> None:

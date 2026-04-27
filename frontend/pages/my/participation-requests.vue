@@ -8,7 +8,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import {
   fetchMyParticipationRequests,
   withdrawParticipationRequest
@@ -43,7 +47,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isTesterActor = computed(() => currentActor.value?.role === 'tester')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isTesterActor = computed(() => accountHasRole(currentActor.value, 'tester'))
 
 const {
   data: requestResponse,
@@ -52,7 +59,7 @@ const {
   refresh: refreshRequests
 } = useAsyncData(
   () =>
-    `my-participation-requests-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}`,
+    `my-participation-requests-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}`,
   async () => {
     if (!currentActorId.value || !isTesterActor.value) {
       return {
@@ -185,7 +192,7 @@ watch([currentActorId, currentActor], () => {
         <p class="resource-state__description">
           {{
             t('myParticipationRequests.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

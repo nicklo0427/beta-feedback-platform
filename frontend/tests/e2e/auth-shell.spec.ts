@@ -7,6 +7,7 @@ const developerSession = {
     id: 'acct_auth_dev_123',
     display_name: 'Session Dev',
     role: 'developer',
+    roles: ['developer', 'tester'],
     email: 'dev@example.com',
     is_active: true
   },
@@ -18,6 +19,7 @@ const testerSession = {
     id: 'acct_auth_tester_123',
     display_name: 'Session Tester',
     role: 'tester',
+    roles: ['tester'],
     email: 'tester@example.com',
     is_active: true
   },
@@ -31,12 +33,14 @@ async function mockAccountsForSessions(page: Page) {
         id: developerSession.account.id,
         display_name: developerSession.account.display_name,
         role: developerSession.account.role,
+        roles: developerSession.account.roles,
         updated_at: '2026-04-10T09:00:00Z'
       },
       {
         id: testerSession.account.id,
         display_name: testerSession.account.display_name,
         role: testerSession.account.role,
+        roles: testerSession.account.roles,
         updated_at: '2026-04-10T09:00:00Z'
       }
     ],
@@ -198,6 +202,7 @@ test.describe('auth session shell flows', () => {
       const payload = route.request().postDataJSON()
       expect(payload.display_name).toBe('Session Dev')
       expect(payload.role).toBe('developer')
+      expect(payload.roles).toEqual(['developer', 'tester'])
       expect(payload.email).toBe('dev@example.com')
       expect(payload.password).toBe('supersecret')
 
@@ -225,7 +230,6 @@ test.describe('auth session shell flows', () => {
     await page.waitForLoadState('networkidle')
 
     await page.getByTestId('register-display-name-input').fill('Session Dev')
-    await page.getByTestId('register-role-select').selectOption('developer')
     await page.getByTestId('register-email-input').fill('dev@example.com')
     await page.getByTestId('register-password-input').fill('supersecret')
     await page.getByTestId('register-submit').click()
@@ -242,6 +246,21 @@ test.describe('auth session shell flows', () => {
     await expect(page.getByTestId('current-session-account-link')).toBeVisible()
     await expect(page.getByTestId('my-projects-summary')).toContainText(/我的專案\s*1/)
     await expect(page.getByTestId('my-project-card-proj_session_123')).toContainText('Launch Prep')
+  })
+
+  test('preselects the register role from the query parameter', async ({ page }) => {
+    await page.goto('/register?role=developer')
+    await expect(page.getByTestId('register-panel')).toBeVisible()
+    await expect(page.getByTestId('register-role-checkbox-developer')).toBeChecked()
+    await expect(page.getByTestId('register-role-checkbox-tester')).not.toBeChecked()
+
+    await page.goto('/register?role=tester')
+    await expect(page.getByTestId('register-role-checkbox-developer')).not.toBeChecked()
+    await expect(page.getByTestId('register-role-checkbox-tester')).toBeChecked()
+
+    await page.goto('/register?role=not-a-real-role')
+    await expect(page.getByTestId('register-role-checkbox-developer')).toBeChecked()
+    await expect(page.getByTestId('register-role-checkbox-tester')).toBeChecked()
   })
 
   test('logs in as tester and lands on the dashboard before logging out', async ({ page }) => {

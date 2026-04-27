@@ -7,7 +7,11 @@ import {
   useCurrentActorId,
   useCurrentActorPersistence
 } from '~/features/accounts/current-actor'
-import { formatAccountRoleLabel } from '~/features/accounts/types'
+import {
+  accountHasRole,
+  formatAccountRolesLabel,
+  normalizeAccountRoles
+} from '~/features/accounts/types'
 import { fetchFeedbackQueue } from '~/features/feedback/api'
 import {
   FEEDBACK_REVIEW_STATUS_OPTIONS,
@@ -41,7 +45,10 @@ const accounts = computed(() => accountResponse.value.items)
 const currentActor = computed(
   () => accounts.value.find((account) => account.id === currentActorId.value) ?? null
 )
-const isDeveloperActor = computed(() => currentActor.value?.role === 'developer')
+const currentActorRolesKey = computed(
+  () => normalizeAccountRoles(currentActor.value ?? {}).join('|') || 'none'
+)
+const isDeveloperActor = computed(() => accountHasRole(currentActor.value, 'developer'))
 
 const {
   data: feedbackResponse,
@@ -50,7 +57,7 @@ const {
   refresh: refreshQueue
 } = useAsyncData(
   () =>
-    `review-feedback-${currentActorId.value ?? 'none'}-${currentActor.value?.role ?? 'unknown'}-${activeReviewStatus.value}`,
+    `review-feedback-${currentActorId.value ?? 'none'}-${currentActorRolesKey.value}-${activeReviewStatus.value}`,
   async () => {
     if (!currentActorId.value || !isDeveloperActor.value) {
       return {
@@ -146,7 +153,7 @@ const feedbackItems = computed(() => feedbackResponse.value.items)
         <p class="resource-state__description">
           {{
             t('reviewFeedback.roleMismatchDescription', {
-              role: formatAccountRoleLabel(currentActor.role, locale)
+              role: formatAccountRolesLabel(currentActor, locale)
             })
           }}
         </p>

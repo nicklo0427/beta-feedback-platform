@@ -51,18 +51,22 @@
 - detail context rail
 - form UX refresh
 - desktop-first responsive pass
+- dual-role account data model / migration baseline
+- backend role guard capability baseline
 
 ### 1.1 目前階段判斷
 
 截至目前為止，repo 可以視為已完成：
 
-- `T011` 到 `T094`
+- `T011` 到 `T101`
 - MVP 主流程閉環
 - 第一輪產品化補強
 - role-aware collaboration baseline
 - qualification / assignment clarity baseline
 - participation intent baseline
 - public / app 非技術背景文案簡化 baseline
+- dual-role account data model / migration baseline
+- backend role guard capability baseline
 - account collaboration summary 與 owned resource panels
 - participation-aware demo seed 與 manual QA 文件
 - 全站 UI/UX refresh phase
@@ -97,13 +101,12 @@
 - create / edit forms 已收斂成一致的 sectioned form UX
 - 高頻 workspace / queue / list 頁已套進一致的 app template 節奏
 - public landing、login / register 與 app 內主流程頁已收斂成更少術語、更接近一般使用者能理解的產品語言
+- backend account 已具備 `roles` array，既有 `role` 會 migration backfill 成 `roles = [role]`
+- auth/session payload、registration、account form、app shell workspace switch 與 dashboard route adaptation 已完成 dual-role baseline
+- demo seed、manual QA 與 launch checklist 已補上 developer-only / tester-only / dual-role 驗收路徑
+- `T095-T101` dual-role 測試方式與預期結果已整理在 [DUAL_ROLE_TEST_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/DUAL_ROLE_TEST_PLAN.md)
 
-這代表 qualification、participation、participation-to-assignment、Alembic schema lifecycle、UI/UX refresh、以及非技術背景 copy baseline 都已完成，下一步不應回頭補同一批基礎能力，而應轉往：
-
-- target environment rehearsal
-- public beta launch decision
-- post-beta hardening
-- 更完整的 access / support / lifecycle 補強
+這代表 qualification、participation、participation-to-assignment、Alembic schema lifecycle、UI/UX refresh、非技術背景 copy baseline、dual-role account model、auth/session compatibility、frontend workspace switch、以及 dashboard/workspace route adaptation 都已完成。下一步不應回頭補同一批基礎能力，而應轉往 target environment rehearsal 與 post-beta hardening。
 
 換句話說：
 
@@ -263,6 +266,9 @@ beta-feedback-platform/
 ├── frontend/
 ├── scripts/
 ├── tickets/
+│   ├── active/
+│   ├── completed/
+│   └── README.md
 ├── .env.example
 ├── NEXT_PHASE_PLAN.md
 ├── API_CONVENTIONS.md
@@ -281,7 +287,7 @@ beta-feedback-platform/
 - `backend/`：FastAPI service
 - `frontend/`：Nuxt 3 application
 - `scripts/`：本地工具，例如 demo seed workflow
-- `tickets/`：逐張開發票與工作拆解
+- `tickets/`：逐張開發票與工作拆解；目前工作票在 `tickets/active/`，歷史票在 `tickets/completed/`
 - `NEXT_PHASE_PLAN.md`：最新 roadmap 與目前 phase summary
 - `LOCAL_DEMO_SEED.md`：本地 demo seed 使用說明
 - `MANUAL_QA.md`：瀏覽器手動驗收清單
@@ -503,13 +509,14 @@ npx playwright test --reporter=list --workers=1
 - [OPS_RUNBOOK.md](/Users/lowhaijer/projects/beta-feedback-platform/OPS_RUNBOOK.md)
 - [PUBLIC_BETA_LAUNCH_CHECKLIST.md](/Users/lowhaijer/projects/beta-feedback-platform/PUBLIC_BETA_LAUNCH_CHECKLIST.md)
 - [MANUAL_QA.md](/Users/lowhaijer/projects/beta-feedback-platform/MANUAL_QA.md)
-- [tickets/T074-beta-environment-rollout-verification-and-evidence-pack.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/T074-beta-environment-rollout-verification-and-evidence-pack.md)
+- [tickets/completed/T074-beta-environment-rollout-verification-and-evidence-pack.md](/Users/lowhaijer/projects/beta-feedback-platform/tickets/completed/T074-beta-environment-rollout-verification-and-evidence-pack.md)
 
 ## 12. 目前已知限制
 
 - 若未設定 `BFP_DATABASE_URL`，backend 仍會 fallback 到 in-memory mode
 - database mode 現在依賴 Alembic migration；deploy 前應先執行 `upgrade head`
 - `X-Actor-Id` 仍保留作為 local dev / seed fallback，不是正式 production identity model
+- dual-role account 已完成 backend data model、auth/session roles payload、frontend registration/account forms、workspace role switch 與 dashboard/workspace route adaptation baseline
 - role-aware `mine=true` filters 只覆蓋目前已落地的 ownership baseline
 - 目前不做 notification、search、Steam / Desktop / Extension
 

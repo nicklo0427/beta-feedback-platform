@@ -246,6 +246,7 @@ def test_campaign_safety_create_rejects_non_developer_actor(client: TestClient) 
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }

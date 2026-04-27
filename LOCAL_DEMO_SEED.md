@@ -4,7 +4,7 @@
 
 這份文件對應 `T028-local-demo-data-seeding-workflow`，並一路收斂到 public beta 前的本地 QA fixture workflow。
 
-目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures`、`T049-qualification-aware-demo-seed-and-manual-qa-refresh` 與 `T057-participation-aware-demo-seed-and-docs-refresh`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware、qualification / assignment、以及 participation flow 驗收的 fixture graph。
+目前已補上 `T042-role-aware-demo-seed-and-owned-fixtures`、`T049-qualification-aware-demo-seed-and-manual-qa-refresh`、`T057-participation-aware-demo-seed-and-docs-refresh` 與 `T101-dual-role-qa-docs-seed-and-regression`，所以這份 seed 不再只是主流程資料，而是可直接支撐 role-aware、dual-role、qualification / assignment、以及 participation flow 驗收的 fixture graph。
 
 用途是用一個命令，透過既有 HTTP API 建立一組本地 demo graph，方便手動驗收與錄影 demo。
 
@@ -18,13 +18,14 @@
 
 建立的資料至少包含：
 
-- 1 筆 `developer` account
-- 1 筆 `tester` account
-- 1 筆 `Project`
+- 1 筆 developer-only account
+- 1 筆 tester-only account
+- 1 筆 dual-role account
+- 2 筆 `Project`
 - 2 筆 `Campaign`
 - 1 筆 `Campaign Safety`
 - 2 筆 `Eligibility Rule`
-- 3 筆 `Device Profile`
+- 4 筆 `Device Profile`
 - 3 筆 `Task`
 - 1 筆 `Feedback`
 - 2 筆 `Participation Request`
@@ -90,10 +91,17 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 - `Account`
   - `Role-Aware Developer <label>`
+  - `roles = ["developer"]`
   - `Role-Aware Tester <label>`
+  - `roles = ["tester"]`
+  - `Role-Aware Dual <label>`
+  - `roles = ["developer", "tester"]`
 - `Project`
   - `Owned Project Sandbox <label>`
   - owner 會是上面的 developer
+- `Project`
+  - `Dual-Role Project Sandbox <label>`
+  - owner 會是上面的 dual-role account
 - `Campaign`
   - `Qualified Campaign Round <label>`
   - 用來驗證 qualification pass / fail 與 assignment preview / guard
@@ -127,6 +135,10 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
   - 一筆 Android 測試裝置
   - owner 會是上面的 tester
   - 這筆會在 qualified campaign 上顯示 qualification fail，也可用來驗證 assignment guard
+- `Device Profile`
+  - 一筆 Android 測試裝置
+  - owner 會是上面的 dual-role account
+  - 用來驗證同一帳號具備 tester capability 時，也能擁有測試裝置
 - `Task`
   - qualified task 會成功指派到 iOS device profile
   - 建立 feedback 後可直接拿來驗證 review queue / submitted flow
@@ -150,32 +162,36 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 這代表：
 
-- 這支 seed 已可直接驗證主流程與 role-aware baseline
+- 這支 seed 已可直接驗證主流程、role-aware baseline 與 dual-role account
+- dual-role account 可用來驗證：
+  - developer capability：可看到自己的 `Dual-Role Project Sandbox`
+  - tester capability：可看到自己的 `Dual-Role QA Pixel Fold`
+  - frontend-only active workspace role switch：切換開發者 / 測試者視角不會改變後端授權來源
 - 可以直接拿來驗證：
   - `/my/projects`
   - `/my/campaigns`
-- `/my/eligible-campaigns`
-- `/my/participation-requests`
-- `/my/tasks`
-- `/review/feedback`
-- `/review/participation-requests`
-- `/review/participation-requests/:requestId`
-- 首頁 current actor 切換與 role-aware summary
-- campaign detail qualification panel
-- task assignment qualification preview
-- task qualification drift panel
-- participation request create / review / detail
-- participation accepted -> task assignment bridge
-- request-to-task traceability
-- participation-linked task detail read guard
-- developer participation funnel summary
+  - `/my/eligible-campaigns`
+  - `/my/participation-requests`
+  - `/my/tasks`
+  - `/review/feedback`
+  - `/review/participation-requests`
+  - `/review/participation-requests/:requestId`
+  - app shell current actor 切換、active workspace role switch 與 role-aware summary
+  - campaign detail qualification panel
+  - task assignment qualification preview
+  - task qualification drift panel
+  - participation request create / review / detail
+  - participation accepted -> task assignment bridge
+  - request-to-task traceability
+  - participation-linked task detail read guard
+  - developer participation funnel summary
 
 ## 5. Script 輸出內容
 
 成功執行後，script 會輸出：
 
 - backend health 狀態
-- developer / tester actor IDs
+- developer-only / tester-only / dual-role actor IDs
 - 建立出的每筆 record ID
 - 可直接打開的 frontend detail URL
 - qualification / assignment 驗證用頁面 URL
@@ -204,14 +220,15 @@ script 成功後，至少確認以下頁面：
 10. `Participation-linked task detail`
 11. `Pending participation request task-bridge route`
 
-若要驗收 role-aware flow，建議再補：
+若要驗收 role-aware / dual-role flow，建議再補：
 
 12. `Accounts detail`
-13. 首頁 current actor 切換
+13. app shell current actor 切換
 14. `/my/projects`
 15. `/my/campaigns`
 16. `/review/feedback`
 17. `Feedback detail`
+18. `/dashboard` active workspace role switch
 
 推薦直接打開 script 輸出的 frontend URLs。
 
@@ -230,7 +247,8 @@ script 成功後，至少確認以下頁面：
 - 對外顯示文案用 `Mobile Web`
 - internal / API enum value 仍維持 `h5`
 - 每次重跑 script 都會建立一組新的 demo graph
-- 若你要驗收 role-aware flow，請在首頁 `Current Actor` selector 中選擇 script 輸出的 developer / tester account
+- 若你要驗收 role-aware flow，請在 app shell `Current Actor` selector 中選擇 script 輸出的 developer-only / tester-only / dual-role account
+- 若你要驗收 dual-role flow，請選擇 `Role-Aware Dual <label>`，再於 app shell 切換 `開發者視角 / 測試者視角`
 - 若你要驗證 ineligible assignment fail，請用 developer actor 打開 qualified campaign 的 task create form，並選擇那筆 Android device profile
 - 若你要驗證 drift warning，請直接打開 script 輸出的 drift task detail 與 `/my/tasks`
 - 若你要驗證 participation review queue，請切到 developer actor 打開 `/review/participation-requests`

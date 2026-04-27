@@ -88,12 +88,15 @@ cd /Users/lowhaijer/projects/beta-feedback-platform
 
 - developer account ID
 - tester account ID
+- dual-role account ID
 - project ID
+- dual-role project ID
 - qualified campaign ID
 - drift campaign ID
 - qualified device profile ID
 - accepted-request device profile ID
 - ineligible device profile ID
+- dual-role device profile ID
 - qualified task ID
 - drift task ID
 - accepted-request linked task ID
@@ -125,14 +128,26 @@ script 也會同時提供兩條 participation 驗證線：
 
 - [LOCAL_DEMO_SEED.md](/Users/lowhaijer/projects/beta-feedback-platform/LOCAL_DEMO_SEED.md)
 
-### 2.6 測試時建議使用的 actor
+### 2.6 T095-T101 dual-role 測試矩陣
+
+若這次驗收目標是 dual-role account phase，請先依 [DUAL_ROLE_TEST_PLAN.md](/Users/lowhaijer/projects/beta-feedback-platform/DUAL_ROLE_TEST_PLAN.md) 跑完自動化測試與 smoke，再進入本文件的手動案例。
+
+### 2.7 測試時建議使用的 actor
 
 請優先使用 seed 建立的：
 
 - `Role-Aware Developer <label>`
 - `Role-Aware Tester <label>`
+- `Role-Aware Dual <label>`
 
 並透過 `/dashboard` 或其他 app 內頁 top bar 的 `Current Actor` selector 切換。
+
+補充：
+
+- developer-only account 應只看到開發者能力
+- tester-only account 應只看到測試者能力
+- dual-role account 應顯示 `開發者視角 / 測試者視角` 切換器
+- active workspace role 只影響 frontend 呈現，不是 backend 授權來源；實際能力仍由 account `roles` 判斷
 
 若你在 `session-only` beta 模式下驗收，請另外用：
 
@@ -200,7 +215,7 @@ script 也會同時提供兩條 participation 驗證線：
 
 測試步驟
 1. 打開 `http://127.0.0.1:3000/register`
-2. 註冊一筆 developer 或 tester 帳號
+2. 註冊一筆同時勾選開發者與測試者身份的帳號
 3. 確認登入狀態已建立
 4. 打開首頁與 account detail
 5. 執行 logout
@@ -208,6 +223,7 @@ script 也會同時提供兩條 participation 驗證線：
 
 預期結果
 - register 成功
+- `/auth/me` 或頁面 session 狀態會保留 `developer / tester` 雙身份
 - 已登入時，頁面可顯示 session account 狀態
 - logout 成功後，受保護的 session flow 會要求重新登入或顯示 unauthenticated 對應提示
 - session cookie 可驅動至少一筆 create flow
@@ -226,13 +242,16 @@ script 也會同時提供兩條 participation 驗證線：
 - 看不到 app sidebar 或內部資源入口卡
 - auth CTA 與頁內入口可正常導到對應流程
 
-### TC-02 Dashboard role-aware 工作區切換
+### TC-02 Dashboard role-aware / dual-role 工作區切換
 
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/dashboard`
 2. 不選 actor 或未登入時，先觀察頁面
 3. 進入 app shell 後選擇 seeded developer account
 4. 再切換成 seeded tester account
+5. 再切換成 seeded dual-role account
+6. 在 app shell 中切換 `開發者視角 / 測試者視角`
+7. 重新整理頁面，確認最後選擇的視角仍保留
 
 預期結果
 - 未登入時，`/dashboard` 會要求登入或導向登入流程
@@ -240,6 +259,11 @@ script 也會同時提供兩條 participation 驗證線：
 - developer 可看到 `我的專案`、`我的活動`、審查相關入口
 - 切到 tester 後，會看到 tester dashboard summary / queues / CTA
 - tester 可看到 `我的任務`、`符合資格的活動`、`我的 participation requests`
+- dual-role account 會看到工作視角切換器
+- dual-role 切到開發者視角時，dashboard 顯示 developer summary / queues / CTA
+- dual-role 切到測試者視角時，dashboard 顯示 tester summary / queues / CTA
+- 重新整理後 active workspace role 仍保留
+- 切換視角不會呼叫 mutation API，也不會修改 account `roles`
 
 ### TC-02A Login / Register 視覺與流程
 
@@ -261,16 +285,17 @@ script 也會同時提供兩條 participation 驗證線：
 測試步驟
 1. 開啟 `http://127.0.0.1:3000/accounts`
 2. 點 `Create account`
-3. 建立一筆新的 developer 或 tester account
+3. 建立一筆新的 dual-role account，勾選開發者與測試者身份
 4. 成功後進入 detail 頁
-5. 點 `Edit account` 修改資料並送出
+5. 點 `Edit account` 修改資料，測試保留雙身份或改成單身份後送出
 
 預期結果
 - 帳號列表可正常載入
 - 建立表單可輸入並成功送出
 - 建立成功後會導到 account detail
-- detail 頁會顯示帳號基本資料
+- detail 頁會顯示帳號基本資料與身份集合
 - 編輯成功後 detail 內容會更新
+- 至少保留一種身份；若取消所有身份，表單應顯示 validation，不應送出
 
 ### TC-04 帳號詳情 collaboration summary
 
@@ -724,40 +749,42 @@ script 也會同時提供兩條 participation 驗證線：
 若你想要快速驗完整條主流程，建議照這個順序：
 
 1. 先跑 role-aware seed
-2. 首頁與 current actor 切換
+2. app shell current actor 切換
 3. Accounts flow
 4. Account collaboration summary
-5. Developer workspace：`/my/projects`、`/my/campaigns`
-6. Projects
-7. Campaigns
-8. Campaign Safety
-9. Device Profiles
-10. Eligibility Rules
-11. Campaign qualification panel
-12. Tester eligible campaigns workspace
-13. Tester participation request create
-14. My participation requests
-15. Developer participation review queue
-16. Participation request detail snapshot
-17. Task assignment preview / guard
-18. Tasks
-19. Tester Inbox
-20. Task qualification drift
-21. Feedback submit / edit
-22. Developer Review Queue
-23. Feedback resubmission
-24. Reputation summary
-25. Error state 抽查
+5. Dual-role workspace role switch：`/dashboard` 開發者 / 測試者視角
+6. Developer workspace：`/my/projects`、`/my/campaigns`
+7. Projects
+8. Campaigns
+9. Campaign Safety
+10. Device Profiles
+11. Eligibility Rules
+12. Campaign qualification panel
+13. Tester eligible campaigns workspace
+14. Tester participation request create
+15. My participation requests
+16. Developer participation review queue
+17. Participation request detail snapshot
+18. Task assignment preview / guard
+19. Tasks
+20. Tester Inbox
+21. Task qualification drift
+22. Feedback submit / edit
+23. Developer Review Queue
+24. Feedback resubmission
+25. Reputation summary
+26. Error state 抽查
 
 ## 5. 重要限制
 
 - 若未設定 `BFP_DATABASE_URL`，backend 仍會 fallback 到 in-memory mode
-- migration 目前仍是 SQLAlchemy `create_all` baseline，不是完整 Alembic
+- database schema lifecycle 以 Alembic migration 為 source of truth，deploy 前仍應明確執行 `alembic upgrade head`
 - seed fixture 仍使用 current actor / `X-Actor-Id` baseline 建立 owned fixtures
 - session-only public beta smoke 與 fallback-enabled 完整 fixture regression 是兩種不同驗收模式
 - role-aware seed 會建立 owned fixtures，但不會取代正式 fixture framework
 - qualification-aware seed 會額外建立 pass / fail / drift fixtures，但不會自動幫你送出 ineligible assignment；那一段需要在 UI 上手動驗證
 - participation-aware seed 會額外建立 pending / accepted participation requests，方便直接驗收 tester workspace、developer review queue 與 detail snapshot
+- dual-role seed 會額外建立一筆同時具備 developer / tester capability 的帳號，方便驗 active workspace role switch
 - 若資料消失，請重新執行：
   - [scripts/seed_demo_data.py](/Users/lowhaijer/projects/beta-feedback-platform/scripts/seed_demo_data.py)
 

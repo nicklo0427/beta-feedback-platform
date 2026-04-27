@@ -61,7 +61,7 @@ T006 - Projects and Campaigns Schema Draft
 
 ## Deliverables
 
-- 更新後的 `tickets/T006-projects-and-campaigns-schema-draft.md`
+- 更新後的 `tickets/completed/T006-projects-and-campaigns-schema-draft.md`
 - 一份根目錄資料模型草案文件：`DATA_MODEL_DRAFT.md`
 - 一份 Project schema draft
 - 一份 Campaign schema draft

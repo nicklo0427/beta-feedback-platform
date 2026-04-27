@@ -20,6 +20,7 @@ def test_accounts_crud_flow_returns_expected_shapes(client: TestClient) -> None:
 
     assert created_account["display_name"] == "Alice QA"
     assert created_account["role"] == "tester"
+    assert created_account["roles"] == ["tester"]
     assert created_account["created_at"]
     assert created_account["updated_at"]
 
@@ -32,6 +33,7 @@ def test_accounts_crud_flow_returns_expected_shapes(client: TestClient) -> None:
                 "id": account_id,
                 "display_name": "Alice QA",
                 "role": "tester",
+                "roles": ["tester"],
                 "updated_at": created_account["updated_at"],
             }
         ],
@@ -111,6 +113,21 @@ def test_account_patch_rejects_unknown_fields(client: TestClient) -> None:
     }
 
 
+def test_accounts_create_accepts_dual_roles(client: TestClient) -> None:
+    response = client.post(
+        "/api/v1/accounts",
+        json={
+            "display_name": "Dual Role User",
+            "role": "developer",
+            "roles": ["developer", "tester"],
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["role"] == "developer"
+    assert response.json()["roles"] == ["developer", "tester"]
+
+
 def test_account_summary_returns_developer_owned_resource_counts(client: TestClient) -> None:
     developer_response = client.post(
         "/api/v1/accounts",
@@ -150,6 +167,7 @@ def test_account_summary_returns_developer_owned_resource_counts(client: TestCli
     assert summary_response.json() == {
         "account_id": developer["id"],
         "role": "developer",
+        "roles": ["developer"],
         "developer_summary": {
             "owned_projects_count": 1,
             "owned_campaigns_count": 1,
@@ -197,6 +215,7 @@ def test_account_summary_returns_tester_zero_state_without_owned_resources(
     assert summary_response.json() == {
         "account_id": tester["id"],
         "role": "tester",
+        "roles": ["tester"],
         "developer_summary": None,
         "tester_summary": {
             "owned_device_profiles_count": 0,

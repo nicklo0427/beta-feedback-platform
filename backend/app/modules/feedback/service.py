@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.activity_events.schemas import ActivityEntityType, ActivityEventType
@@ -65,23 +66,8 @@ def _to_feedback_queue_item(record: FeedbackRecord) -> FeedbackQueueItem:
     return FeedbackQueueItem.model_validate(asdict(record))
 
 
-def _raise_forbidden_actor_role(
-    *,
-    actor_id: str,
-    actor_role: str,
-    required_role: str,
-    message: str,
-) -> None:
-    raise AppError(
-        status_code=status.HTTP_409_CONFLICT,
-        code="forbidden_actor_role",
-        message=message,
-        details={
-            "actor_id": actor_id,
-            "actor_role": actor_role,
-            "required_role": required_role,
-        },
-    )
+def _is_ownership_mismatch(error: AppError) -> bool:
+    return error.code == "ownership_mismatch"
 
 
 def _raise_ownership_mismatch(
@@ -126,12 +112,11 @@ def _resolve_owned_campaign_ids_for_actor(current_actor_id: str) -> set[str]:
     from app.modules.projects import repository as projects_repository
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.DEVELOPER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Developer role is required to review owned feedback.",
+    if not account_has_role(actor, AccountRole.DEVELOPER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer role is required to review owned feedback.",
         )
 
     owned_project_ids = {
@@ -151,12 +136,11 @@ def _resolve_owned_device_profile_ids_for_actor(current_actor_id: str) -> set[st
     from app.modules.device_profiles import repository as device_profiles_repository
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.TESTER.value,
-            message="Tester role is required to read owned feedback.",
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required to read owned feedback.",
         )
 
     return {
@@ -177,12 +161,11 @@ def ensure_feedback_owned_by_tester(
         return ensure_feedback_exists(feedback_id)
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.TESTER.value,
-            message="Tester role is required for this operation.",
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required for this operation.",
         )
 
     feedback = ensure_feedback_exists(feedback_id)
@@ -260,27 +243,37 @@ def list_feedback_for_actor(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
-        ensure_task_owned_by_developer(
-            task_id,
-            current_actor_id,
-            resource="feedback",
-        )
-        return list_feedback(task_id)
+    developer_error: AppError | None = None
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            ensure_task_owned_by_developer(
+                task_id,
+                current_actor_id,
+                resource="feedback",
+            )
+            return list_feedback(task_id)
+        except AppError as error:
+            if not _is_ownership_mismatch(error):
+                raise
+            developer_error = error
 
-    if actor.role == AccountRole.TESTER.value:
-        ensure_task_owned_by_tester(
-            task_id,
-            current_actor_id,
-            resource="feedback",
-        )
-        return list_feedback(task_id)
+    if account_has_role(actor, AccountRole.TESTER):
+        try:
+            ensure_task_owned_by_tester(
+                task_id,
+                current_actor_id,
+                resource="feedback",
+            )
+            return list_feedback(task_id)
+        except AppError as error:
+            if developer_error is not None and _is_ownership_mismatch(error):
+                raise developer_error
+            raise
 
-    _raise_forbidden_actor_role(
-        actor_id=actor.id,
-        actor_role=actor.role,
-        required_role=AccountRole.DEVELOPER.value,
-        message="Developer or tester role is required to read task feedback.",
+    raise_forbidden_actor_role(
+        actor,
+        AccountRole.DEVELOPER,
+        "Developer or tester role is required to read task feedback.",
     )
     return list_feedback(task_id)
 
@@ -307,26 +300,39 @@ def list_feedback_queue(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
+    filtered_records_by_id: dict[str, FeedbackRecord] = {}
+    if account_has_role(actor, AccountRole.DEVELOPER):
         owned_campaign_ids = _resolve_owned_campaign_ids_for_actor(current_actor_id)
-        records = [
-            record for record in records if record.campaign_id in owned_campaign_ids
-        ]
-    elif actor.role == AccountRole.TESTER.value:
+        filtered_records_by_id.update(
+            {
+                record.id: record
+                for record in records
+                if record.campaign_id in owned_campaign_ids
+            }
+        )
+    if account_has_role(actor, AccountRole.TESTER):
         owned_device_profile_ids = _resolve_owned_device_profile_ids_for_actor(
             current_actor_id
         )
-        records = [
-            record
-            for record in records
-            if record.device_profile_id in owned_device_profile_ids
-        ]
+        filtered_records_by_id.update(
+            {
+                record.id: record
+                for record in records
+                if record.device_profile_id in owned_device_profile_ids
+            }
+        )
+    if filtered_records_by_id:
+        records = list(filtered_records_by_id.values())
+    elif account_has_role(actor, AccountRole.DEVELOPER) or account_has_role(
+        actor,
+        AccountRole.TESTER,
+    ):
+        records = []
     else:
-        _raise_forbidden_actor_role(
-            actor_id=actor.id,
-            actor_role=actor.role,
-            required_role=AccountRole.DEVELOPER.value,
-            message="Developer or tester role is required to read feedback queue.",
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.DEVELOPER,
+            "Developer or tester role is required to read feedback queue.",
         )
 
     items = [_to_feedback_queue_item(record) for record in records]
@@ -352,27 +358,37 @@ def get_feedback_for_actor(
         )
 
     actor = ensure_account_exists(current_actor_id)
-    if actor.role == AccountRole.DEVELOPER.value:
-        feedback = ensure_feedback_owned_by_developer(
-            feedback_id,
-            current_actor_id,
-            resource="feedback",
-        )
-        return _to_feedback_detail(feedback)
+    developer_error: AppError | None = None
+    if account_has_role(actor, AccountRole.DEVELOPER):
+        try:
+            feedback = ensure_feedback_owned_by_developer(
+                feedback_id,
+                current_actor_id,
+                resource="feedback",
+            )
+            return _to_feedback_detail(feedback)
+        except AppError as error:
+            if not _is_ownership_mismatch(error):
+                raise
+            developer_error = error
 
-    if actor.role == AccountRole.TESTER.value:
-        feedback = ensure_feedback_owned_by_tester(
-            feedback_id,
-            current_actor_id,
-            resource="feedback",
-        )
-        return _to_feedback_detail(feedback)
+    if account_has_role(actor, AccountRole.TESTER):
+        try:
+            feedback = ensure_feedback_owned_by_tester(
+                feedback_id,
+                current_actor_id,
+                resource="feedback",
+            )
+            return _to_feedback_detail(feedback)
+        except AppError as error:
+            if developer_error is not None and _is_ownership_mismatch(error):
+                raise developer_error
+            raise
 
-    _raise_forbidden_actor_role(
-        actor_id=actor.id,
-        actor_role=actor.role,
-        required_role=AccountRole.DEVELOPER.value,
-        message="Developer or tester role is required to read feedback detail.",
+    raise_forbidden_actor_role(
+        actor,
+        AccountRole.DEVELOPER,
+        "Developer or tester role is required to read feedback detail.",
     )
     return _to_feedback_detail(ensure_feedback_exists(feedback_id))
 
@@ -444,39 +460,63 @@ def update_feedback(
 
     if current_actor_id is not None:
         actor = ensure_account_exists(current_actor_id)
-        if actor.role == AccountRole.DEVELOPER.value:
-            if content_fields:
-                _raise_forbidden_actor_role(
-                    actor_id=actor.id,
-                    actor_role=actor.role,
-                    required_role=AccountRole.TESTER.value,
-                    message="Tester role is required to edit feedback content.",
-                )
-            current = ensure_feedback_owned_by_developer(
-                feedback_id,
-                current_actor_id,
-                resource="feedback",
-            )
-        elif actor.role == AccountRole.TESTER.value:
-            if review_fields:
-                _raise_forbidden_actor_role(
-                    actor_id=actor.id,
-                    actor_role=actor.role,
-                    required_role=AccountRole.DEVELOPER.value,
-                    message="Developer role is required to review feedback.",
+        current: FeedbackRecord | None = None
+        if content_fields:
+            if not account_has_role(actor, AccountRole.TESTER):
+                raise_forbidden_actor_role(
+                    actor,
+                    AccountRole.TESTER,
+                    "Tester role is required to edit feedback content.",
                 )
             current = ensure_feedback_owned_by_tester(
                 feedback_id,
                 current_actor_id,
                 resource="feedback",
             )
-        else:
-            _raise_forbidden_actor_role(
-                actor_id=actor.id,
-                actor_role=actor.role,
-                required_role=AccountRole.TESTER.value,
-                message="Tester role is required for this operation.",
+
+        if review_fields:
+            if not account_has_role(actor, AccountRole.DEVELOPER):
+                raise_forbidden_actor_role(
+                    actor,
+                    AccountRole.DEVELOPER,
+                    "Developer role is required to review feedback.",
+                )
+            current = ensure_feedback_owned_by_developer(
+                feedback_id,
+                current_actor_id,
+                resource="feedback",
             )
+
+        if current is None:
+            developer_error: AppError | None = None
+            if account_has_role(actor, AccountRole.DEVELOPER):
+                try:
+                    current = ensure_feedback_owned_by_developer(
+                        feedback_id,
+                        current_actor_id,
+                        resource="feedback",
+                    )
+                except AppError as error:
+                    if not _is_ownership_mismatch(error):
+                        raise
+                    developer_error = error
+            if current is None and account_has_role(actor, AccountRole.TESTER):
+                try:
+                    current = ensure_feedback_owned_by_tester(
+                        feedback_id,
+                        current_actor_id,
+                        resource="feedback",
+                    )
+                except AppError as error:
+                    if developer_error is not None and _is_ownership_mismatch(error):
+                        raise developer_error
+                    raise
+            if current is None:
+                raise_forbidden_actor_role(
+                    actor,
+                    AccountRole.TESTER,
+                    "Tester role is required for this operation.",
+                )
     else:
         current = ensure_feedback_exists(feedback_id)
 

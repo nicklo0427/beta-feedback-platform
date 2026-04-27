@@ -5,6 +5,7 @@ import type {
   AccountRole,
   AccountUpdatePayload
 } from './types'
+import { ACCOUNT_ROLE_OPTIONS, normalizeAccountRoles } from './types'
 
 function normalizeRequiredValue(value: string): string {
   return value.trim()
@@ -18,7 +19,7 @@ function normalizeOptionalValue(value: string): string | null {
 export function createEmptyAccountFormValues(): AccountFormValues {
   return {
     display_name: '',
-    role: '',
+    roles: [...ACCOUNT_ROLE_OPTIONS],
     bio: '',
     locale: ''
   }
@@ -27,18 +28,29 @@ export function createEmptyAccountFormValues(): AccountFormValues {
 export function toAccountFormValues(account: AccountDetail): AccountFormValues {
   return {
     display_name: account.display_name,
-    role: account.role,
+    roles: normalizeAccountRoles(account),
     bio: account.bio ?? '',
     locale: account.locale ?? ''
   }
 }
 
+function normalizeFormRoles(values: AccountFormValues): AccountRole[] {
+  return normalizeAccountRoles({ roles: values.roles })
+}
+
+function rolesAreEqual(left: AccountRole[], right: AccountRole[]): boolean {
+  return left.join('|') === right.join('|')
+}
+
 export function buildAccountCreatePayload(
   values: AccountFormValues
 ): AccountCreatePayload {
+  const roles = normalizeFormRoles(values)
+
   return {
     display_name: normalizeRequiredValue(values.display_name),
-    role: values.role as AccountRole,
+    role: roles[0],
+    roles,
     bio: normalizeOptionalValue(values.bio),
     locale: normalizeOptionalValue(values.locale)
   }
@@ -56,8 +68,11 @@ export function buildAccountUpdatePayload(
     payload.display_name = currentDisplayName
   }
 
-  if (values.role !== initialValues.role) {
-    payload.role = values.role as AccountRole
+  const currentRoles = normalizeFormRoles(values)
+  const initialRoles = normalizeFormRoles(initialValues)
+  if (!rolesAreEqual(currentRoles, initialRoles)) {
+    payload.role = currentRoles[0]
+    payload.roles = currentRoles
   }
 
   const currentBio = normalizeOptionalValue(values.bio)

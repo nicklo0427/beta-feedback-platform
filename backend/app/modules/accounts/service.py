@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role
 from app.modules.accounts import repository
 from app.modules.accounts.models import AccountRecord
 from app.modules.accounts.schemas import (
@@ -45,6 +46,14 @@ def _to_account_detail(record: AccountRecord) -> AccountDetail:
 
 def _to_account_list_item(record: AccountRecord) -> AccountListItem:
     return AccountListItem.model_validate(asdict(record))
+
+
+def _role_values(roles: list[AccountRole]) -> list[str]:
+    return [role.value for role in roles]
+
+
+def _record_roles(record: AccountRecord) -> list[AccountRole]:
+    return [AccountRole(role) for role in (record.roles or [record.role])]
 
 
 def _latest_timestamp(values: list[str | None]) -> str | None:
@@ -141,8 +150,11 @@ def get_account_summary(account_id: str) -> AccountCollaborationSummary:
     from app.modules.tasks import repository as task_repository
 
     account = ensure_account_exists(account_id)
+    updated_at_values: list[str | None] = [account.updated_at]
+    developer_summary: DeveloperAccountSummary | None = None
+    tester_summary: TesterAccountSummary | None = None
 
-    if account.role == AccountRole.DEVELOPER.value:
+    if account_has_role(account, AccountRole.DEVELOPER):
         owned_projects = [
             record
             for record in projects_repository.list_projects()
@@ -161,72 +173,61 @@ def get_account_summary(account_id: str) -> AccountCollaborationSummary:
             if item.campaign_id in owned_campaign_ids
             and item.review_status == FeedbackReviewStatus.SUBMITTED.value
         ]
-
-        updated_at = _latest_timestamp(
-            [account.updated_at]
-            + [record.updated_at for record in owned_projects]
+        updated_at_values.extend(
+            [record.updated_at for record in owned_projects]
             + [record.updated_at for record in owned_campaigns]
             + [item.updated_at for item in feedback_to_review_items]
-        ) or account.updated_at
-
-        return AccountCollaborationSummary(
-            account_id=account.id,
-            role=AccountRole(account.role),
-            developer_summary=DeveloperAccountSummary(
-                owned_projects_count=len(owned_projects),
-                owned_campaigns_count=len(owned_campaigns),
-                feedback_to_review_count=len(feedback_to_review_items),
-                recent_projects=[
-                    AccountRecentProject(
-                        id=record.id,
-                        name=record.name,
-                        updated_at=record.updated_at,
-                    )
-                    for record in _take_recent(owned_projects, key="updated_at")
-                ],
-                recent_campaigns=[
-                    AccountRecentCampaign(
-                        id=record.id,
-                        project_id=record.project_id,
-                        name=record.name,
-                        status=record.status,
-                        updated_at=record.updated_at,
-                    )
-                    for record in _take_recent(owned_campaigns, key="updated_at")
-                ],
-            ),
-            updated_at=updated_at,
         )
 
-    owned_device_profiles = [
-        record
-        for record in device_profiles_repository.list_device_profiles()
-        if record.owner_account_id == account_id
-    ]
-    owned_device_profile_ids = {record.id for record in owned_device_profiles}
-    assigned_tasks = [
-        record
-        for record in task_repository.list_tasks()
-        if record.device_profile_id in owned_device_profile_ids
-    ]
-    owned_task_ids = {record.id for record in assigned_tasks}
-    submitted_feedback = [
-        item
-        for item in feedback_repository.list_feedback()
-        if item.task_id in owned_task_ids
-    ]
+        developer_summary = DeveloperAccountSummary(
+            owned_projects_count=len(owned_projects),
+            owned_campaigns_count=len(owned_campaigns),
+            feedback_to_review_count=len(feedback_to_review_items),
+            recent_projects=[
+                AccountRecentProject(
+                    id=record.id,
+                    name=record.name,
+                    updated_at=record.updated_at,
+                )
+                for record in _take_recent(owned_projects, key="updated_at")
+            ],
+            recent_campaigns=[
+                AccountRecentCampaign(
+                    id=record.id,
+                    project_id=record.project_id,
+                    name=record.name,
+                    status=record.status,
+                    updated_at=record.updated_at,
+                )
+                for record in _take_recent(owned_campaigns, key="updated_at")
+            ],
+        )
 
-    updated_at = _latest_timestamp(
-        [account.updated_at]
-        + [record.updated_at for record in owned_device_profiles]
-        + [record.updated_at for record in assigned_tasks]
-        + [item.updated_at for item in submitted_feedback]
-    ) or account.updated_at
+    if account_has_role(account, AccountRole.TESTER):
+        owned_device_profiles = [
+            record
+            for record in device_profiles_repository.list_device_profiles()
+            if record.owner_account_id == account_id
+        ]
+        owned_device_profile_ids = {record.id for record in owned_device_profiles}
+        assigned_tasks = [
+            record
+            for record in task_repository.list_tasks()
+            if record.device_profile_id in owned_device_profile_ids
+        ]
+        owned_task_ids = {record.id for record in assigned_tasks}
+        submitted_feedback = [
+            item
+            for item in feedback_repository.list_feedback()
+            if item.task_id in owned_task_ids
+        ]
+        updated_at_values.extend(
+            [record.updated_at for record in owned_device_profiles]
+            + [record.updated_at for record in assigned_tasks]
+            + [item.updated_at for item in submitted_feedback]
+        )
 
-    return AccountCollaborationSummary(
-        account_id=account.id,
-        role=AccountRole(account.role),
-        tester_summary=TesterAccountSummary(
+        tester_summary = TesterAccountSummary(
             owned_device_profiles_count=len(owned_device_profiles),
             assigned_tasks_count=len(assigned_tasks),
             submitted_feedback_count=len(submitted_feedback),
@@ -259,8 +260,15 @@ def get_account_summary(account_id: str) -> AccountCollaborationSummary:
                 )
                 for item in _take_recent(submitted_feedback, key="submitted_at")
             ],
-        ),
-        updated_at=updated_at,
+        )
+
+    return AccountCollaborationSummary(
+        account_id=account.id,
+        role=AccountRole(account.role),
+        roles=_record_roles(account),
+        developer_summary=developer_summary,
+        tester_summary=tester_summary,
+        updated_at=_latest_timestamp(updated_at_values) or account.updated_at,
     )
 
 
@@ -288,6 +296,7 @@ def create_account_with_auth(
         id=_generate_account_id(),
         display_name=payload.display_name,
         role=payload.role.value,
+        roles=_role_values(payload.roles or [payload.role]),
         bio=payload.bio,
         locale=payload.locale,
         created_at=timestamp,
@@ -302,6 +311,15 @@ def create_account_with_auth(
 
 def update_account(account_id: str, payload: AccountUpdate) -> AccountDetail:
     current = ensure_account_exists(account_id)
+    role = payload.role.value if payload.role is not None else current.role
+    roles = current.roles
+    if payload.roles is not None:
+        roles = _role_values(payload.roles)
+        if payload.role is None:
+            role = roles[0]
+    elif payload.role is not None:
+        roles = [role]
+
     updated = replace(
         current,
         display_name=(
@@ -309,7 +327,8 @@ def update_account(account_id: str, payload: AccountUpdate) -> AccountDetail:
             if payload.display_name is not None
             else current.display_name
         ),
-        role=payload.role.value if payload.role is not None else current.role,
+        role=role,
+        roles=roles,
         bio=payload.bio if payload.bio is not None else current.bio,
         locale=payload.locale if payload.locale is not None else current.locale,
         updated_at=_utc_now_iso(),

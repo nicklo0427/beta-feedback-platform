@@ -8,6 +8,7 @@ from fastapi import status
 
 from app.common.exceptions import AppError
 from app.common.responses import build_list_response
+from app.modules.accounts.capabilities import account_has_role, raise_forbidden_actor_role
 from app.modules.accounts.schemas import AccountRole
 from app.modules.accounts.service import ensure_account_exists
 from app.modules.eligibility import repository
@@ -233,16 +234,11 @@ def evaluate_campaign_device_profile_qualification(
 
 def _ensure_tester_actor(current_actor_id: str):
     actor = ensure_account_exists(current_actor_id)
-    if actor.role != AccountRole.TESTER.value:
-        raise AppError(
-            status_code=status.HTTP_409_CONFLICT,
-            code="forbidden_actor_role",
-            message="Tester role is required for this operation.",
-            details={
-                "actor_id": actor.id,
-                "actor_role": actor.role,
-                "required_role": AccountRole.TESTER.value,
-            },
+    if not account_has_role(actor, AccountRole.TESTER):
+        raise_forbidden_actor_role(
+            actor,
+            AccountRole.TESTER,
+            "Tester role is required for this operation.",
         )
 
     return actor

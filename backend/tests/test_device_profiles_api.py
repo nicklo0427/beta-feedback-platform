@@ -296,12 +296,12 @@ def test_device_profile_create_rejects_non_tester_actor(client: TestClient) -> N
 
     assert response.status_code == 409
     assert response.json() == {
-        "code": "conflict",
+        "code": "forbidden_actor_role",
         "message": "Tester account is required to own a device profile.",
         "details": {
-            "resource": "device_profile",
-            "account_id": account_id,
-            "expected_role": "tester",
-            "actual_role": "developer",
+            "actor_id": account_id,
+            "actor_role": "developer",
+            "actor_roles": ["developer"],
+            "required_role": "tester",
         },
     }

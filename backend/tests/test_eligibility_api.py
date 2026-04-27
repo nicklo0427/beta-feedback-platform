@@ -254,6 +254,7 @@ def test_eligibility_create_rejects_non_developer_actor(client: TestClient) -> N
         "details": {
             "actor_id": tester.id,
             "actor_role": "tester",
+            "actor_roles": ["tester"],
             "required_role": "developer",
         },
     }
@@ -471,6 +472,7 @@ def test_campaign_qualification_results_reject_non_tester_actor(
         "details": {
             "actor_id": developer.id,
             "actor_role": "developer",
+            "actor_roles": ["developer"],
             "required_role": "tester",
         },
     }
